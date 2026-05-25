@@ -1,4 +1,4 @@
-import { Trophy, LogOut, User as UserIcon, ShieldAlert, Award } from 'lucide-react';
+import { Trophy, LogOut, User as UserIcon, ShieldAlert, Award, Grid3X3, Crown, Zap } from 'lucide-react';
 import { User, UserRole } from '../types';
 import Avatar from './Avatar';
 
@@ -11,8 +11,8 @@ interface NavbarProps {
 
 export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogout }: NavbarProps) {
   return (
-    <nav className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-emerald-500/20 px-4 py-3">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+    <nav className="lg:sticky lg:top-0 z-50 lg:bg-slate-900/90 lg:backdrop-blur-md lg:border-b lg:border-emerald-500/20 px-4 lg:py-3 py-0">
+      <div className="hidden lg:flex max-w-7xl mx-auto items-center justify-between gap-4">
         
         {/* Brand/Logo */}
         <div 
@@ -157,82 +157,169 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
       </div>
 
       {/* Bottom Nav Bar for Mobile and Tablet (lg:hidden) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md border-t border-slate-800/80 shadow-[0_-8px_30px_rgba(0,0,0,0.65)] px-1 sm:px-4 py-1.5 flex items-center justify-around pb-safe">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-slate-900/90 shadow-[0_-10px_35px_rgba(0,0,0,0.85)] px-2 py-2 flex items-center justify-around pb-safe">
+        
+        {/* Tab 1: Matches (Trophy icon) */}
         <button
           onClick={() => setCurrentTab('home')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all font-sans flex-1 ${
-            currentTab === 'home' || currentTab === 'matches'
-              ? 'text-emerald-400 font-bold scale-105 bg-emerald-950/20'
-              : 'text-slate-400 hover:text-slate-300'
-          }`}
+          className="flex flex-col items-center justify-center transition-all duration-200 flex-1 relative group py-0.5"
         >
-          <span className="text-lg leading-none mb-0.5">🏆</span>
-          <span className="text-[10px] sm:text-[11px] font-medium tracking-tight whitespace-nowrap">بازی‌ها</span>
+          <div className={`p-1 rounded-lg transition-all ${
+            currentTab === 'home' || currentTab === 'matches'
+              ? 'text-emerald-400 scale-110'
+              : 'text-slate-500 hover:text-slate-400'
+          }`}>
+            <Trophy className="h-5.5 w-5.5 stroke-[2]" />
+          </div>
+          <span className={`text-[10px] font-sans font-medium tracking-tight mt-0.5 transition-colors ${
+            currentTab === 'home' || currentTab === 'matches' ? 'text-emerald-400 font-bold' : 'text-slate-500'
+          }`}>
+            بازی‌ها
+          </span>
+          {/* Active indicator dot */}
+          {(currentTab === 'home' || currentTab === 'matches') && (
+            <span className="absolute -bottom-1 h-1 w-1 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+          )}
         </button>
 
+        {/* Tab 2: Groups (Grid3X3 icon) */}
         <button
           onClick={() => setCurrentTab('standings')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all font-sans flex-1 ${
-            currentTab === 'standings'
-              ? 'text-emerald-400 font-bold scale-105 bg-emerald-950/20'
-              : 'text-slate-400 hover:text-slate-300'
-          }`}
+          className="flex flex-col items-center justify-center transition-all duration-200 flex-1 relative group py-0.5"
         >
-          <span className="text-lg leading-none mb-0.5">📋</span>
-          <span className="text-[10px] sm:text-[11px] font-medium tracking-tight whitespace-nowrap">گروه‌ها</span>
+          <div className={`p-1 rounded-lg transition-all ${
+            currentTab === 'standings'
+              ? 'text-emerald-400 scale-110'
+              : 'text-slate-500 hover:text-slate-400'
+          }`}>
+            <Grid3X3 className="h-5.5 w-5.5 stroke-[2]" />
+          </div>
+          <span className={`text-[10px] font-sans font-medium tracking-tight mt-0.5 transition-colors ${
+            currentTab === 'standings' ? 'text-emerald-400 font-bold' : 'text-slate-500'
+          }`}>
+            گروه‌ها
+          </span>
+          {currentTab === 'standings' && (
+            <span className="absolute -bottom-1 h-1 w-1 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+          )}
         </button>
 
+        {/* Tab 3: Leaderboard (Crown icon) */}
         <button
           onClick={() => setCurrentTab('leaderboard')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all font-sans flex-1 ${
-            currentTab === 'leaderboard'
-              ? 'text-emerald-400 font-bold scale-105 bg-emerald-950/20'
-              : 'text-slate-400 hover:text-slate-300'
-          }`}
+          className="flex flex-col items-center justify-center transition-all duration-200 flex-1 relative group py-0.5"
         >
-          <span className="text-lg leading-none mb-0.5">📊</span>
-          <span className="text-[10px] sm:text-[11px] font-medium tracking-tight whitespace-nowrap">رتبه‌ها</span>
+          <div className={`p-1 rounded-lg transition-all ${
+            currentTab === 'leaderboard'
+              ? 'text-emerald-400 scale-110'
+              : 'text-slate-500 hover:text-slate-400'
+          }`}>
+            <Crown className="h-5.5 w-5.5 stroke-[2]" />
+          </div>
+          <span className={`text-[10px] font-sans font-medium tracking-tight mt-0.5 transition-colors ${
+            currentTab === 'leaderboard' ? 'text-emerald-400 font-bold' : 'text-slate-500'
+          }`}>
+            رتبه‌ها
+          </span>
+          {currentTab === 'leaderboard' && (
+            <span className="absolute -bottom-1 h-1 w-1 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+          )}
         </button>
 
+        {/* Tab 4: Quick Predict (Zap icon) */}
         {currentUser && (
           <button
             onClick={() => setCurrentTab('quick_predict')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all font-sans flex-1 ${
-              currentTab === 'quick_predict'
-                ? 'text-emerald-400 font-bold scale-105 bg-emerald-950/20'
-                : 'text-slate-400 hover:text-slate-300'
-            }`}
+            className="flex flex-col items-center justify-center transition-all duration-200 flex-1 relative group py-0.5"
           >
-            <span className="text-lg leading-none mb-0.5">⚡</span>
-            <span className="text-[10px] sm:text-[11px] font-medium tracking-tight whitespace-nowrap">پیش‌بینی</span>
+            <div className={`p-1 rounded-lg transition-all ${
+              currentTab === 'quick_predict'
+                ? 'text-emerald-400 scale-110'
+                : 'text-slate-500 hover:text-slate-400'
+            }`}>
+              <Zap className="h-5.5 w-5.5 stroke-[2]" />
+            </div>
+            <span className={`text-[10px] font-sans font-medium tracking-tight mt-0.5 transition-colors ${
+              currentTab === 'quick_predict' ? 'text-emerald-400 font-bold' : 'text-slate-500'
+            }`}>
+              پیش‌بینی
+            </span>
+            {currentTab === 'quick_predict' && (
+              <span className="absolute -bottom-1 h-1 w-1 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            )}
           </button>
         )}
 
-        {currentUser && (
+        {/* Tab 5: Profile (Circular custom avatar ring, Instagram style!) */}
+        {currentUser ? (
           <button
             onClick={() => setCurrentTab('profile')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all font-sans flex-1 ${
-              currentTab === 'profile'
-                ? 'text-emerald-400 font-bold scale-105 bg-emerald-950/20'
-                : 'text-slate-400 hover:text-slate-300'
-            }`}
+            className="flex flex-col items-center justify-center transition-all duration-200 flex-1 relative group py-0.5"
           >
-            <span className="text-lg leading-none mb-0.5">👤</span>
-            <span className="text-[10px] sm:text-[11px] font-medium tracking-tight whitespace-nowrap">پروفایل</span>
+            <div className={`h-6 w-6 rounded-full overflow-hidden border-2 transition-all ${
+              currentTab === 'profile' 
+                ? 'border-emerald-400 scale-110 shadow-[0_0_8px_rgba(16,185,129,0.4)]' 
+                : 'border-slate-700 group-hover:border-slate-500'
+            }`}>
+              <Avatar 
+                avatar={currentUser.avatar} 
+                alt={currentUser.fullName} 
+                className="h-full w-full object-cover" 
+              />
+            </div>
+            <span className={`text-[10px] font-sans font-medium tracking-tight mt-0.5 transition-colors ${
+              currentTab === 'profile' ? 'text-emerald-400 font-bold' : 'text-slate-500'
+            }`}>
+              پروفایل
+            </span>
+            {currentTab === 'profile' && (
+              <span className="absolute -bottom-1 h-1 w-1 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={() => setCurrentTab('login')}
+            className="flex flex-col items-center justify-center transition-all duration-200 flex-1 relative group py-0.5"
+          >
+            <div className={`p-1 rounded-lg transition-all ${
+              currentTab === 'login'
+                ? 'text-emerald-400 scale-110'
+                : 'text-slate-500 hover:text-slate-400'
+            }`}>
+              <UserIcon className="h-5.5 w-5.5 stroke-[2]" />
+            </div>
+            <span className={`text-[10px] font-sans font-medium tracking-tight mt-0.5 transition-colors ${
+              currentTab === 'login' ? 'text-emerald-400 font-bold' : 'text-slate-500'
+            }`}>
+              ورود
+            </span>
+            {currentTab === 'login' && (
+              <span className="absolute -bottom-1 h-1 w-1 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            )}
           </button>
         )}
 
+        {/* Tab 6: Admin (Shield/Settings icon) */}
         {currentUser?.role === UserRole.ADMIN && (
           <button
             onClick={() => setCurrentTab('admin')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all font-sans flex-1 ${
-              currentTab === 'admin'
-                ? 'text-amber-400 font-bold scale-105 bg-amber-950/20'
-                : 'text-slate-400 hover:text-slate-300'
-            }`}
+            className="flex flex-col items-center justify-center transition-all duration-200 flex-1 relative group py-0.5"
           >
-            <span className="text-lg leading-none mb-0.5">🛡️</span>
-            <span className="text-[10px] sm:text-[11px] font-medium tracking-tight whitespace-nowrap">مدیریت</span>
+            <div className={`p-1 rounded-lg transition-all ${
+              currentTab === 'admin'
+                ? 'text-amber-400 scale-110'
+                : 'text-slate-500 hover:text-amber-550'
+            }`}>
+              <ShieldAlert className="h-5.5 w-5.5 stroke-[2]" />
+            </div>
+            <span className={`text-[10px] font-sans font-medium tracking-tight mt-0.5 transition-colors ${
+              currentTab === 'admin' ? 'text-amber-400 font-bold' : 'text-slate-500'
+            }`}>
+              مدیریت
+            </span>
+            {currentTab === 'admin' && (
+              <span className="absolute -bottom-1 h-1 w-1 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+            )}
           </button>
         )}
       </div>

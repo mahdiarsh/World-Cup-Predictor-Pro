@@ -751,23 +751,23 @@ export default function App() {
         
         {/* Top Predictors mini board (beneath the main menu) */}
         {currentTab !== 'login' && leaderboard.length > 0 && (
-          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 gap-4 flex flex-col md:flex-row items-center justify-between font-sans">
-            <div className="flex items-center gap-2.5">
-              <span className="p-2 bg-slate-950 rounded-xl text-amber-400 border border-slate-800 font-bold text-xs select-none">🏆 برترین‌ها</span>
+          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 gap-4 flex flex-col md:flex-row items-center justify-between font-sans overflow-hidden">
+            <div className="flex items-center gap-2.5 shrink-0 self-start md:self-center">
+              <span className="p-2 bg-slate-950 rounded-xl text-amber-400 border border-slate-800 font-bold text-xs select-none shrink-0">🏆 برترین‌ها</span>
               <div className="text-right">
                 <h4 className="text-xs font-extrabold text-white tracking-tight uppercase">پیش‌بینی‌کنندگان برتر</h4>
                 <p className="text-[10px] text-slate-500 font-sans">جدول لحظه‌ای سکوی رقابت کاربران</p>
               </div>
             </div>
             
-            <div className="flex flex-wrap items-center justify-center gap-3 w-full md:w-auto">
+            <div className="flex overflow-x-auto md:overflow-x-visible items-center justify-start md:justify-center gap-3 w-full md:w-auto pb-2 md:pb-0 scrollbar-none snap-x snap-mandatory">
               {leaderboard.slice(0, 4).map((entry, idx) => {
                 const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '⭐';
                 const isMe = currentUser?.id === entry.userId;
                 return (
                   <div 
                     key={entry.userId} 
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all shrink-0 snap-center ${
                       isMe 
                         ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400 font-bold' 
                         : 'bg-slate-950/60 border-slate-800/85 text-slate-350 hover:bg-slate-900 hover:border-slate-700'
