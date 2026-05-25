@@ -1,0 +1,6 @@
+{
+  "name": "پیش‌بینی جام جهانی",
+  "description": "جامع‌ترین پلتفرم پیش‌بینی مسابقات جام جهانی همراه با جدول رده‌بندی کاربران و پنل مدیریت آسان.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
