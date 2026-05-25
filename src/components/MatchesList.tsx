@@ -303,7 +303,7 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
                                 : 'bg-slate-800 text-slate-400'
                             }`}>
-                              {pred.points === 3 ? 'دقیق (+۳)' : pred.points === 1 ? 'تفکیک برنده (+۱)' : 'نادرست (۰)'}
+                              {pred.points === 3 ? 'نتیجه دقیق (+۳)' : pred.points === 1 ? 'تفکیک برنده (+۱)' : 'نادرست (۰)'}
                             </span>
                           )}
                         </div>

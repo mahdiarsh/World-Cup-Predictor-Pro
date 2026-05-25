@@ -449,7 +449,7 @@ export default function QuickPredictor({
                                       ? 'text-emerald-400' 
                                       : 'text-slate-500'
                                   }`}>
-                                    {pred.points === 3 ? 'دقیق! (+۳)' : pred.points === 1 ? 'برنده درست (+۱)' : 'اشتباه (۰)'}
+                                    {pred.points === 3 ? 'نتیجه دقیق! (+۳)' : pred.points === 1 ? 'برنده درست (+۱)' : 'اشتباه (۰)'}
                                   </span>
                                 )}
                               </div>
