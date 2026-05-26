@@ -3,7 +3,7 @@ import path from 'path';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { createServer as createViteServer } from 'vite';
-import { loadDB, saveDB, recalculateAllScores, resolveMatchesWithStandings } from './server/db';
+import { loadDB, saveDB, recalculateAllScores, resolveMatchesWithStandings, runFifaLiveSync } from './server/db';
 import { User, UserRole, Match, MatchStatus, Prediction, LeaderboardEntry } from './src/types';
 import { GoogleGenAI } from '@google/genai';
 
@@ -13,6 +13,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'worldcup_secret_key_2026_dev_prod_
 
 // Body parsers
 app.use(express.json());
+
+// Background FIFA Auto-Sync Engine running every 10 seconds
+setInterval(() => {
+  try {
+    runFifaLiveSync();
+  } catch (err) {
+    console.error('Error running FIFA live auto-sync:', err);
+  }
+}, 10000);
 
 // Load DB initially
 loadDB();
@@ -378,6 +387,61 @@ app.get('/api/predictions/my', authenticateToken, (req: AuthenticatedRequest, re
   const userId = req.user?.id;
   const myPreds = db.predictions.filter(p => p.userId === userId);
   res.json(myPreds);
+});
+
+function isMatchLocked(match: any): boolean {
+  if (match.status === 'FINISHED' || match.status === 'LIVE') return true;
+  const kickoff = new Date(match.kickoffTimeUtc).getTime();
+  const thirtyMins = 30 * 60 * 1000;
+  return kickoff - Date.now() < thirtyMins;
+}
+
+// GET /api/predictions/user/:userId (Safely fetch predictions of any user, hiding un-locked ones to prevent cheating)
+app.get('/api/predictions/user/:userId', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db = loadDB();
+    const requestedUserId = req.params.userId;
+    const currentUserId = req.user?.id;
+
+    const isSelf = currentUserId === requestedUserId;
+    const user = db.users.find(u => u.id === requestedUserId);
+    if (!user) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
+    const userPreds = db.predictions.filter(p => p.userId === requestedUserId);
+
+    const sanitizedPreds = userPreds.map(pred => {
+      const match = db.matches.find(m => m.id === pred.matchId);
+      if (!match) return null;
+
+      const locked = isMatchLocked(match);
+
+      if (isSelf || locked) {
+        return {
+          ...pred,
+          isLocked: true
+        };
+      } else {
+        // Mask prediction details securely
+        return {
+          id: pred.id,
+          userId: pred.userId,
+          matchId: pred.matchId,
+          predictedHome: -1, // Hidden token
+          predictedAway: -1,
+          points: null,
+          createdAt: pred.createdAt,
+          isLocked: false
+        };
+      }
+    }).filter(p => p !== null);
+
+    res.json(sanitizedPreds);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/predictions (Create or Edit prediction)
@@ -834,6 +898,16 @@ app.post('/api/admin/recalculate', authenticateToken, requireAdmin, (req: Authen
   }
 });
 
+// GET /api/admin/download-db (Admin only - download db.json)
+app.get('/api/admin/download-db', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const dbPath = path.join(process.cwd(), 'db.json');
+    res.download(dbPath, 'database.json');
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to download database.' });
+  }
+});
+
 // GET /api/settings (Publicly query basic app settings)
 app.get('/api/settings', (req: Request, res: Response) => {
   try {
@@ -847,18 +921,30 @@ app.get('/api/settings', (req: Request, res: Response) => {
 // PUT /api/settings (Admin update app settings)
 app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { registrationEnabled } = req.body;
-    if (registrationEnabled === undefined) {
-      res.status(400).json({ error: 'registrationEnabled field is required.' });
-      return;
-    }
-
+    const { registrationEnabled, syncMode, simulatedTime, isFastForwarding } = req.body;
+    
     const db = loadDB();
     if (!db.settings) {
       db.settings = { registrationEnabled: true };
     }
-    db.settings.registrationEnabled = !!registrationEnabled;
+    
+    if (registrationEnabled !== undefined) {
+      db.settings.registrationEnabled = !!registrationEnabled;
+    }
+    if (syncMode !== undefined) {
+      db.settings.syncMode = syncMode;
+    }
+    if (simulatedTime !== undefined) {
+      db.settings.simulatedTime = simulatedTime;
+    }
+    if (isFastForwarding !== undefined) {
+      db.settings.isFastForwarding = !!isFastForwarding;
+    }
+    
     saveDB(db);
+    
+    // Automatically trigger a live sync tick on change to instantly update games if time changed
+    runFifaLiveSync();
 
     res.json(db.settings);
   } catch (err: any) {

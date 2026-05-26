@@ -33,13 +33,13 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
 
   const STAGE_TRANSLATIONS: Record<string, string> = {
     'ALL': '🏆 همه مراحل',
-    'GROUP': 'مرحله گروهی',
-    'ROUND_OF_32': 'یک‌سی‌ودوم نهایی',
-    'ROUND_OF_16': 'یک‌هشتم نهایی',
-    'QUARTER_FINALS': 'یک‌چهارم نهایی',
-    'SEMI_FINALS': 'نیمه‌نهایی',
-    'THIRD_PLACE': 'رده‌بندی مقام سوم',
-    'FINAL': 'فینال'
+    'Group Stage': 'مرحله گروهی',
+    'Round of 32': 'یک‌سی‌ودوم نهایی',
+    'Round of 16': 'یک‌هشتم نهایی',
+    'Quarter Finals': 'یک‌چهارم نهایی',
+    'Semi Finals': 'نیمه‌نهایی',
+    'Third Place Playoff': 'رده‌بندی مقام سوم',
+    'Final': 'فینال'
   };
 
   const filteredMatches = matches.filter(match => {
@@ -166,26 +166,10 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
         {sortedMatches.length > 0 ? (
           sortedMatches.map(match => {
             const getTbdName = (teamId: string) => {
-              if (teamId.startsWith('TBD_')) {
-                const map: Record<string, string> = {
-                  TBD_1A: 'تیم اول گروه A',
-                  TBD_2B: 'تیم دوم گروه B',
-                  TBD_1C: 'تیم اول گروه C',
-                  TBD_2D: 'تیم دوم گروه D',
-                  TBD_2F: 'تیم دوم گروه F',
-                  TBD_1G: 'تیم اول گروه G',
-                  TBD_WM13: 'برنده بازی ۱۳',
-                  TBD_WM14: 'برنده بازی ۱۴',
-                  TBD_WM15: 'برنده نیمه‌نهایی',
-                  TBD_1D: 'تیم اول گروه D'
-                };
-                return map[teamId] || 'نامشخص';
-              }
               return getTeamName(teamId);
             };
 
             const getTbdCode = (teamId: string) => {
-              if (teamId.startsWith('TBD_')) return 'TBD';
               return getTeamCode(teamId);
             };
 

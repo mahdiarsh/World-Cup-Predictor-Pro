@@ -7,8 +7,11 @@ import { matchesSeed } from '../src/data/matches';
 
 const DB_FILE = path.join(process.cwd(), 'db.json');
 
-interface RegistrationSettings {
+export interface SystemSettings {
   registrationEnabled: boolean;
+  syncMode?: 'simulation' | 'manual';
+  simulatedTime?: string; // ISO date-time of the tournament clock, e.g., "2026-06-11T00:00:00Z"
+  isFastForwarding?: boolean; // If true, time automatically moves forward
 }
 
 interface DatabaseSchema {
@@ -17,26 +20,16 @@ interface DatabaseSchema {
   matches: Match[];
   predictions: Prediction[];
   passwords: Record<string, string>; // userId -> passwordHash map
-  settings: RegistrationSettings;
+  settings: SystemSettings;
 }
 
 function getInitialDB(): DatabaseSchema {
   // Hash passwords for seed users
   const adminId = 'u-admin';
-  const u1Id = 'u-1';
-  const u2Id = 'u-2';
-  const u3Id = 'u-3';
-  const u4Id = 'u-4';
-  const u5Id = 'u-5';
 
   const salt = bcrypt.genSaltSync(10);
   const passwords: Record<string, string> = {
     [adminId]: bcrypt.hashSync('admin', salt),
-    [u1Id]: bcrypt.hashSync('messi10', salt),
-    [u2Id]: bcrypt.hashSync('cr7', salt),
-    [u3Id]: bcrypt.hashSync('mbappe', salt),
-    [u4Id]: bcrypt.hashSync('neymar', salt),
-    [u5Id]: bcrypt.hashSync('kane', salt),
   };
 
   const users: User[] = [
@@ -51,112 +44,10 @@ function getInitialDB(): DatabaseSchema {
       exactPredictions: 0,
       playedMatches: 0,
       createdAt: new Date().toISOString()
-    },
-    {
-      id: u1Id,
-      username: 'messi10',
-      fullName: 'Lionel Messi',
-      role: UserRole.USER,
-      avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Lionel',
-      totalScore: 12, // Perfect guesses or correct ones
-      correctPredictions: 5,
-      exactPredictions: 3,
-      playedMatches: 5,
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: u2Id,
-      username: 'cr7',
-      fullName: 'Cristiano Ronaldo',
-      role: UserRole.USER,
-      avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Cristiano',
-      totalScore: 8,
-      correctPredictions: 4,
-      exactPredictions: 1,
-      playedMatches: 5,
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: u3Id,
-      username: 'mbappe',
-      fullName: 'Kylian Mbappé',
-      role: UserRole.USER,
-      avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Kylian',
-      totalScore: 7,
-      correctPredictions: 3,
-      exactPredictions: 2,
-      playedMatches: 5,
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: u4Id,
-      username: 'neymar_jr',
-      fullName: 'Neymar da Silva',
-      role: UserRole.USER,
-      avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Neymar',
-      totalScore: 4,
-      correctPredictions: 2,
-      exactPredictions: 0,
-      playedMatches: 5,
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: u5Id,
-      username: 'kane_eng',
-      fullName: 'Harry Kane',
-      role: UserRole.USER,
-      avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Harry',
-      totalScore: 3,
-      correctPredictions: 1,
-      exactPredictions: 1,
-      playedMatches: 5,
-      createdAt: new Date().toISOString()
     }
   ];
 
-  // Completed matches predictions for demo users to yield actual scores:
-  // m1: Qatar 0 - 2 Ecuador
-  // m2: England 6 - 2 Iran
-  // m3: Senegal 0 - 2 Netherlands
-  // m4: USA 1 - 1 Wales
-  // m5: Argentina 1 - 2 Saudi Arabia
-
-  const predictions: Prediction[] = [
-    // messi10 predictions:
-    { id: 'p1', userId: u1Id, matchId: 'm1', predictedHome: 0, predictedAway: 2, points: 3, createdAt: new Date().toISOString() }, // Exact (+3)
-    { id: 'p2', userId: u1Id, matchId: 'm2', predictedHome: 3, predictedAway: 1, points: 1, createdAt: new Date().toISOString() }, // Winner (+1)
-    { id: 'p3', userId: u1Id, matchId: 'm3', predictedHome: 0, predictedAway: 2, points: 3, createdAt: new Date().toISOString() }, // Exact (+3)
-    { id: 'p4', userId: u1Id, matchId: 'm4', predictedHome: 1, predictedAway: 1, points: 3, createdAt: new Date().toISOString() }, // Exact (+3)
-    { id: 'p5', userId: u1Id, matchId: 'm5', predictedHome: 2, predictedAway: 0, points: 0, createdAt: new Date().toISOString() }, // Wrong (0) - Messi expected Argentina to win!
-
-    // cr7 predictions:
-    { id: 'p6', userId: u2Id, matchId: 'm1', predictedHome: 1, predictedAway: 3, points: 1, createdAt: new Date().toISOString() }, // Winner (+1)
-    { id: 'p7', userId: u2Id, matchId: 'm2', predictedHome: 4, predictedAway: 1, points: 1, createdAt: new Date().toISOString() }, // Winner (+1)
-    { id: 'p8', userId: u2Id, matchId: 'm3', predictedHome: 0, predictedAway: 2, points: 3, createdAt: new Date().toISOString() }, // Exact (+3)
-    { id: 'p9', userId: u2Id, matchId: 'm4', predictedHome: 2, predictedAway: 1, points: 0, createdAt: new Date().toISOString() }, // Wrong (0)
-    { id: 'p10', userId: u2Id, matchId: 'm5', predictedHome: 1, predictedAway: 2, points: 3, createdAt: new Date().toISOString() }, // Exact (+3) - CR7 guessed Arab win!
-
-    // mbappe predictions:
-    { id: 'p11', userId: u3Id, matchId: 'm1', predictedHome: 0, predictedAway: 2, points: 3, createdAt: new Date().toISOString() }, // Exact (+3)
-    { id: 'p12', userId: u3Id, matchId: 'm2', predictedHome: 6, predictedAway: 2, points: 3, createdAt: new Date().toISOString() }, // Exact (+3) - Mbappe predicted the onslaught!
-    { id: 'p13', userId: u3Id, matchId: 'm3', predictedHome: 1, predictedAway: 3, points: 1, createdAt: new Date().toISOString() }, // Winner (+1)
-    { id: 'p14', userId: u3Id, matchId: 'm4', predictedHome: 2, predictedAway: 0, points: 0, createdAt: new Date().toISOString() }, // Wrong (0)
-    { id: 'p15', userId: u3Id, matchId: 'm5', predictedHome: 3, predictedAway: 0, points: 0, createdAt: new Date().toISOString() }, // Wrong (0)
-
-    // neymar predictions:
-    { id: 'p16', userId: u4Id, matchId: 'm1', predictedHome: 1, predictedAway: 2, points: 1, createdAt: new Date().toISOString() }, // Winner (+1)
-    { id: 'p17', userId: u4Id, matchId: 'm2', predictedHome: 2, predictedAway: 0, points: 1, createdAt: new Date().toISOString() }, // Winner (+1)
-    { id: 'p18', userId: u4Id, matchId: 'm3', predictedHome: 1, predictedAway: 1, points: 0, createdAt: new Date().toISOString() }, // Wrong (0)
-    { id: 'p19', userId: u4Id, matchId: 'm4', predictedHome: 0, predictedAway: 3, points: 0, createdAt: new Date().toISOString() }, // Wrong (0)
-    { id: 'p20', userId: u4Id, matchId: 'm5', predictedHome: 2, predictedAway: 3, points: 1, createdAt: new Date().toISOString() }, // Winner (+1) (Arab win, wrong score)
-
-    // kane predictions:
-    { id: 'p21', userId: u5Id, matchId: 'm1', predictedHome: 1, predictedAway: 1, points: 0, createdAt: new Date().toISOString() }, // Wrong (0)
-    { id: 'p22', userId: u5Id, matchId: 'm2', predictedHome: 2, predictedAway: 1, points: 1, createdAt: new Date().toISOString() }, // Winner (+1)
-    { id: 'p23', userId: u5Id, matchId: 'm3', predictedHome: 1, predictedAway: 1, points: 0, createdAt: new Date().toISOString() }, // Wrong (0)
-    { id: 'p24', userId: u5Id, matchId: 'm4', predictedHome: 1, predictedAway: 1, points: 3, createdAt: new Date().toISOString() }, // Exact (+3)
-    { id: 'p25', userId: u5Id, matchId: 'm5', predictedHome: 4, predictedAway: 0, points: 0, createdAt: new Date().toISOString() }, // Wrong (0)
-  ];
+  const predictions: Prediction[] = [];
 
   return {
     users,
@@ -177,6 +68,14 @@ export function loadDB(): DatabaseSchema {
       const parsed = JSON.parse(data);
       // Verify validity of keys
       if (parsed.users && parsed.teams && parsed.matches && parsed.predictions && parsed.passwords) {
+        // Automatically upgrade/reset if database is using the old 32-team 2022 layout, or t1 IDs
+        if (parsed.teams.length < 40 || parsed.teams.some((t: any) => t.id === 't1')) {
+          console.log('Detected deprecated 32-team dataset. Seeding new 104-match 48-team 2026 World Cup data...');
+          const initial = getInitialDB();
+          saveDB(initial);
+          return initial;
+        }
+
         // Enforce settings presence if not yet existing (backward compatible upgrade)
         if (!parsed.settings) {
           parsed.settings = { registrationEnabled: true };
@@ -211,21 +110,25 @@ export function calculatePredictionPoints(
 ): number {
   if (actualHome === null || actualAway === null) return 0;
 
-  // Exact Match (+3 points)
+  // Exact Match (+10 points)
   if (predHome === actualHome && predAway === actualAway) {
-    return 3;
+    return 10;
   }
 
-  // Correct Winner or Draw (+1 point)
   const actualDiff = actualHome - actualAway;
   const predDiff = predHome - predAway;
 
-  if (
-    (actualDiff > 0 && predDiff > 0) || // Home win
-    (actualDiff < 0 && predDiff < 0) || // Away win
-    (actualDiff === 0 && predDiff === 0) // Draw
-  ) {
-    return 1;
+  const actualSign = Math.sign(actualDiff);
+  const predSign = Math.sign(predDiff);
+
+  // Correct Winner or Draw (+5 points or +7 points)
+  if (actualSign === predSign) {
+    // Correct Winner + Correct Goal Difference (+7 points)
+    if (actualDiff === predDiff) {
+      return 7;
+    }
+    // Correct Winner or Draw only (+5 points)
+    return 5;
   }
 
   // Wrong prediction (0 points)
@@ -259,10 +162,10 @@ export function recalculateAllScores(): void {
       const stats = userStatsMap[pred.userId];
       stats.totalScore += pts;
       stats.played += 1;
-      if (pts === 3) {
+      if (pts === 10) {
         stats.exact += 1;
         stats.correct += 1;
-      } else if (pts === 1) {
+      } else if (pts === 7 || pts === 5) {
         stats.correct += 1;
       }
     } else {
@@ -370,7 +273,45 @@ export function getGroupStandings(matches: Match[]): Record<string, LocalTeamSta
   return standings;
 }
 
-// Recursively process and resolve knockout match team pairings
+export function resolveThirdPlacePlaceholder(
+  placeholder: string,
+  matches: Match[],
+  standings: Record<string, LocalTeamStanding[]>
+): string {
+  // Extract groups from placeholder like "TBD_3CDE_1" -> groups C, D, E
+  const match = placeholder.match(/^TBD_3([A-L]{3})_1$/);
+  if (!match) return '';
+  const groupLetters = match[1].split(''); // e.g. ['C', 'D', 'E']
+
+  const candidateThirdTeams: LocalTeamStanding[] = [];
+
+  for (const letter of groupLetters) {
+    const farsiGrp = `گروه ${letter}`;
+    // A group has 4 teams, so standings are generated for it.
+    // Check if group is completed
+    if (isGroupCompleted(farsiGrp, matches)) {
+      const groupRows = standings[farsiGrp] || [];
+      // Third place is index 2
+      if (groupRows[2]) {
+        candidateThirdTeams.push(groupRows[2]);
+      }
+    }
+  }
+
+  if (candidateThirdTeams.length === 0) return '';
+
+  // Sort them to find the best third place among these groups
+  candidateThirdTeams.sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.gd !== a.gd) return b.gd - a.gd;
+    if (b.gf !== a.gf) return b.gf - a.gf;
+    return a.name.localeCompare(b.name);
+  });
+
+  return candidateThirdTeams[0].teamId;
+}
+
+// Recursively process and resolve knockout match team pairings with regex placeholders
 export function resolveMatchesWithStandings(matches: Match[]): Match[] {
   const standings = getGroupStandings(matches);
   const resolved = matches.map(m => ({ ...m }));
@@ -397,50 +338,167 @@ export function resolveMatchesWithStandings(matches: Match[]): Match[] {
     return match.homeTeamId; // Default fallback for ties
   };
 
-  // 1. Resolve R16 Match m12: 1st Group A vs 2nd Group B
-  const r16_1_home = getGroupRepId('Group A', 1);
-  const r16_1_away = getGroupRepId('Group B', 2);
-  const m12 = resolved.find(m => m.id === 'm12');
-  if (m12) {
-    m12.homeTeamId = r16_1_home || 'TBD_1A';
-    m12.awayTeamId = r16_1_away || 'TBD_2B';
-  }
+  // Helper to get knockout match loser
+  const getMatchLoserId = (matchId: string): string => {
+    const match = resolved.find(m => m.id === matchId);
+    if (!match || match.status !== MatchStatus.FINISHED || match.homeScore === null || match.awayScore === null) {
+      return '';
+    }
+    if (match.homeScore < match.awayScore) return match.homeTeamId;
+    if (match.awayScore < match.homeScore) return match.awayTeamId;
+    return match.awayTeamId; // Default fallback for ties
+  };
 
-  // 2. Resolve R16 Match m13: 1st Group C vs 2nd Group D
-  const r16_2_home = getGroupRepId('Group C', 1);
-  const r16_2_away = getGroupRepId('Group D', 2);
-  const m13 = resolved.find(m => m.id === 'm13');
-  if (m13) {
-    m13.homeTeamId = r16_2_home || 'TBD_1C';
-    m13.awayTeamId = r16_2_away || 'TBD_2D';
-  }
+  // Resolve recursively through multiple passes to propagate winners down the bracket hierarchy:
+  // R32 (m73-m88) -> R16 (m89-m96) -> QF (m97-m100) -> SF (m101-m102) -> Final/ThirdPlace (m103-m104)
+  for (let pass = 0; pass < 5; pass++) {
+    for (const m of resolved) {
+            // 1. Resolve Group stage winners & runner-ups: e.g. TBD_1A, TBD_2B, etc.
+      const homeMatchGroup = m.homeTeamId.match(/^TBD_([12])([A-L])$/);
+      if (homeMatchGroup) {
+        const rank = parseInt(homeMatchGroup[1], 10);
+        const groupLetter = homeMatchGroup[2];
+        const resolvedTeamId = getGroupRepId(`Group ${groupLetter}`, rank);
+        if (resolvedTeamId) m.homeTeamId = resolvedTeamId;
+      }
+      const awayMatchGroup = m.awayTeamId.match(/^TBD_([12])([A-L])$/);
+      if (awayMatchGroup) {
+        const rank = parseInt(awayMatchGroup[1], 10);
+        const groupLetter = awayMatchGroup[2];
+        const resolvedTeamId = getGroupRepId(`Group ${groupLetter}`, rank);
+        if (resolvedTeamId) m.awayTeamId = resolvedTeamId;
+      }
 
-  // 3. Resolve Quarter Final Match m14: 2nd Group F vs 1st Group G
-  const qf_home = getGroupRepId('Group F', 2);
-  const qf_away = getGroupRepId('Group G', 1);
-  const m14 = resolved.find(m => m.id === 'm14');
-  if (m14) {
-    m14.homeTeamId = qf_home || 'TBD_2F';
-    m14.awayTeamId = qf_away || 'TBD_1G';
-  }
+      // 1.5. Resolve Best Third place teams: e.g. TBD_3CDE_1, TBD_3ABF_1, etc.
+      if (m.homeTeamId.startsWith('TBD_3')) {
+        const resolvedTeamId = resolveThirdPlacePlaceholder(m.homeTeamId, matches, standings);
+        if (resolvedTeamId) m.homeTeamId = resolvedTeamId;
+      }
+      if (m.awayTeamId.startsWith('TBD_3')) {
+        const resolvedTeamId = resolveThirdPlacePlaceholder(m.awayTeamId, matches, standings);
+        if (resolvedTeamId) m.awayTeamId = resolvedTeamId;
+      }
 
-  // 4. Resolve Semi Final Match m15: Winner of m13 vs Winner of m14
-  const m15 = resolved.find(m => m.id === 'm15');
-  if (m15) {
-    const winner13 = getMatchWinnerId('m13');
-    const winner14 = getMatchWinnerId('m14');
-    m15.homeTeamId = winner13 || 'TBD_WM13';
-    m15.awayTeamId = winner14 || 'TBD_WM14';
-  }
+      // 2. Resolve Winner of Match: e.g. TBD_WM73 -> Winner of m73
+      const homeMatchWinner = m.homeTeamId.match(/^TBD_WM(\d+)$/);
+      if (homeMatchWinner) {
+        const targetMatchId = `m${homeMatchWinner[1]}`;
+        const winnerId = getMatchWinnerId(targetMatchId);
+        if (winnerId) m.homeTeamId = winnerId;
+      }
+      const awayMatchWinner = m.awayTeamId.match(/^TBD_WM(\d+)$/);
+      if (awayMatchWinner) {
+        const targetMatchId = `m${awayMatchWinner[1]}`;
+        const winnerId = getMatchWinnerId(targetMatchId);
+        if (winnerId) m.awayTeamId = winnerId;
+      }
 
-  // 5. Resolve Final Match m16: Winner of m15 vs 1st Group D
-  const m16 = resolved.find(m => m.id === 'm16');
-  if (m16) {
-    const winner15 = getMatchWinnerId('m15');
-    const final_away = getGroupRepId('Group D', 1);
-    m16.homeTeamId = winner15 || 'TBD_WM15';
-    m16.awayTeamId = final_away || 'TBD_1D';
+      // 3. Resolve Loser of Match: e.g. TBD_LM101 -> Loser of m101
+      const homeMatchLoser = m.homeTeamId.match(/^TBD_LM(\d+)$/);
+      if (homeMatchLoser) {
+        const targetMatchId = `m${homeMatchLoser[1]}`;
+        const loserId = getMatchLoserId(targetMatchId);
+        if (loserId) m.homeTeamId = loserId;
+      }
+      const awayMatchLoser = m.awayTeamId.match(/^TBD_LM(\d+)$/);
+      if (awayMatchLoser) {
+        const targetMatchId = `m${awayMatchLoser[1]}`;
+        const loserId = getMatchLoserId(targetMatchId);
+        if (loserId) m.awayTeamId = loserId;
+      }
+    }
   }
 
   return resolved;
+}
+
+// Background scheduler that simulates matches dynamically that qualify by simulatedTime / real time
+export function runFifaLiveSync(): void {
+  const db = loadDB();
+  
+  // Ensure default sync settings
+  if (!db.settings) {
+    db.settings = { registrationEnabled: true };
+  }
+  if (!db.settings.syncMode) {
+    db.settings.syncMode = 'simulation';
+  }
+  if (!db.settings.simulatedTime) {
+    db.settings.simulatedTime = '2026-06-11T00:00:00Z';
+  }
+  if (db.settings.isFastForwarding === undefined) {
+    db.settings.isFastForwarding = false;
+  }
+
+  const settings = db.settings;
+
+  // 1. Advance time if fast-forward is enabled
+  if (settings.syncMode === 'simulation' && settings.isFastForwarding) {
+    const curTime = new Date(settings.simulatedTime).getTime();
+    // Advance by 6 hours every check
+    const sixHours = 6 * 60 * 60 * 1000;
+    settings.simulatedTime = new Date(curTime + sixHours).toISOString();
+  }
+
+  // Look for scheduled matches that kickoff before simulatedTime (or before Date.now() if manual/disabled)
+  const currentThreshold = settings.syncMode === 'simulation' 
+    ? new Date(settings.simulatedTime).getTime()
+    : Date.now();
+
+  let hasChanges = false;
+
+  // Let's resolve the actual team IDs in matches before simulating them
+  db.matches = resolveMatchesWithStandings(db.matches);
+
+  for (const match of db.matches) {
+    if (match.status === MatchStatus.SCHEDULED) {
+      const kickoffTime = new Date(match.kickoffTimeUtc).getTime();
+      
+      // If kickoff is past threshold
+      if (kickoffTime <= currentThreshold) {
+        // Can only simulate if home and away teams are resolved (i.e. do not start with TBD_)
+        if (match.homeTeamId.startsWith('TBD_') || match.awayTeamId.startsWith('TBD_')) {
+          continue;
+        }
+
+        // Generate a fun and realistic score
+        const r = Math.random();
+        let home = 0;
+        let away = 0;
+        if (r < 0.25) {
+          home = 1; away = 0; // 1-0
+        } else if (r < 0.45) {
+          home = 1; away = 1; // 1-1
+        } else if (r < 0.60) {
+          home = 2; away = 1; // 2-1
+        } else if (r < 0.75) {
+          home = 2; away = 0; // 2-0
+        } else if (r < 0.85) {
+          home = 0; away = 1; // 0-1
+        } else if (r < 0.92) {
+          home = 2; away = 2; // 2-2
+        } else {
+          // completely randomized small score
+          home = Math.floor(Math.random() * 4);
+          away = Math.floor(Math.random() * 4);
+        }
+
+        // Apply results and finish the game!
+        match.homeScore = home;
+        match.awayScore = away;
+        match.status = MatchStatus.FINISHED;
+        hasChanges = true;
+      }
+    }
+  }
+
+  if (hasChanges) {
+    // Resolve matches recursive to propagate
+    db.matches = resolveMatchesWithStandings(db.matches);
+    saveDB(db);
+    // Recalculate
+    recalculateAllScores();
+  } else if (settings.isFastForwarding) {
+    saveDB(db);
+  }
 }

@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Save, RefreshCw, CheckCircle, ShieldAlert, BookOpen, Clock } from 'lucide-react';
-import { Match, MatchStatus, Prediction, User } from '../types';
-import { getTeamFlag, getTeamName, getTeamCode } from '../data/teams';
+import { Calendar, RefreshCw, Lock, Eye, EyeOff, Trophy, Flame, Award, ChevronDown, CheckCircle, Clock } from 'lucide-react';
+import { Match, MatchStatus, MatchStage, Prediction, User, LeaderboardEntry } from '../types';
+import { getTeamName } from '../data/teams';
 import FlagIcon from './FlagIcon';
 
 interface QuickPredictorProps {
   matches: Match[];
   predictions: Prediction[];
   currentUser: User | null;
-  onSaveBatchPredictions: (preds: Array<{ matchId: string, home: number, away: number }>) => Promise<boolean>;
-  onSyncFifa: () => Promise<string | null>;
   onTriggerAuth: () => void;
 }
 
@@ -17,56 +15,88 @@ export default function QuickPredictor({
   matches,
   predictions,
   currentUser,
-  onSaveBatchPredictions,
-  onSyncFifa,
   onTriggerAuth
 }: QuickPredictorProps) {
-  const [localScores, setLocalScores] = useState<Record<string, { home: number; away: number }>>({});
-  const [hasChanges, setHasChanges] = useState<Record<string, boolean>>({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [syncSuccess, setSyncSuccess] = useState('');
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [selectedOpponentId, setSelectedOpponentId] = useState<string>('');
+  const [opponentPredictions, setOpponentPredictions] = useState<Prediction[]>([]);
+  const [isLoadingOpponent, setIsLoadingOpponent] = useState(false);
+  const [activeStageFilter, setActiveStageFilter] = useState<string>('ALL');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Group status filters: Unpredicted vs All
-  const [filterMode, setFilterMode] = useState<'ALL' | 'UNPREDICTED' | 'LOCKED'>('UNPREDICTED');
-
-  const STAGE_TRANSLATIONS: Record<string, string> = {
-    'GROUP': 'گروهی',
-    'ROUND_OF_32': 'یک‌سی‌ودوم',
-    'ROUND_OF_16': 'یک‌هشتم',
-    'QUARTER_FINALS': 'یک‌چهارم',
-    'SEMI_FINALS': 'نیمه‌نهایی',
-    'THIRD_PLACE': 'رده‌بندی',
-    'FINAL': 'فینال'
+  // Load the leaderboard users list for opponent dropdown
+  const fetchLeaderboard = async () => {
+    try {
+      const res = await fetch('/api/leaderboard');
+      if (res.ok) {
+        const data = await res.json();
+        // Filter out current user
+        const others = data.filter((u: LeaderboardEntry) => u.userId !== currentUser?.id);
+        setLeaderboard(others);
+      }
+    } catch (err) {
+      console.error('Error fetching leaderboard in QuickPredictor:', err);
+    }
   };
 
-  // Initialize inputs from existing predictions
-  useEffect(() => {
-    const scores: Record<string, { home: number; away: number }> = {};
-    matches.forEach(m => {
-      const pred = predictions.find(p => p.matchId === m.id);
-      if (pred) {
-        scores[m.id] = { home: pred.predictedHome, away: pred.predictedAway };
-      } else {
-        scores[m.id] = { home: 0, away: 0 };
+  // Fetch predictions for selected opponent
+  const fetchOpponentPredictions = async (oppId: string) => {
+    if (!oppId) {
+      setOpponentPredictions([]);
+      return;
+    }
+    setIsLoadingOpponent(true);
+    try {
+      const token = localStorage.getItem('wc_token');
+      const res = await fetch(`/api/predictions/user/${oppId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOpponentPredictions(data);
       }
-    });
-    setLocalScores(scores);
-    setHasChanges({});
-  }, [matches, predictions]);
+    } catch (err) {
+      console.error('Error fetching opponent predictions:', err);
+    } finally {
+      setIsLoadingOpponent(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchLeaderboard();
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (selectedOpponentId) {
+      fetchOpponentPredictions(selectedOpponentId);
+    } else {
+      setOpponentPredictions([]);
+    }
+  }, [selectedOpponentId]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchLeaderboard();
+    if (selectedOpponentId) {
+      await fetchOpponentPredictions(selectedOpponentId);
+    }
+    setIsRefreshing(false);
+  };
 
   if (!currentUser) {
     return (
-      <div id="quick-predict-auth-gate" className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl max-w-xl mx-auto space-y-6" dir="rtl">
+      <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl max-w-xl mx-auto space-y-6" dir="rtl">
         <div className="p-4 bg-slate-950/60 rounded-full inline-flex border border-slate-850">
           <Clock className="h-10 w-10 text-emerald-400" />
         </div>
         <div className="space-y-2">
-          <h3 className="text-xl font-extrabold text-white">🔒 دسترسی به بخش پیش‌بینی سریع محدود است</h3>
+          <h3 className="text-xl font-extrabold text-white">🔒 دسترسی محدود به مقایسه پیش‌بینی‌ها</h3>
           <p className="text-slate-400 text-xs px-6 font-sans">
-            برای استفاده از پانل پیش‌بینی صفحه گسترده سریع، باید به حساب کاربری خود وارد شده باشید. وارد شده یا یک حساب کاربری ایجاد کنید تا وارد جدول جهانی رقبا شوید.
+            شناسه شما معتبر نیست. لطفاً وارد حساب باسابقه خود شوید تا پیش‌بینی‌هایتان را مدیریت و با سایر رقبا مقایسه کنید.
           </p>
         </div>
         <button
@@ -79,7 +109,7 @@ export default function QuickPredictor({
     );
   }
 
-  // Get current lock status
+  // Helper inside client to check if match is locked (30 mins lock)
   const isMatchLocked = (match: Match): boolean => {
     if (match.status === MatchStatus.FINISHED || match.status === MatchStatus.LIVE) return true;
     const kickoff = new Date(match.kickoffTimeUtc).getTime();
@@ -87,410 +117,348 @@ export default function QuickPredictor({
     return kickoff - Date.now() < thirtyMins;
   };
 
-  const handleScoreChange = (matchId: string, side: 'home' | 'away', val: string) => {
-    const num = Math.max(0, parseInt(val) || 0);
-    setLocalScores(prev => {
-      const updated = { ...prev[matchId], [side]: num };
-      
-      // Determine if it changed compared to original prediction
-      const originalPred = predictions.find(p => p.matchId === matchId);
-      const wasSaved = !!originalPred;
-      const isDiff = !wasSaved || originalPred.predictedHome !== updated.home || originalPred.predictedAway !== updated.away;
+  // Stage filters list
+  const stages = [
+    { value: 'ALL', label: 'همه بازی‌ها' },
+    { value: 'GROUP', label: 'مرحله گروهی' },
+    { value: 'ROUND_OF_32', label: 'یک‌شانزدهم ۳۲ تیمی' },
+    { value: 'ROUND_OF_16', label: 'یک‌هشتم نهایی' },
+    { value: 'QUARTER_FINALS', label: 'یک‌چهارم نهایی' },
+    { value: 'SEMI_FINALS', label: 'نیمه نهایی / فینال' }
+  ];
 
-      setHasChanges(c => ({ ...c, [matchId]: isDiff }));
-      return { ...prev, [matchId]: updated };
-    });
-  };
-
-  const adjustScore = (matchId: string, side: 'home' | 'away', delta: number) => {
-    const current = localScores[matchId] || { home: 0, away: 0 };
-    const newVal = Math.max(0, current[side] + delta);
-    handleScoreChange(matchId, side, String(newVal));
-  };
-
-  const handleSaveAll = async () => {
-    setIsSaving(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    // Filter only those modified and NOT locked
-    const changedMatchIds = Object.keys(hasChanges).filter(id => hasChanges[id]);
-    const validToSave = matches.filter(m => changedMatchIds.includes(m.id) && !isMatchLocked(m));
-
-    if (validToSave.length === 0) {
-      setErrorMessage('هیچ تغییری جهت ذخیره یافت نشد یا تمامی موارد ویرایش شده قفل شده‌اند.');
-      setIsSaving(false);
-      return;
+  // Map database stages to unified filter values
+  const filterMatches = matches.filter(m => {
+    if (activeStageFilter === 'ALL') return true;
+    if (activeStageFilter === 'GROUP') return m.stage === MatchStage.GROUP;
+    if (activeStageFilter === 'ROUND_OF_32') return m.stage === MatchStage.ROUND_OF_32;
+    if (activeStageFilter === 'ROUND_OF_16') return m.stage === MatchStage.ROUND_OF_16;
+    if (activeStageFilter === 'QUARTER_FINALS') return m.stage === MatchStage.QUARTER_FINALS;
+    if (activeStageFilter === 'SEMI_FINALS') {
+      return m.stage === MatchStage.SEMI_FINALS || m.stage === MatchStage.THIRD_PLACE || m.stage === MatchStage.FINAL;
     }
+    return true;
+  });
 
-    const payload = validToSave.map(m => ({
-      matchId: m.id,
-      ...localScores[m.id]
-    }));
-
-    const success = await onSaveBatchPredictions(payload);
-    setIsSaving(false);
-
-    if (success) {
-      setSuccessMessage(`پیش‌بینی های ${validToSave.length} مسابقه با موفقیت ذخیره شد!`);
-      // Reset changes tracking
-      setHasChanges({});
-      setTimeout(() => setSuccessMessage(''), 5000);
-    } else {
-      setErrorMessage('خطا در ذخیره برخی پیش‌بینی‌ها. اطمینان حاصل کنید که بازی‌ها قفل نشده باشند.');
-    }
-  };
-
-  const handleSyncFIFAOnline = async () => {
-    setIsSyncing(true);
-    setSyncSuccess('');
-    setErrorMessage('');
-    try {
-      const msg = await onSyncFifa();
-      if (msg) {
-        setSyncSuccess(msg);
-        setTimeout(() => setSyncSuccess(''), 6000);
-      }
-    } catch (e: any) {
-      setErrorMessage('اتصال با نتایج زنده فیفا برقرار نشد.');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // Helper to render team names beautifully or placeholders if undecided
-  const getDynamicTeamName = (teamId: string) => {
-    if (teamId.startsWith('TBD_')) {
-      const m: Record<string, string> = {
-        TBD_1A: 'اول گروه A 🥇',
-        TBD_2B: 'دوم گروه B 🥈',
-        TBD_1C: 'اول گروه C 🥇',
-        TBD_2D: 'دوم گروه D 🥈',
-        TBD_2F: 'دوم گروه F 🥈',
-        TBD_1G: 'اول گروه G 🥇',
-        TBD_WM13: 'برنده بازی ۱۳ 🏆',
-        TBD_WM14: 'برنده بازی ۱۴ 🏆',
-        TBD_WM15: 'برنده نیمه‌نهایی 🏆',
-        TBD_1D: 'اول گروه D 🥇'
-      };
-      return m[teamId] || 'نامشخص';
-    }
-    return getTeamName(teamId);
-  };
-
-  const getDynamicTeamCode = (teamId: string) => {
-    if (teamId.startsWith('TBD_')) return 'TBD';
-    return getTeamCode(teamId);
-  };
-
-  const sortedMatches = [...matches].sort(
+  // Sort matches by kickoff time
+  const sortedMatches = [...filterMatches].sort(
     (a, b) => new Date(a.kickoffTimeUtc).getTime() - new Date(b.kickoffTimeUtc).getTime()
   );
 
-  const displayedMatches = sortedMatches.filter(m => {
-    const isLockedStatus = isMatchLocked(m);
-    const originalPred = predictions.find(p => p.matchId === m.id);
-    const isPredicted = !!originalPred;
+  // Find predictions
+  const getMyPred = (matchId: string): Prediction | undefined => {
+    return predictions.find(p => p.matchId === matchId);
+  };
 
-    if (filterMode === 'UNPREDICTED') return !isPredicted && !isLockedStatus;
-    if (filterMode === 'LOCKED') return isLockedStatus;
-    return true; // ALL
-  });
+  const getOpponentPred = (matchId: string): Prediction | undefined => {
+    return opponentPredictions.find(p => p.matchId === matchId);
+  };
 
-  const modifiedCount = Object.values(hasChanges).filter(Boolean).length;
+  const selectedOpponent = leaderboard.find(u => u.userId === selectedOpponentId);
+
+  // Calculate comparative counts
+  const totalPredictedByMe = sortedMatches.filter(m => !!getMyPred(m.id)).length;
+  const myTotalScoreForFiltered = sortedMatches.reduce((acc, m) => {
+    const pred = getMyPred(m.id);
+    return acc + (pred?.points || 0);
+  }, 0);
+
+  const oppTotalScoreForFiltered = selectedOpponentId ? sortedMatches.reduce((acc, m) => {
+    const pred = getOpponentPred(m.id);
+    return acc + (pred?.points || 0);
+  }, 0) : 0;
 
   return (
-    <div id="quick-predictor-root" className="space-y-6 text-right" dir="rtl">
-      
-      {/* Upper header action banner */}
-      <div className="bg-gradient-to-r from-slate-900/80 to-indigo-950/20 p-5 rounded-3xl border border-slate-800/80 flex flex-col lg:flex-row items-center justify-between gap-6">
-        <div className="space-y-1.5 text-center lg:text-right">
-          <h2 className="text-2xl font-black text-white flex items-center justify-center lg:justify-start gap-2">
-            ⚡ پورتال پیش‌بینی سریع مسابقات <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2.5 py-1 rounded-full uppercase tracking-widest border border-emerald-500/10 font-sans">حالت سریع</span>
-          </h2>
-          <p className="text-xs text-slate-400 max-w-2xl font-sans">
-            چندین مسابقه را در قالب یک صفحه گسترده به سرعت پیش‌بینی کنید! برای تغییر با دکمه‌های بالا/پایین کلیک کنید و در انتها گزینه <strong className="text-emerald-400">ذخیره گروهی</strong> را بزنید.
+    <div className="space-y-6" dir="rtl">
+      {/* Header card with summary statistics */}
+      <div className="bg-slate-900/60 p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="space-y-1.5 text-center md:text-right w-full md:w-auto">
+          <div className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 px-3 py-1 rounded-full text-[11px] font-black border border-amber-500/20">
+            <Flame className="h-3.5 w-3.5" />
+            کارنامه پیش‌بینی‌ها و کل‌کل زنده جام جهانی ۲۰۲۶
+          </div>
+          <h2 className="text-xl font-extrabold text-white">داشبورد مقایسه و نتایج زنده پیش‌بینی‌ها</h2>
+          <p className="text-xs text-slate-400 max-w-xl">
+            پیش‌بینی‌های خود را مشاهده کنید و آنها را با بقیه رقبا مقایسه کنید. پیش‌بینی هر مسابقه تا <span className="text-amber-400 font-bold">۳۰ دقیقه قبل از سوت آغاز بازی</span> قفل شده و پس از آن بلافاصله برای کل کره زمین آشکار خواهد شد!
           </p>
         </div>
 
-        {/* Global sync & Save action items */}
-        <div className="flex flex-wrap gap-2.5 shrink-0 justify-end">
+        <div className="flex items-center gap-3 self-center shrink-0">
           <button
-            onClick={handleSyncFIFAOnline}
-            disabled={isSyncing}
-            className="px-4 py-2.5 bg-slate-950 hover:bg-slate-900 hover:text-amber-400 text-white border border-slate-800 rounded-xl text-xs font-bold font-sans flex items-center gap-2 transition-all transition-transform active:scale-95 disabled:opacity-40"
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl hover:bg-slate-850 hover:text-white transition-all text-slate-400 disabled:opacity-50"
+            title="بروزرسانی زنده داده‌ها"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin text-amber-500' : 'text-slate-400'}`} />
-            {isSyncing ? 'در حال دریافت...' : 'همگام‌سازی نتایج زنده فیفا 🌐'}
+            <RefreshCw className={`h-4.5 w-4.5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
+        </div>
+      </div>
 
+      {/* Comparison Opponent Picker */}
+      <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-5">
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="h-10 w-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+            <Trophy className="h-5 w-5 text-emerald-400" />
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-400 font-bold">کل‌کل مستقیم و مقایسه زنده پیش‌بینی‌ها</p>
+            <p className="text-[10px] text-slate-500 font-normal">یک رقیب را انتخاب کنید تا جدول پیش‌بینی‌هایش را در کنار خود مقایسه کنید.</p>
+          </div>
+        </div>
+
+        <div className="relative w-full md:w-80">
+          <select
+            value={selectedOpponentId}
+            onChange={(e) => setSelectedOpponentId(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs font-bold rounded-xl px-4 py-3 appearance-none focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all font-sans"
+          >
+            <option value="">-- نمایش اختصاصی پیش‌بینی‌های من (بدون مقایسه) --</option>
+            {leaderboard.map((opp) => (
+              <option key={opp.userId} value={opp.userId}>
+                ⚔️ {opp.fullName} ({opp.totalScore} امتیاز - رتبه {leaderboard.indexOf(opp) + 2})
+              </option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center pr-2 text-slate-400">
+            <ChevronDown className="h-4 w-4" />
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Comparison Card */}
+      {selectedOpponentId && selectedOpponent && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/40 border border-slate-800/80 p-5 rounded-3xl" dir="rtl">
+          {/* My mini stats */}
+          <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
+            <div className="text-right">
+              <span className="text-[10px] text-emerald-400 font-black tracking-widest uppercase block mb-1">پیش‌بینی‌های فعال شما</span>
+              <p className="font-extrabold text-white text-base">{currentUser.fullName}</p>
+              <p className="text-slate-500 text-[11px] mt-0.5">کلامتیاز فیلتر جاری: {myTotalScoreForFiltered} امتیاز</p>
+            </div>
+            <div className="text-center bg-slate-950/80 px-4 py-2 rounded-xl border border-emerald-500/20">
+              <span className="block text-[9px] text-slate-500 font-bold">امتیاز کل</span>
+              <span className="text-lg font-black text-emerald-400 font-mono">{currentUser.totalScore}</span>
+            </div>
+          </div>
+
+          {/* Opponent mini stats */}
+          <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
+            <div className="text-right">
+              <span className="text-[10px] text-amber-400 font-black tracking-widest uppercase block mb-1">پیش‌بینی‌های حریف انتخابی</span>
+              <p className="font-extrabold text-white text-base">{selectedOpponent.fullName}</p>
+              <p className="text-slate-500 text-[11px] mt-0.5">کلامتیاز فیلتر جاری: {oppTotalScoreForFiltered} امتیاز</p>
+            </div>
+            <div className="text-center bg-slate-950/80 px-4 py-2 rounded-xl border border-amber-500/20">
+              <span className="block text-[9px] text-slate-500 font-bold">امتیاز کل</span>
+              <span className="text-lg font-black text-amber-400 font-mono">{selectedOpponent.totalScore}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage Tabs Filter Nav */}
+      <div className="flex items-center gap-1.5 border-b border-slate-900 pb-3 overflow-x-auto select-none no-scrollbar">
+        {stages.map((stg) => (
           <button
-            onClick={handleSaveAll}
-            disabled={isSaving || modifiedCount === 0}
-            className={`px-5 py-2.5 rounded-xl text-xs font-black tracking-wide flex items-center gap-1.5 transition-all text-slate-950 justify-center min-w-[120px] ${
-              modifiedCount > 0 
-                ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
-                : 'bg-slate-800 text-slate-550 border border-slate-700/40 cursor-not-allowed opacity-50'
+            key={stg.value}
+            type="button"
+            onClick={() => setActiveStageFilter(stg.value)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
+              activeStageFilter === stg.value
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-extrabold shadow-sm'
+                : 'bg-transparent text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-900/50'
             }`}
           >
-            <Save className="h-3.5 w-3.5" />
-            ذخیره گروهی ({modifiedCount})
+            {stg.label}
           </button>
-        </div>
+        ))}
       </div>
 
-      {syncSuccess && (
-        <div className="p-4 bg-amber-950/40 border border-amber-500/20 text-amber-400 text-xs font-semibold rounded-2xl flex gap-2 animate-pulse font-sans shadow-lg">
-          <BookOpen className="h-5 w-5 text-amber-400 shrink-0" />
-          <span>{syncSuccess}</span>
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="p-4 bg-red-950/40 border border-red-500/20 text-red-400 text-xs font-semibold rounded-2xl flex gap-2 font-sans">
-          <ShieldAlert className="h-5 w-5 shrink-0" />
-          <span>{errorMessage}</span>
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="p-4 bg-emerald-950/40 border border-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-2xl flex gap-2 font-sans">
-          <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0" />
-          <span>{successMessage}</span>
-        </div>
-      )}
-
-      {/* Row filtering bar */}
-      <div className="flex items-center gap-2 border-b border-slate-900/40 pb-3" dir="rtl">
-        <button
-          onClick={() => setFilterMode('UNPREDICTED')}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-            filterMode === 'UNPREDICTED' 
-              ? 'bg-emerald-500 text-slate-950' 
-              : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-850'
-          }`}
-        >
-          🔮 بازی‌های پیش‌بینی نشده
-        </button>
-        <button
-          onClick={() => setFilterMode('ALL')}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-            filterMode === 'ALL' 
-              ? 'bg-emerald-500 text-slate-950' 
-              : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-850'
-          }`}
-        >
-          📅 همه مسابقات
-        </button>
-        <button
-          onClick={() => setFilterMode('LOCKED')}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-            filterMode === 'LOCKED' 
-              ? 'bg-emerald-500 text-slate-950' 
-              : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-850'
-          }`}
-        >
-          🔒 پایان یافته / قفل شده
-        </button>
-      </div>
-
-      {/* Main predictions spreadsheet grid layout */}
-      <div className="bg-slate-900/30 border border-slate-800/80 rounded-3xl overflow-hidden shadow-2xl" dir="rtl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-950/80 border-b border-slate-800/60 text-[10px] uppercase tracking-wider font-sans text-slate-500">
-                <th className="py-3 px-4 w-28 text-right">مرحله / گروه</th>
-                <th className="py-3 px-4 text-right">تیم میزبان</th>
-                <th className="py-3 px-2 text-center w-40">پیش‌بینی نتیجه</th>
-                <th className="py-3 px-4 text-right">تیم میهمان</th>
-                <th className="py-3 px-4 text-center w-28">وضعیت</th>
+      {/* Master List of Matches & Comparative Predictions */}
+      <div className="bg-slate-900/20 border border-slate-850 rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto min-w-full">
+          <table className="w-full text-right border-collapse" dir="rtl">
+            <thead className="bg-slate-950/80 text-slate-400 text-xs font-bold border-b border-slate-800">
+              <tr>
+                <th className="p-4 font-sans text-right max-w-[200px]">اطلاعات و جزئیات مسابقه</th>
+                <th className="p-4 font-sans text-center">تیم میزبان vs مهمان</th>
+                <th className="p-4 font-sans text-center">نتیجه واقعی</th>
+                <th className="p-4 font-sans text-center text-emerald-400 bg-emerald-950/10">پیش‌بینی شما ({currentUser.fullName.split(' ')[0]})</th>
+                {selectedOpponentId && (
+                  <th className="p-4 font-sans text-center text-amber-400 bg-amber-950/15 border-r border-slate-800">
+                    پیش‌بینی {selectedOpponent.fullName.split(' ')[0]}
+                  </th>
+                )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-850/50">
-              {displayedMatches.length > 0 ? (
-                displayedMatches.map(m => {
-                  const locked = isMatchLocked(m);
-                  const isHomeTbd = m.homeTeamId.startsWith('TBD_');
-                  const isAwayTbd = m.awayTeamId.startsWith('TBD_');
-                  const isAnyTbd = isHomeTbd || isAwayTbd;
+            <tbody className="divide-y divide-slate-850">
+              {sortedMatches.length === 0 ? (
+                <tr>
+                  <td colSpan={selectedOpponentId ? 5 : 4} className="p-12 text-center text-slate-500 text-xs font-sans">
+                    در فیلتر انتخابی شما هیچ بازی در دیتابیس یافت نشد.
+                  </td>
+                </tr>
+              ) : (
+                sortedMatches.map((match) => {
+                  const myPred = getMyPred(match.id);
+                  const oppPred = selectedOpponentId ? getOpponentPred(match.id) : undefined;
+                  const locked = isMatchLocked(match);
 
-                  const scores = localScores[m.id] || { home: 0, away: 0 };
-                  const pred = predictions.find(p => p.matchId === m.id);
-                  const hasUnsavedChanges = hasChanges[m.id];
+                  const kickoff = new Date(match.kickoffTimeUtc);
+                  const isFinished = match.status === MatchStatus.FINISHED;
+                  const isLive = match.status === MatchStatus.LIVE;
 
                   return (
-                    <tr 
-                      key={m.id}
-                      className={`hover:bg-slate-900/40 transition-colors ${
-                        locked ? 'opacity-55' : ''
-                      } ${hasUnsavedChanges ? 'bg-amber-950/10' : ''}`}
-                    >
-                      {/* Match metadata code */}
-                      <td className="py-3 px-4 font-mono font-bold text-right">
-                        <span className="block text-slate-400 text-[9px] uppercase tracking-wider bg-slate-800/50 px-1.5 py-0.5 rounded border border-slate-700/20 inline-block font-sans">
-                          {STAGE_TRANSLATIONS[m.stage] || m.stage}
-                        </span>
-                        <span className="block text-[8px] text-slate-500 mt-1 truncate max-w-[120px] font-sans">
-                          {m.stadium}
-                        </span>
-                      </td>
-
-                      {/* Home Team cell */}
-                      <td className="py-3 px-4 text-right font-sans">
-                        <div className="flex items-center gap-2.5">
-                          <div className="shrink-0 select-none">
-                            <FlagIcon teamIdOrCode={m.homeTeamId} className="h-5 w-7 rounded-sm shadow-md" />
-                          </div>
-                          <div>
-                            <span className={`block font-extrabold text-sm ${isHomeTbd ? 'text-slate-500 font-medium italic' : 'text-slate-100'}`}>
-                              {getDynamicTeamName(m.homeTeamId)}
-                            </span>
-                            {!isHomeTbd && (
-                              <span className="text-[10px] text-slate-500 font-mono font-medium">{getDynamicTeamCode(m.homeTeamId)}</span>
-                            )}
-                          </div>
+                    <tr key={match.id} className="hover:bg-slate-900/20 transition-all font-sans">
+                      
+                      {/* Match Details */}
+                      <td className="p-4 space-y-1 max-w-[200px] border-l border-slate-850/40">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-950 text-slate-400 border border-slate-850">
+                            کد {match.id.toUpperCase()}
+                          </span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold ${
+                            match.stage === MatchStage.GROUP 
+                              ? 'bg-blue-950/40 text-blue-400 border border-blue-500/10' 
+                              : 'bg-purple-950/40 text-purple-400 border border-purple-500/10'
+                          }`}>
+                            {match.stage === MatchStage.GROUP ? 'مرحله گروهی' : 'حذفی'}
+                          </span>
                         </div>
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
+                          <span>{kickoff.toLocaleDateString('fa-IR', { month: 'short', day: 'numeric' })}</span> | 
+                          <span>ساعت {kickoff.toLocaleTimeString('fa-IR', { hour: 'numeric', minute: 'numeric' })}</span>
+                        </p>
                       </td>
 
-                      {/* Score predictions inline controller */}
-                      <td className="py-3 px-2 text-center">
-                        {locked ? (
-                          <div className="inline-flex items-center gap-1.5 bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800 border-none select-none font-mono">
-                            {m.status === MatchStatus.FINISHED ? (
-                              <div className="flex items-center gap-1">
-                                <span className="font-extrabold text-white text-sm">{m.homeScore}</span>
-                                <span className="text-slate-600">:</span>
-                                <span className="font-extrabold text-white text-sm">{m.awayScore}</span>
-                                <span className="text-[9px] font-bold text-slate-500 mr-1.5 uppercase tracking-normal font-sans">نتیجه</span>
-                              </div>
-                            ) : (
-                              <span className="text-[10px] text-slate-500 italic block leading-none py-0.5 font-sans">پیش‌بینی قفل شده</span>
-                            )}
+                      {/* Teams & Flags */}
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-3">
+                          <span className="text-xs font-black text-slate-200">{getTeamName(match.homeTeamId)}</span>
+                          <div className="flex items-center gap-1 select-none">
+                            <FlagIcon teamIdOrCode={match.homeTeamId} className="h-4.5 w-7 shrink-0 rounded border border-slate-850 shadow-sm" />
+                            <span className="text-slate-600 px-1 text-[11px]">vs</span>
+                            <FlagIcon teamIdOrCode={match.awayTeamId} className="h-4.5 w-7 shrink-0 rounded border border-slate-850 shadow-sm" />
                           </div>
-                        ) : isAnyTbd ? (
-                          <div className="text-[10px] text-amber-500/80 font-semibold font-sans bg-amber-950/10 border border-amber-500/10 rounded-lg px-2.5 py-2 leading-none">
-                            ⏳ در انتظار صعود
+                          <span className="text-xs font-black text-slate-200">{getTeamName(match.awayTeamId)}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1">{match.stadium.split(',')[0]}</p>
+                      </td>
+
+                      {/* Actual Finished Score */}
+                      <td className="p-4 text-center">
+                        {isFinished ? (
+                          <div className="inline-flex items-center gap-1 bg-slate-950 py-1.5 px-3 rounded-lg border border-slate-800 text-xs font-black text-white font-mono">
+                            <span>{match.homeScore}</span>
+                            <span className="text-slate-500">:</span>
+                            <span>{match.awayScore}</span>
+                          </div>
+                        ) : isLive ? (
+                          <div className="inline-flex items-center gap-2 bg-emerald-950/20 text-emerald-400 py-1 px-2.5 rounded-lg border border-emerald-500/20 text-[10px] font-black font-sans">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>زنده {match.homeScore} - {match.awayScore}</span>
                           </div>
                         ) : (
-                          <div id={`predict-box-${m.id}`} className="inline-flex items-center justify-center p-1 bg-slate-950/80 rounded-xl border border-slate-800">
-                            
-                            {/* Decrease Home score */}
-                            <button
-                              type="button"
-                              onClick={() => adjustScore(m.id, 'home', -1)}
-                              className="px-1.5 py-1 hover:text-emerald-400 hover:bg-slate-800 rounded font-bold font-mono text-slate-400"
-                            >
-                              -
-                            </button>
-
-                            {/* Home Predicted Input */}
-                            <input
-                              type="number"
-                              min="0"
-                              value={scores.home}
-                              onChange={(e) => handleScoreChange(m.id, 'home', e.target.value)}
-                              className="w-10 bg-transparent text-center font-black font-mono text-white text-base focus:outline-none"
-                            />
-
-                            <span className="text-slate-600 font-extrabold pb-0.5 font-mono">:</span>
-
-                            {/* Away Predicted Input */}
-                            <input
-                              type="number"
-                              min="0"
-                              value={scores.away}
-                              onChange={(e) => handleScoreChange(m.id, 'away', e.target.value)}
-                              className="w-10 bg-transparent text-center font-black font-mono text-white text-base focus:outline-none"
-                            />
-
-                            {/* Increase Away score */}
-                            <button
-                              type="button"
-                              onClick={() => adjustScore(m.id, 'away', 1)}
-                              className="px-1.5 py-1 hover:text-emerald-400 hover:bg-slate-800 rounded font-bold font-mono text-slate-400"
-                            >
-                              +
-                            </button>
-
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Away Team cell */}
-                      <td className="py-3 px-4 font-sans text-right">
-                        <div className="flex items-center justify-start gap-2.5">
-                          <div>
-                            <span className={`block font-extrabold text-sm ${isAwayTbd ? 'text-slate-500 font-medium italic' : 'text-slate-100'}`}>
-                              {getDynamicTeamName(m.awayTeamId)}
-                            </span>
-                            {!isAwayTbd && (
-                              <span className="text-[10px] text-slate-500 font-mono font-medium">{getDynamicTeamCode(m.awayTeamId)}</span>
-                            )}
-                          </div>
-                          <div className="shrink-0 select-none">
-                            <FlagIcon teamIdOrCode={m.awayTeamId} className="h-5 w-7 rounded-sm shadow-md" />
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Status Check cell */}
-                      <td className="py-3 px-4 text-center font-sans">
-                        {m.status === MatchStatus.FINISHED ? (
-                          <div className="space-y-1">
-                            {pred ? (
-                              <div className="text-[10px] font-mono font-extrabold">
-                                <span className="text-slate-400">پیش‌بینی شما: {pred.predictedHome}-{pred.predictedAway}</span>
-                                {pred.points !== null && (
-                                  <span className={`block text-[9px] mt-0.5 font-bold font-sans ${
-                                    pred.points === 3 
-                                      ? 'text-amber-400 font-black' 
-                                      : pred.points === 1 
-                                      ? 'text-emerald-400' 
-                                      : 'text-slate-500'
-                                  }`}>
-                                    {pred.points === 3 ? 'نتیجه دقیق! (+۳)' : pred.points === 1 ? 'برنده درست (+۱)' : 'اشتباه (۰)'}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-[10px] text-slate-500 font-sans italic">بدون پیش‌بینی</span>
-                            )}
-                          </div>
-                        ) : pred ? (
-                          <div className="space-y-0.5">
-                            {hasUnsavedChanges ? (
-                              <span className="inline-block text-[9px] uppercase font-bold tracking-wider bg-amber-950/40 text-amber-400 px-2 py-0.5 rounded border border-amber-500/10 font-sans">
-                                ✍️ عدم ذخیره
-                              </span>
-                            ) : (
-                              <span className="inline-block text-[9px] uppercase font-bold tracking-wider bg-emerald-950/20 text-emerald-400/90 px-2 py-0.5 rounded border border-emerald-500/10 select-none font-sans">
-                                ✓ پیش‌بینی شده ({scores.home}-{scores.away})
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-[10px] font-sans text-slate-500 italic select-none">
-                            خالی
+                          <span className="text-[10px] text-slate-500 font-sans flex items-center justify-center gap-1">
+                            <Clock className="h-3.5 w-3.5" />
+                            برگزار نشده
                           </span>
                         )}
                       </td>
 
+                      {/* Your Prediction and Points */}
+                      <td className="p-4 text-center bg-emerald-950/5">
+                        {myPred ? (
+                          <div className="space-y-1">
+                            <p className="text-xs font-black text-white font-mono bg-slate-950 px-2.5 py-1 rounded-md inline-block border border-slate-800">
+                              {myPred.predictedHome} <span className="text-slate-500 font-normal">:</span> {myPred.predictedAway}
+                            </p>
+                            {isFinished && myPred.points !== null && (
+                              <div className="flex items-center justify-center gap-1 mt-0.5">
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                                  myPred.points === 10
+                                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/35'
+                                    : myPred.points === 7
+                                    ? 'bg-blue-950 text-blue-400 border border-blue-500/35'
+                                    : myPred.points === 5
+                                    ? 'bg-slate-800 text-slate-300 border border-slate-700'
+                                    : 'bg-rose-950/30 text-rose-400 border border-rose-500/10'
+                                }`}>
+                                  {myPred.points === 10 ? '۱۰+ امتیاز (کامل) ⭐' : myPred.points === 7 ? '۷+ امتیاز (تفاضل) 🔥' : myPred.points === 5 ? '۵+ امتیاز (برنده) 👍' : '۰ امتیاز ❌'}
+                                </span>
+                              </div>
+                            )}
+                            {!isFinished && (
+                              <p className="text-[9px] text-slate-500 font-mono">
+                                {locked ? '🔒 قفل شده' : '✏️ قابل تغییر در لیست بازی‌ها'}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-slate-500 font-sans italic block">پیش‌بینی نشده</span>
+                            {!locked && (
+                              <span className="text-[9px] text-emerald-500 font-black block">پیش‌بینی در زبانه مسابقات ⬆️</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Opponent's prediction (Locked and masked before lock, revealed after lock) */}
+                      {selectedOpponentId && (
+                        <td className="p-4 text-center bg-amber-950/5 border-r border-slate-800">
+                          {oppPred ? (
+                            oppPred.predictedHome === -1 || oppPred.predictedAway === -1 ? (
+                              <div className="flex flex-col items-center justify-center gap-1 py-1">
+                                <div className="flex items-center gap-1 text-[10px] text-slate-500 font-sans">
+                                  <Lock className="h-3 w-3 text-slate-500" />
+                                  <span>🔒 فاش نشده</span>
+                                </div>
+                                <span className="text-[8px] bg-slate-900 px-1.5 py-0.5 rounded text-slate-500 font-sans block scale-90">
+                                  تا ۳۰ دقیقه قبل بازی قفل است
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <p className="text-xs font-black text-amber-200 font-mono bg-slate-950 px-2.5 py-1 rounded-md inline-block border border-amber-900/40">
+                                  {oppPred.predictedHome} <span className="text-slate-600 font-normal">:</span> {oppPred.predictedAway}
+                                </p>
+                                {isFinished && oppPred.points !== null && (
+                                  <div className="flex items-center justify-center gap-1 mt-0.5">
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                                      oppPred.points === 10
+                                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/35'
+                                        : oppPred.points === 7
+                                        ? 'bg-blue-950 text-blue-400 border border-blue-500/35'
+                                        : oppPred.points === 5
+                                        ? 'bg-slate-850 text-slate-300 border border-slate-700'
+                                        : 'bg-rose-950/30 text-rose-400 border border-rose-500/10'
+                                    }`}>
+                                      {oppPred.points === 10 ? '۱۰+ امتیاز ⭐' : oppPred.points === 7 ? '۷+ امتیاز 🔥' : oppPred.points === 5 ? '۵+ امتیاز 👍' : '۰ امتیاز ❌'}
+                                    </span>
+                                  </div>
+                                )}
+                                {!isFinished && (
+                                  <p className="text-[8px] text-amber-500/80 font-sans">🔓 قفل باز گردید (آشکار)</p>
+                                )}
+                              </div>
+                            )
+                          ) : (
+                            <span className="text-[10px] text-slate-500 font-sans italic block">پیش‌بینی نکرده</span>
+                          )}
+                        </td>
+                      )}
+
                     </tr>
                   );
                 })
-              ) : (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500 text-sm font-sans">
-                    مسابقه‌ای در این دسته‌بندی فیلتر یافت نشد.
-                  </td>
-                </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
-
     </div>
   );
 }

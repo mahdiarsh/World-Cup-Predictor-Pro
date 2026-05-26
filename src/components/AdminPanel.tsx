@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   ShieldCheck, Users, Calendar, Trophy, Zap, Trash2, 
-  UserX, UserCheck, Key, Plus, Edit2, Check, RefreshCw 
+  UserX, UserCheck, Key, Plus, Edit2, Check, RefreshCw, Download
 } from 'lucide-react';
 import { User, Match, UserRole, MatchStage, MatchStatus } from '../types';
 import { teamsSeed, getTeamName, getTeamFlag } from '../data/teams';
@@ -24,6 +24,9 @@ interface AdminPanelProps {
   onRecalculateScores: () => Promise<boolean>;
   registrationEnabled?: boolean;
   onToggleRegistration?: (enabled: boolean) => Promise<boolean>;
+  onDownloadDB?: () => Promise<boolean>;
+  settings?: any;
+  onUpdateSettings?: (updates: any) => Promise<boolean>;
 }
 
 export default function AdminPanel({
@@ -41,7 +44,10 @@ export default function AdminPanel({
   onDeleteUser,
   onRecalculateScores,
   registrationEnabled = true,
-  onToggleRegistration
+  onToggleRegistration,
+  onDownloadDB,
+  settings = {},
+  onUpdateSettings
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<'users' | 'matches' | 'engine'>('matches');
 
@@ -49,6 +55,19 @@ export default function AdminPanel({
   const [statusMsg, setStatusMsg] = useState('');
   const [statusErr, setStatusErr] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadDatabase = async () => {
+    if (!onDownloadDB) return;
+    setIsDownloading(true);
+    const succ = await onDownloadDB();
+    setIsDownloading(false);
+    if (succ) {
+      triggerAlert('پایگاه داده کل با موفقیت دانلود شد!');
+    } else {
+      triggerAlert('خطا در بارگیری نسخه پشتیبان دیتابیس.', true);
+    }
+  };
 
   // Users forms states
   const [userFormOpen, setUserFormOpen] = useState(false);
@@ -87,13 +106,13 @@ export default function AdminPanel({
   };
 
   const STAGE_TRANSLATIONS: Record<string, string> = {
-    'GROUP': 'مرحله گروهی',
-    'ROUND_OF_32': 'یک‌سی‌ودوم نهایی',
-    'ROUND_OF_16': 'یک‌هشتم نهایی',
-    'QUARTER_FINALS': 'یک‌چهارم نهایی',
-    'SEMI_FINALS': 'نیمه‌نهایی',
-    'THIRD_PLACE': 'رده‌بندی مقام سوم',
-    'FINAL': 'فینال'
+    'Group Stage': 'مرحله گروهی',
+    'Round of 32': 'یک‌سی‌ودوم نهایی',
+    'Round of 16': 'یک‌هشتم نهایی',
+    'Quarter Finals': 'یک‌چهارم نهایی',
+    'Semi Finals': 'نیمه‌نهایی',
+    'Third Place Playoff': 'رده‌بندی مقام سوم',
+    'Final': 'فینال'
   };
 
   // User submissions
@@ -257,7 +276,7 @@ export default function AdminPanel({
                 <input
                   type="text"
                   required
-                  placeholder="messi10"
+                  placeholder="مثال: 09123456789"
                   value={uUsername}
                   onChange={e => setUUsername(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-850 rounded-lg p-2 text-sm text-slate-200"
@@ -659,6 +678,159 @@ export default function AdminPanel({
               {isRefreshing ? 'در حال بازنویسی جدول امتیازها...' : 'اجرای بازنگری مجدد امتیازها'}
             </button>
           </div>
+
+          {/* FIFA Live Sync & Intelligent Simulation Engine */}
+          <div className="bg-slate-950/60 p-6 rounded-xl border border-slate-800 space-y-5 text-right">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 bg-emerald-950 text-emerald-400 rounded-md font-sans border border-emerald-500/15">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  بروزرسانی خودکار زنده فیفا (FIFA Live Sync)
+                </span>
+                <p className="font-extrabold text-slate-100 text-base">موتور همگام‌ساز زنده هوشمند مسابقات</p>
+                <p className="text-slate-400 text-xs leading-relaxed">
+                  سیستم به صورت خودکار بازی‌ها، نتایج، گل‌ها و صعود تیم‌ها را شبیه‌سازی و زنده همگام‌سازی می‌کند. شما نیازی به وارد کردن تک تک نتایج ندارید!
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings?.({ syncMode: 'simulation' })}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                    (settings?.syncMode || 'simulation') === 'simulation'
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-250'
+                  }`}
+                >
+                  شبیه‌ساز هوشمند زنده فیفا ⚽
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings?.({ syncMode: 'manual' })}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                    settings?.syncMode === 'manual'
+                      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                      : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-250'
+                  }`}
+                >
+                  کنترل دستی ادمین 🛠️
+                </button>
+              </div>
+            </div>
+
+            {(settings?.syncMode || 'simulation') === 'simulation' && (
+              <div className="space-y-4 pt-1">
+                {/* Simulated Time Info */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                  <div className="space-y-1 text-center sm:text-right w-full sm:w-auto">
+                    <p className="text-[11px] text-slate-500">تقویم زمانی جاری تورنمنت (Virtual Tournament Time)</p>
+                    <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                      <span className="text-sm sm:text-lg font-black font-sans text-white tracking-wide">
+                        {new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z').toLocaleDateString('fa-IR', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </span>
+                      <span className="text-xs font-bold font-mono text-slate-400 bg-slate-850 px-2 py-0.5 rounded border border-slate-700/30">
+                        {new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z').toLocaleTimeString('fa-IR', {
+                          hour: 'numeric',
+                          minute: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center sm:items-end gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings?.({ isFastForwarding: !settings?.isFastForwarding })}
+                      className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                        settings?.isFastForwarding
+                          ? 'bg-amber-500 text-slate-950 font-black animate-pulse shadow-amber-500/20 shadow-lg'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                      }`}
+                    >
+                      <span>{settings?.isFastForwarding ? '⏸️ توقف گذر زمان' : '⏩ فعالسازی جلوبر خودکار زمان'}</span>
+                    </button>
+                    <span className="text-[10px] text-slate-500 text-right font-sans block">
+                      {settings?.isFastForwarding 
+                        ? 'زمان فرضی با سرعت ۶ ساعت در هر ۱۰ ثانیه به جلو می‌رود.' 
+                        : 'زمان فرضی سیستم متغیر نیست. برای جلو بردن از پرش‌های زیر استفاده کنید.'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Jumps */}
+                <div className="space-y-1">
+                  <p className="text-xs text-slate-400 font-extrabold mb-2.5">پرش سریع به مراحل مختلف جام جهانی ۲۰۲۶:</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings?.({ simulatedTime: '2026-06-11T12:00:00Z', isFastForwarding: false })}
+                      className="p-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-lg text-[11px] font-bold text-slate-300 transition-all text-center"
+                    >
+                      <span className="block mb-0.5 text-[9px] text-slate-500">مرحله اول گروهی</span>
+                      افتتاحیه (۲۱ خرداد) ⚽
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings?.({ simulatedTime: '2026-06-20T12:00:00Z', isFastForwarding: false })}
+                      className="p-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-lg text-[11px] font-bold text-slate-300 transition-all text-center"
+                    >
+                      <span className="block mb-0.5 text-[9px] text-slate-500">مرحله دوم گروهی</span>
+                      دور هیجانی (۳۰ خرداد) 🔥
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings?.({ simulatedTime: '2026-06-26T23:59:00Z', isFastForwarding: false })}
+                      className="p-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-lg text-[11px] font-bold text-slate-300 transition-all text-center"
+                    >
+                      <span className="block mb-0.5 text-[9px] text-slate-500">پایان مرحله گروهی</span>
+                      صعود طلایی (۵ تیر) 🥇
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings?.({ simulatedTime: '2026-07-02T12:00:00Z', isFastForwarding: false })}
+                      className="p-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-lg text-[11px] font-bold text-slate-300 transition-all text-center"
+                    >
+                      <span className="block mb-0.5 text-[9px] text-slate-500">آغاز بازی‌های حذفی</span>
+                      یک شانزدهم (۱۲ تیر) 🏆
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings?.({ simulatedTime: '2026-07-20T12:00:00Z', isFastForwarding: false })}
+                      className="p-2.5 bg-emerald-950/20 hover:bg-emerald-950/35 border border-emerald-500/10 rounded-lg text-[11px] font-bold text-emerald-400 transition-all text-center"
+                    >
+                      <span className="block mb-0.5 text-[9px] text-emerald-600">پایان فینال جام جهانی</span>
+                      معرفی قهرمان (۲۹ تیر) 🥇
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Database Backup Download Card */}
+          {onDownloadDB && (
+            <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/60 p-5 rounded-xl border border-slate-800 justify-between">
+              <div className="space-y-1 text-right">
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-blue-950/40 text-blue-400 rounded-md font-sans border border-blue-500/10">نسخه پشتیبان سیستم</span>
+                <p className="font-extrabold text-slate-200 text-sm">بارگیری مستقیم فایل پایگاه داده (db.json)</p>
+                <p className="text-slate-500 text-xs text-right">دانلود نسخه پشتیبان آنلاین کل پروژه شامل لیست کاربران، گذرواژه‌ها و پاسخ‌های ارسالی.</p>
+              </div>
+              
+              <button
+                onClick={handleDownloadDatabase}
+                disabled={isDownloading}
+                className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-45 disabled:pointer-events-none text-slate-950 font-extrabold text-xs tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 font-sans"
+              >
+                <Download className={`h-4.5 w-4.5 ${isDownloading ? 'animate-spin' : ''}`} />
+                {isDownloading ? 'در حال بارگیری...' : 'دانلود فایل دیتابیس (JSON)'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -2,71 +2,77 @@ import React from 'react';
 
 // Maps 3-letter FIFA codes or team IDs to lowercase ISO country codes for FlagCDN
 const TEAM_ISO_MAP: Record<string, string> = {
-  t1: 'qa', // Qatar
-  t2: 'ec', // Ecuador
-  t3: 'sn', // Senegal
-  t4: 'nl', // Netherlands
-  t5: 'gb-eng', // England
-  t6: 'ir', // Iran
-  t7: 'us', // USA
-  t8: 'gb-wls', // Wales
-  t9: 'ar', // Argentina
-  t10: 'sa', // Saudi Arabia
-  t11: 'mx', // Mexico
-  t12: 'pl', // Poland
-  t13: 'fr', // France
-  t14: 'au', // Australia
-  t15: 'dk', // Denmark
-  t16: 'tn', // Tunisia
-  t17: 'es', // Spain
-  t18: 'cr', // Costa Rica
-  t19: 'de', // Germany
-  t20: 'jp', // Japan
-  t21: 'be', // Belgium
-  t22: 'ca', // Canada
-  t23: 'ma', // Morocco
-  t24: 'hr', // Croatia
-  t25: 'br', // Brazil
-  t26: 'rs', // Serbia
-  t27: 'ch', // Switzerland
-  t28: 'cm', // Cameroon
-  t29: 'pt', // Portugal
-  t30: 'gh', // Ghana
-  t31: 'uy', // Uruguay
-  t32: 'kr', // South Korea
-  // Fallbacks by shortCode
-  QAT: 'qa',
-  ECU: 'ec',
-  SEN: 'sn',
-  NED: 'nl',
-  ENG: 'gb-eng',
-  IRN: 'ir',
-  USA: 'us',
-  WAL: 'gb-wls',
-  ARG: 'ar',
-  KSA: 'sa',
-  MEX: 'mx',
-  POL: 'pl',
-  FRA: 'fr',
-  AUS: 'au',
-  DEN: 'dk',
-  TUN: 'tn',
-  ESP: 'es',
-  CRC: 'cr',
-  GER: 'de',
-  JPN: 'jp',
-  BEL: 'be',
-  CAN: 'ca',
-  MAR: 'ma',
-  CRO: 'hr',
-  BRA: 'br',
-  SRB: 'rs',
-  SUI: 'ch',
-  CMR: 'cm',
-  POR: 'pt',
-  GHA: 'gh',
-  URU: 'uy',
-  KOR: 'kr'
+  // Group A
+  't-mex': 'mx', MEX: 'mx', mex: 'mx',
+  't-rsa': 'za', RSA: 'za', rsa: 'za',
+  't-kor': 'kr', KOR: 'kr', kor: 'kr',
+  't-cze': 'cz', CZE: 'cz', cze: 'cz',
+
+  // Group B
+  't-can': 'ca', CAN: 'ca', can: 'ca',
+  't-bih': 'ba', BIH: 'ba', bih: 'ba',
+  't-qat': 'qa', QAT: 'qa', qat: 'qa',
+  't-sui': 'ch', SUI: 'ch', sui: 'ch',
+
+  // Group C
+  't-bra': 'br', BRA: 'br', bra: 'br',
+  't-mar': 'ma', MAR: 'ma', mar: 'ma',
+  't-hai': 'ht', HAI: 'ht', hai: 'ht',
+  't-sco': 'gb-sct', SCO: 'gb-sct', sco: 'gb-sct',
+
+  // Group D
+  't-usa': 'us', USA: 'us', usa: 'us',
+  't-par': 'py', PAR: 'py', par: 'py',
+  't-aus': 'au', AUS: 'au', aus: 'au',
+  't-tur': 'tr', TUR: 'tr', tur: 'tr',
+
+  // Group E
+  't-ger': 'de', GER: 'de', ger: 'de',
+  't-cuw': 'cw', CUW: 'cw', cuw: 'cw',
+  't-civ': 'ci', CIV: 'ci', civ: 'ci',
+  't-ecu': 'ec', ECU: 'ec', ecu: 'ec',
+
+  // Group F
+  't-ned': 'nl', NED: 'nl', ned: 'nl',
+  't-jpn': 'jp', JPN: 'jp', jpn: 'jp',
+  't-swe': 'se', SWE: 'se', swe: 'se',
+  't-tun': 'tn', TUN: 'tn', tun: 'tn',
+
+  // Group G
+  't-bel': 'be', BEL: 'be', bel: 'be',
+  't-egy': 'eg', EGY: 'eg', egy: 'eg',
+  't-irn': 'ir', IRN: 'ir', irn: 'ir',
+  't-nzl': 'nz', NZL: 'nz', nzl: 'nz',
+
+  // Group H
+  't-esp': 'es', ESP: 'es', esp: 'es',
+  't-cpv': 'cv', CPV: 'cv', cpv: 'cv',
+  't-uru': 'uy', URU: 'uy', uru: 'uy',
+  't-ksa': 'sa', KSA: 'sa', ksa: 'sa',
+
+  // Group I
+  't-fra': 'fr', FRA: 'fr', fra: 'fr',
+  't-sen': 'sn', SEN: 'sn', sen: 'sn',
+  't-irq': 'iq', IRQ: 'iq', irq: 'iq',
+  't-nor': 'no', NOR: 'no', nor: 'no',
+
+  // Group J
+  't-arg': 'ar', ARG: 'ar', arg: 'ar',
+  't-alg': 'dz', ALG: 'dz', alg: 'dz',
+  't-aut': 'at', AUT: 'at', aut: 'at',
+  't-jor': 'jo', JOR: 'jo', jor: 'jo',
+
+  // Group K
+  't-por': 'pt', POR: 'pt', por: 'pt',
+  't-cod': 'cd', COD: 'cd', cod: 'cd',
+  't-uzb': 'uz', UZB: 'uz', uzb: 'uz',
+  't-col': 'co', COL: 'co', col: 'co',
+
+  // Group L
+  't-eng': 'gb-eng', ENG: 'gb-eng', eng: 'gb-eng',
+  't-cro': 'hr', CRO: 'hr', cro: 'hr',
+  't-gha': 'gh', GHA: 'gh', gha: 'gh',
+  't-pan': 'pa', PAN: 'pa', pan: 'pa'
 };
 
 interface FlagIconProps {

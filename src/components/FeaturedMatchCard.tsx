@@ -69,26 +69,10 @@ export default function FeaturedMatchCard({
   };
 
   const getTbdName = (teamId: string) => {
-    if (teamId.startsWith('TBD_')) {
-      const map: Record<string, string> = {
-        TBD_1A: 'تیم اول گروه A',
-        TBD_2B: 'تیم دوم گروه B',
-        TBD_1C: 'تیم اول گروه C',
-        TBD_2D: 'تیم دوم گروه D',
-        TBD_2F: 'تیم دوم گروه F',
-        TBD_1G: 'تیم اول گروه G',
-        TBD_WM13: 'برنده بازی ۱۳',
-        TBD_WM14: 'برنده بازی ۱۴',
-        TBD_WM15: 'برنده نیمه‌نهایی',
-        TBD_1D: 'تیم اول گروه D'
-      };
-      return map[teamId] || 'نامشخص';
-    }
     return getTeamName(teamId);
   };
 
   const getTbdCode = (teamId: string) => {
-    if (teamId.startsWith('TBD_')) return 'TBD';
     return getTeamCode(teamId);
   };
 
@@ -110,13 +94,13 @@ export default function FeaturedMatchCard({
   };
 
   const STAGE_TRANSLATIONS: Record<string, string> = {
-    'GROUP': 'مرحله گروهی',
-    'ROUND_OF_32': 'یک‌سی‌ودوم نهایی',
-    'ROUND_OF_16': 'یک‌هشتم نهایی',
-    'QUARTER_FINALS': 'یک‌چهارم نهایی',
-    'SEMI_FINALS': 'نیمه‌نهایی',
-    'THIRD_PLACE': 'رده‌بندی مقام سوم',
-    'FINAL': 'فینال'
+    'Group Stage': 'مرحله گروهی',
+    'Round of 32': 'یک‌سی‌ودوم نهایی',
+    'Round of 16': 'یک‌هشتم نهایی',
+    'Quarter Finals': 'یک‌چهارم نهایی',
+    'Semi Finals': 'نیمه‌نهایی',
+    'Third Place Playoff': 'رده‌بندی مقام سوم',
+    'Final': 'فینال'
   };
 
   return (
@@ -193,6 +177,10 @@ export default function FeaturedMatchCard({
           >
             برای پیش‌بینی وارد شوید
           </button>
+        ) : match.homeTeamId.startsWith('TBD_') || match.awayTeamId.startsWith('TBD_') ? (
+          <div className="bg-amber-950/10 border border-amber-500/10 py-2 rounded-lg text-amber-500 text-2xs font-semibold">
+            ⏳ در انتظار صعود تیم‌ها جهت ثبت پیش‌بینی
+          </div>
         ) : isLocked() ? (
           // Locked State: Display user prediction if any
           <div className="bg-slate-950/40 border border-slate-850 py-1.5 rounded-lg text-slate-400 text-2xs space-y-1">

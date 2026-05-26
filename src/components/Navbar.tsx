@@ -78,7 +78,7 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
               }`}
             >
               <span className="text-lg leading-none mb-1">⚡</span>
-              <span className="text-xs tracking-tight whitespace-nowrap">پیش‌بینی سریع</span>
+              <span className="text-xs tracking-tight whitespace-nowrap">مقایسه و پیش‌بینی‌ها</span>
             </button>
           )}
 
@@ -226,7 +226,7 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
           )}
         </button>
 
-        {/* Tab 4: Quick Predict (Zap icon) */}
+         {/* Tab 4: Quick Predict (Zap icon) */}
         {currentUser && (
           <button
             onClick={() => setCurrentTab('quick_predict')}
@@ -242,7 +242,7 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
             <span className={`text-[10px] font-sans font-medium tracking-tight mt-0.5 transition-colors ${
               currentTab === 'quick_predict' ? 'text-emerald-400 font-bold' : 'text-slate-500'
             }`}>
-              پیش‌بینی
+              مقایسه
             </span>
             {currentTab === 'quick_predict' && (
               <span className="absolute -bottom-1 h-1 w-1 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />

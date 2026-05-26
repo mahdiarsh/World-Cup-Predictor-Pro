@@ -38,6 +38,20 @@ export default function App() {
     fetchSettings();
   }, []);
 
+  // Background polling for real-time live match and score updates (every 10 seconds)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchMatches();
+      fetchLeaderboard();
+      fetchSettings();
+      if (token && currentUser) {
+        fetchCurrentUser();
+        fetchMyPredictions();
+      }
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [token, currentUser?.id]);
+
   // Sync token loading
   useEffect(() => {
     if (token) {
@@ -170,6 +184,32 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to change registration configuration', err);
+    }
+    return false;
+  };
+
+  const handleUpdateFullSettings = async (updatedFields: any): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(updatedFields)
+      });
+      if (res.ok) {
+        const s = await res.json();
+        setSettings(s);
+        // Instant reload everything to reflect advanced dates, score progressions or standings
+        fetchMatches();
+        fetchLeaderboard();
+        if (currentUser) {
+          fetchCurrentUser();
+          fetchMyPredictions();
+        }
+        triggerSuccess(`تنظیمات سامانه شبیه‌سازی با موفقیت اعمال گردید.`);
+        return true;
+      }
+    } catch (err) {
+      console.error('Failed to change settings', err);
     }
     return false;
   };
@@ -516,6 +556,29 @@ export default function App() {
     return false;
   };
 
+  const handleDownloadDB = async (): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/admin/download-db', {
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'database.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        return true;
+      }
+    } catch (err) {
+      console.error('Download database failed', err);
+    }
+    return false;
+  };
+
   // Get active user rank for Profile placement
   const activeUserRank = leaderboard.find(l => l.userId === currentUser?.id)?.rank || 0;
 
@@ -585,6 +648,9 @@ export default function App() {
           onRecalculateScores={handleRecalculateScores}
           registrationEnabled={settings.registrationEnabled}
           onToggleRegistration={handleUpdateSettings}
+          onDownloadDB={handleDownloadDB}
+          settings={settings}
+          onUpdateSettings={handleUpdateFullSettings}
         />
       );
     }
@@ -595,8 +661,6 @@ export default function App() {
           matches={matches} 
           predictions={predictions} 
           currentUser={currentUser} 
-          onSaveBatchPredictions={handleSaveBatchPredictions}
-          onSyncFifa={handleSyncFifa}
           onTriggerAuth={() => setCurrentTab('login')}
         />
       );
@@ -748,6 +812,41 @@ export default function App() {
 
       {/* Main Containers */}
       <main className="max-w-7xl mx-auto px-4 pt-6 space-y-6">
+        
+        {/* FIFA Simulated Tournament Virtual Clock Banner */}
+        {settings?.syncMode === 'simulation' && (
+          <div className="bg-emerald-950/25 border border-emerald-500/15 rounded-2xl px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between text-right gap-4">
+            <div className="flex items-center gap-2.5 self-start sm:self-center">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <div>
+                <p className="text-xs font-black text-emerald-400 flex items-center gap-2">
+                  <span>🚀 به روز رسانی خودکار زنده فیفا (FIFA Live-Sync)</span>
+                  {settings?.isFastForwarding && <span className="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-md font-sans font-black animate-pulse">شبیه‌سازی مداوم ⏩</span>}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">مسابقات در زمان واقعی اجرا و امتیاز پیش‌بینی‌ها فوراً محاسبه می‌شوند.</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 self-end sm:self-center bg-slate-950/40 p-1.5 sm:p-2 rounded-xl border border-slate-800/60 font-sans">
+               <span className="text-[11px] text-slate-400 px-2">تقویم مسابقات:</span>
+               <span className="text-xs font-black text-white bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg select-none">
+                 {new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z').toLocaleDateString('fa-IR', {
+                   weekday: 'long',
+                   month: 'long',
+                   day: 'numeric'
+                 })}
+                 {" ساعت "}
+                 {new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z').toLocaleTimeString('fa-IR', {
+                   hour: 'numeric',
+                   minute: 'numeric'
+                 })}
+               </span>
+            </div>
+          </div>
+        )}
         
         {/* Top Predictors mini board (beneath the main menu) */}
         {currentTab !== 'login' && leaderboard.length > 0 && (
