@@ -1,10 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
+import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { createServer as createViteServer } from 'vite';
 import { loadDB, saveDB, recalculateAllScores, resolveMatchesWithStandings, runFifaLiveSync } from './server/db';
-import { User, UserRole, Match, MatchStatus, Prediction, LeaderboardEntry } from './src/types';
+import { User, UserRole, Match, MatchStatus, Prediction, LeaderboardEntry, Team, MatchStage } from './src/types';
 import { GoogleGenAI } from '@google/genai';
 
 const app = express();
@@ -898,13 +899,189 @@ app.post('/api/admin/recalculate', authenticateToken, requireAdmin, (req: Authen
   }
 });
 
-// GET /api/admin/download-db (Admin only - download db.json)
+// GET /api/admin/download-db (Admin only - download db.json from SQLite)
 app.get('/api/admin/download-db', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
   try {
-    const dbPath = path.join(process.cwd(), 'db.json');
-    res.download(dbPath, 'database.json');
+    const db = loadDB();
+    const tempBackupPath = path.join(process.cwd(), 'db_backup.json');
+    fs.writeFileSync(tempBackupPath, JSON.stringify(db, null, 2), 'utf-8');
+    res.download(tempBackupPath, 'database.json', () => {
+      try {
+        fs.unlinkSync(tempBackupPath);
+      } catch (e) {}
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to download database.' });
+  }
+});
+
+// POST /api/admin/import-db (Admin only - upload / import backup db.json)
+app.post('/api/admin/import-db', express.json({ limit: '50mb' }), authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const data = req.body;
+    if (!data || !Array.isArray(data.users) || !Array.isArray(data.teams) || !Array.isArray(data.matches) || !Array.isArray(data.predictions) || !data.passwords) {
+      res.status(400).json({ error: 'فرمت بکاپ ارسالی نامعتبر است. ساختار دیتابیس صحیح نیست.' });
+      return;
+    }
+    
+    saveDB(data);
+    recalculateAllScores();
+    res.json({ message: 'پایگاه داده با موفقیت بازگردانی کامل شد و تمام امتیازات مجددا محاسبه گردید!' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'خطا در بازخوانی بکاپ دیتابیس' });
+  }
+});
+
+// Helper functions for CSV export
+function escapeCSV(val: any): string {
+  if (val === null || val === undefined) return '""';
+  let str = String(val).replace(/"/g, '""');
+  if (str.startsWith('=') || str.startsWith('+') || str.startsWith('-') || str.startsWith('@')) {
+    str = ' ' + str;
+  }
+  return `"${str}"`;
+}
+
+function getTeamNameLocal(teamId: string, teams: Team[]): string {
+  if (!teamId) return 'نامشخص';
+  if (teamId.startsWith('TBD_')) {
+    const groupMatch = teamId.match(/^TBD_([123])([A-L])$/);
+    if (groupMatch) {
+      const position = groupMatch[1];
+      const groupLetter = groupMatch[2];
+      const posWords: Record<string, string> = { '1': 'اول', '2': 'دوم', '3': 'سوم' };
+      return `تیم ${posWords[position] || position} گروه ${groupLetter}`;
+    }
+    if (teamId.includes('3')) {
+      const clean = teamId.replace('TBD_3', '').replace('_1', '');
+      return `بهترین رده‌سوم ${clean.split('').join('/')}`;
+    }
+    const wmMatch = teamId.match(/^TBD_WM(\d+)$/);
+    if (wmMatch) return `برنده بازی ${wmMatch[1]}`;
+    const lmMatch = teamId.match(/^TBD_LM(\d+)$/);
+    if (lmMatch) return `بازنده بازی ${lmMatch[1]}`;
+    return `تیم نامشخص (${teamId.replace('TBD_', '')})`;
+  }
+  const team = teams.find(t => t.id === teamId);
+  return team ? team.name : teamId;
+}
+
+// GET /api/predictions/export-excel (Download predictions report for all users)
+app.get('/api/predictions/export-excel', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db = loadDB();
+    
+    // Process and sort users exactly by their leaderboard ranking logic
+    const scoringUsers = db.users.filter(u => u.role !== UserRole.ADMIN);
+    
+    const entries = scoringUsers.map(user => {
+      const userPreds = db.predictions.filter(p => p.userId === user.id);
+      let exact = 0;
+      let diff = 0;
+      let winner = 0;
+      let playedCount = 0;
+
+      for (const pred of userPreds) {
+        const match = db.matches.find(m => m.id === pred.matchId);
+        if (match && match.status === MatchStatus.FINISHED && match.homeScore !== null && match.awayScore !== null) {
+          playedCount++;
+          if (pred.points === 10) exact++;
+          else if (pred.points === 7) diff++;
+          else if (pred.points === 5) winner++;
+        }
+      }
+
+      return {
+        ...user,
+        exact,
+        diff,
+        winner,
+        playedCount,
+        totalScore: user.totalScore
+      };
+    });
+
+    // Sort using tiebreaker matrix
+    entries.sort((a, b) => {
+      if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+      if (b.exact !== a.exact) return b.exact - a.exact;
+      const aCorrect = a.exact + a.diff + a.winner;
+      const bCorrect = b.exact + b.diff + b.winner;
+      if (bCorrect !== aCorrect) return bCorrect - aCorrect;
+      if (a.playedCount !== b.playedCount) return a.playedCount - b.playedCount;
+      return a.username.localeCompare(b.username);
+    });
+
+    const resolvedMatches = resolveMatchesWithStandings(db.matches);
+
+    // Build CSV header row
+    const headers = [
+      'رتبه',
+      'نام و نام خانوادگی',
+      'شماره همراه (نام کاربری)',
+      'امتیاز کل',
+      'پیش‌بینی‌های کاملاً دقیق (۱۰ امتیاز)',
+      'پیش‌بینی تفاضل گل صحیح (۷ امتیاز)',
+      'پیش‌بینی برنده صحیح (۵ امتیاز)',
+      'کل پیش‌بینی‌های خاتمه‌یافته'
+    ];
+
+    // Append a column header for each match
+    resolvedMatches.forEach((m) => {
+      const matchNum = m.id.replace('m', '');
+      const homeName = getTeamNameLocal(m.homeTeamId, db.teams);
+      const awayName = getTeamNameLocal(m.awayTeamId, db.teams);
+      let stageName = m.stage === MatchStage.GROUP ? ' گروهی' : '';
+      if (m.stage === MatchStage.ROUND_OF_32) stageName = ' یک ۳۲';
+      if (m.stage === MatchStage.ROUND_OF_16) stageName = ' یک ۱۶';
+      if (m.stage === MatchStage.QUARTER_FINALS) stageName = ' یک ۴';
+      if (m.stage === MatchStage.SEMI_FINALS) stageName = ' نیمه‌نهایی';
+      if (m.stage === MatchStage.THIRD_PLACE) stageName = ' رده‌بندی';
+      if (m.stage === MatchStage.FINAL) stageName = ' فینال';
+
+      headers.push(`بازی ${matchNum} (${homeName} - ${awayName})${stageName}`);
+    });
+
+    const rows: string[][] = [headers];
+
+    entries.forEach((user, index) => {
+      const row = [
+        String(index + 1),
+        user.fullName,
+        user.username,
+        String(user.totalScore),
+        String(user.exact),
+        String(user.diff),
+        String(user.winner),
+        String(user.playedCount)
+      ];
+
+      // Add prediction details for each match
+      resolvedMatches.forEach((m) => {
+        const pred = db.predictions.find(p => p.userId === user.id && p.matchId === m.id);
+        if (pred) {
+          // If match is finished, display points scored
+          let text = `${pred.predictedHome} - ${pred.predictedAway}`;
+          if (pred.points !== null) {
+            text += ` (${pred.points}+ امتیاز)`;
+          }
+          row.push(text);
+        } else {
+          row.push('ثبت نشده');
+        }
+      });
+
+      rows.push(row);
+    });
+
+    const csvContent = rows.map(r => r.map(escapeCSV).join(',')).join('\r\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=worldcup_predictions_report.csv');
+    res.write('\uFEFF'); // UTF-8 BOM
+    res.end(csvContent);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Error exporting report.' });
   }
 });
 

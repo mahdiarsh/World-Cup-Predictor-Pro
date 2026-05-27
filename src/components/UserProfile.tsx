@@ -319,8 +319,8 @@ export default function UserProfile({
     return match && match.status === MatchStatus.FINISHED;
   });
 
-  const exactHitsCount = finishedPredictions.filter(p => p.points === 3).length;
-  const winnerHitsCount = finishedPredictions.filter(p => p.points === 1).length;
+  const exactHitsCount = finishedPredictions.filter(p => p.points === 10).length;
+  const winnerHitsCount = finishedPredictions.filter(p => p.points === 7 || p.points === 5).length;
   const totalProcessedMatchesCount = finishedPredictions.length;
 
   const exactRate = totalProcessedMatchesCount > 0 
@@ -1127,7 +1127,7 @@ export default function UserProfile({
         {/* Exact guess points */}
         <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-850 shadow-md">
           <div className="flex items-center justify-between text-slate-400 pb-2">
-            <span className="text-xs font-semibold">پیش‌بینی‌های دقیق (۳+ امتیاز)</span>
+            <span className="text-xs font-semibold">پیش‌بینی‌های دقیق (۱۰+ امتیاز)</span>
             <Flame className="h-4.5 w-4.5 text-amber-400" />
           </div>
           <p className="text-2xl font-black text-white font-sans">{exactHitsCount}</p>
@@ -1137,11 +1137,11 @@ export default function UserProfile({
         {/* Winner correct guesses */}
         <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-850 shadow-md">
           <div className="flex items-center justify-between text-slate-400 pb-2">
-            <span className="text-xs font-semibold">تفاضل/برنده صحیح (۱+ امتیاز)</span>
+            <span className="text-xs font-semibold">تفاضل/برنده صحیح (۵+ یا ۷+ امتیاز)</span>
             <CheckCircle className="h-4.5 w-4.5 text-emerald-400" />
           </div>
           <p className="text-2xl font-black text-white font-sans">{winnerHitsCount}</p>
-          <p className="text-[10px] text-slate-500">حدس درست تیم برنده یا تساوی دو تیم</p>
+          <p className="text-[10px] text-slate-500">حدس درست تیم برنده یا تفاضل گل صحیح</p>
         </div>
 
         {/* Accuracy Rate */}
@@ -1230,13 +1230,15 @@ export default function UserProfile({
                         <div className="text-right">
                           <span className="block text-[9px] text-slate-500 uppercase tracking-widest">امتیاز کسب شده</span>
                           <span className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-md ${
-                            pred.points === 3 
+                            pred.points === 10 
                               ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' 
-                              : pred.points === 1 
+                              : pred.points === 7 
+                              ? 'bg-blue-500/15 text-blue-400 border border-blue-500/25' 
+                              : pred.points === 5 
                               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
                               : 'bg-slate-800 text-slate-500 border border-slate-800'
                           }`}>
-                            {pred.points === 3 ? '۳+ امتیاز' : pred.points === 1 ? '۱+ امتیاز' : '۰ امتیاز'}
+                            {pred.points === 10 ? '۱۰+ امتیاز (کامل) ⭐' : pred.points === 7 ? '۷+ امتیاز (تفاضل) 🔥' : pred.points === 5 ? '۵+ امتیاز (برنده) 👍' : '۰ امتیاز ❌'}
                           </span>
                         </div>
                       ) : (

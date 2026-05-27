@@ -556,6 +556,32 @@ export default function App() {
     return false;
   };
 
+  const handleExportExcel = async (): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/predictions/export-excel', {
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'worldcup_predictions_report.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        return true;
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'خطا در خروجی گرفتن اکسل');
+      }
+    } catch (err) {
+      console.error('Export excel report failed', err);
+    }
+    return false;
+  };
+
   const handleDownloadDB = async (): Promise<boolean> => {
     try {
       const res = await fetch('/api/admin/download-db', {
@@ -575,6 +601,37 @@ export default function App() {
       }
     } catch (err) {
       console.error('Download database failed', err);
+    }
+    return false;
+  };
+
+  const handleUploadDB = async (dbContent: any): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/admin/import-db', {
+        method: 'POST',
+        headers: {
+          ...getHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dbContent)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(data.message || 'پایگاه داده با موفقیت بازگردانی کامل شد!');
+        fetchMatches();
+        fetchMyPredictions();
+        fetchLeaderboard();
+        if (currentUser?.role === UserRole.ADMIN) {
+          fetchAdminUsers();
+        }
+        return true;
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'خطا در بارگذاری نسخه پشتیبان پی دیتابیس');
+      }
+    } catch (err) {
+      console.error('Import database failed', err);
+      alert('خطای اتصال در آپلود فایل نسخه پشتیبان.');
     }
     return false;
   };
@@ -613,6 +670,7 @@ export default function App() {
         <LeaderboardTable 
           entries={leaderboard} 
           currentUser={currentUser} 
+          onExportExcel={handleExportExcel}
         />
       );
     }
@@ -649,6 +707,8 @@ export default function App() {
           registrationEnabled={settings.registrationEnabled}
           onToggleRegistration={handleUpdateSettings}
           onDownloadDB={handleDownloadDB}
+          onUploadDB={handleUploadDB}
+          onExportExcel={handleExportExcel}
           settings={settings}
           onUpdateSettings={handleUpdateFullSettings}
         />

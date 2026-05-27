@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Trophy, Search, ChevronLeft, ChevronRight, Award, Flame } from 'lucide-react';
+import { Trophy, Search, ChevronLeft, ChevronRight, Award, Flame, Download } from 'lucide-react';
 import { LeaderboardEntry, User } from '../types';
 import Avatar from './Avatar';
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
   currentUser: User | null;
+  onExportExcel?: () => Promise<boolean>;
 }
 
-export default function LeaderboardTable({ entries, currentUser }: LeaderboardTableProps) {
+export default function LeaderboardTable({ entries, currentUser, onExportExcel }: LeaderboardTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
   const itemsPerPage = 8;
 
   // Filter based on search term
@@ -43,8 +45,7 @@ export default function LeaderboardTable({ entries, currentUser }: LeaderboardTa
           جدول رده‌بندی <span className="text-emerald-400">کاربران</span>
         </h2>
         <p className="text-slate-400 text-sm">
-          امتیاز رقابت‌های خود را بررسی و دنبال کنید. برای پیش‌بینی‌های دقیق <span className="text-emerald-400 font-semibold">+۳ امتیاز</span> و برای حدس برنده درست
-          <span className="text-emerald-400 font-semibold font-sans"> +۱ امتیاز</span> دریافت می‌کنید. اولویت رتبه‌بندی با تعداد حدس‌های دقیق بیشتر است!
+          امتیاز رقابت‌های خود را دنبال کنید. پیش‌بینی دقیق نتیجه <span className="text-amber-400 font-bold font-sans">۱۰ امتیاز</span>، حدس صحیح برنده با تفاضل گل صحیح <span className="text-blue-400 font-bold font-sans">۷ امتیاز</span> و حدس صحیح برنده یا مساوی <span className="text-emerald-400 font-bold font-sans">۵ امتیاز</span> به همراه دارد!
         </p>
       </div>
 
@@ -118,7 +119,7 @@ export default function LeaderboardTable({ entries, currentUser }: LeaderboardTa
       )}
 
       {/* Control Bar: Search and Filters */}
-      <div className="max-w-4xl mx-auto flex items-center bg-slate-900/40 p-3 rounded-xl border border-slate-800" dir="rtl">
+      <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-900/40 p-3 rounded-xl border border-slate-800" dir="rtl">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
@@ -129,6 +130,19 @@ export default function LeaderboardTable({ entries, currentUser }: LeaderboardTa
             className="w-full bg-slate-950/60 border border-slate-800 rounded-lg pr-10 pl-4 py-2 text-sm text-slate-200 placeholder-slate-500 text-right focus:outline-none focus:border-emerald-500"
           />
         </div>
+        {onExportExcel && (
+          <button
+            onClick={() => {
+              setIsExporting(true);
+              onExportExcel().finally(() => setIsExporting(false));
+            }}
+            disabled={isExporting}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-50 text-slate-950 font-extrabold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.15)] select-none shrink-0"
+          >
+            <Download className="h-4 w-4" />
+            <span>{isExporting ? 'در حال خروجی گرفتن...' : 'خروجی اکسل پیش‌بینی‌ها'}</span>
+          </button>
+        )}
       </div>
 
       {/* Competitor Table */}
@@ -203,7 +217,7 @@ export default function LeaderboardTable({ entries, currentUser }: LeaderboardTa
                         </span>
                       </td>
 
-                      {/* Perfect predictions count (+3) */}
+                      {/* Perfect predictions count (+10) */}
                       <td className="px-6 py-4 text-center hidden md:table-cell">
                         <span className="font-mono text-sm inline-flex items-center gap-1 text-amber-400 px-2 py-0.5 rounded-md bg-amber-500/5 border border-amber-500/10">
                           <Flame className="h-3.5 w-3.5" />
@@ -211,7 +225,7 @@ export default function LeaderboardTable({ entries, currentUser }: LeaderboardTa
                         </span>
                       </td>
 
-                      {/* Winner correct guesses count (+1) */}
+                      {/* Winner correct guesses count (+5 or +7) */}
                       <td className="px-6 py-4 text-center hidden md:table-cell font-mono text-sm text-slate-400">
                         {user.correctPredictions - user.exactPredictions}
                       </td>

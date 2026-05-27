@@ -192,14 +192,16 @@ export default function FeaturedMatchCard({
                   {prediction.predictedHome} - {prediction.predictedAway}
                 </span>
                 {prediction.points !== null && prediction.points !== undefined && match.status === MatchStatus.FINISHED && (
-                  <span className={`ml-1 px-1 rounded text-[8px] font-black font-sans ${
-                    prediction.points === 3 
-                      ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/20' 
-                      : prediction.points === 1 
-                        ? 'bg-amber-950/80 text-amber-400 border border-amber-505/20' 
-                        : 'bg-slate-900 text-slate-500 border border-slate-805'
+                  <span className={`ml-1 px-1.5 py-0.5 rounded text-[8px] font-black font-sans ${
+                    prediction.points === 10 
+                      ? 'bg-amber-950 text-amber-400 border border-amber-500/25' 
+                      : prediction.points === 7 
+                      ? 'bg-blue-950 text-blue-400 border border-blue-500/25' 
+                      : prediction.points === 5 
+                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/25' 
+                      : 'bg-slate-900 text-slate-500 border border-slate-800'
                   }`}>
-                    {prediction.points === 3 ? '+۳ امتیاز' : prediction.points === 1 ? '+۱ امتیاز' : '۰ امتیاز'}
+                    {prediction.points === 10 ? '+۱۰ امتیاز' : prediction.points === 7 ? '+۷ امتیاز' : prediction.points === 5 ? '+۵ امتیاز' : '۰ امتیاز'}
                   </span>
                 )}
               </div>

@@ -25,6 +25,8 @@ interface AdminPanelProps {
   registrationEnabled?: boolean;
   onToggleRegistration?: (enabled: boolean) => Promise<boolean>;
   onDownloadDB?: () => Promise<boolean>;
+  onUploadDB?: (dbContent: any) => Promise<boolean>;
+  onExportExcel?: () => Promise<boolean>;
   settings?: any;
   onUpdateSettings?: (updates: any) => Promise<boolean>;
 }
@@ -46,6 +48,8 @@ export default function AdminPanel({
   registrationEnabled = true,
   onToggleRegistration,
   onDownloadDB,
+  onUploadDB,
+  onExportExcel,
   settings = {},
   onUpdateSettings
 }: AdminPanelProps) {
@@ -56,6 +60,7 @@ export default function AdminPanel({
   const [statusErr, setStatusErr] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleDownloadDatabase = async () => {
     if (!onDownloadDB) return;
@@ -817,7 +822,7 @@ export default function AdminPanel({
             <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/60 p-5 rounded-xl border border-slate-800 justify-between">
               <div className="space-y-1 text-right">
                 <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-blue-950/40 text-blue-400 rounded-md font-sans border border-blue-500/10">نسخه پشتیبان سیستم</span>
-                <p className="font-extrabold text-slate-200 text-sm">بارگیری مستقیم فایل پایگاه داده (db.json)</p>
+                <p className="font-extrabold text-slate-200 text-sm">بارگیری مستقیم فایل پشتیبان پایگاه داده (JSON)</p>
                 <p className="text-slate-500 text-xs text-right">دانلود نسخه پشتیبان آنلاین کل پروژه شامل لیست کاربران، گذرواژه‌ها و پاسخ‌های ارسالی.</p>
               </div>
               
@@ -828,6 +833,72 @@ export default function AdminPanel({
               >
                 <Download className={`h-4.5 w-4.5 ${isDownloading ? 'animate-spin' : ''}`} />
                 {isDownloading ? 'در حال بارگیری...' : 'دانلود فایل دیتابیس (JSON)'}
+              </button>
+            </div>
+          )}
+
+          {/* Database Backup Upload/Import Card */}
+          {onUploadDB && (
+            <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/60 p-5 rounded-xl border border-slate-800 justify-between">
+              <div className="space-y-1 text-right">
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-violet-950/40 text-violet-400 rounded-md font-sans border border-violet-500/10">بارگذاری کل دیتابیس</span>
+                <p className="font-extrabold text-slate-200 text-sm">بارگذاری فایل بکاپ پایگاه داده (JSON)</p>
+                <p className="text-slate-500 text-xs text-right">فایل دیتابیس پشتیبان را انتخاب کنید تا کل اطلاعات سایت با اطلاعات قبلی جایگزین و همگام‌ساز شوند.</p>
+              </div>
+              
+              <div className="relative shrink-0">
+                <input
+                  type="file"
+                  id="db-backup-file-input"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                      try {
+                        const parsed = JSON.parse(event.target?.result as string);
+                        if (window.confirm("هشدار جدی: آیا از جایگذاری کامل دیتابیس و پاک شدن اطلاعات فعلی مطمئن هستید؟")) {
+                          await onUploadDB(parsed);
+                        }
+                      } catch (err) {
+                        alert("خطا در خواندن فایل JSON. مطمئن شوید فایل دیتابیس معتبر است.");
+                      }
+                    };
+                    reader.readAsText(file);
+                  }}
+                />
+                <label
+                  htmlFor="db-backup-file-input"
+                  className="cursor-pointer px-6 py-2.5 bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 text-slate-950 font-extrabold text-xs tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2 font-sans hover:scale-[1.02] select-none"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  <span>بارگذاری و بازگردانی دیتابیس (JSON)</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Export Predictions Excel Card */}
+          {onExportExcel && (
+            <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/60 p-5 rounded-xl border border-slate-800 justify-between">
+              <div className="space-y-1 text-right">
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-emerald-950/40 text-emerald-400 rounded-md font-sans border border-emerald-500/10">گزارش‌های مسابقات</span>
+                <p className="font-extrabold text-slate-200 text-sm">دانلود اکسل پیش‌بینی کل رخدادها</p>
+                <p className="text-slate-500 text-xs text-right">یک خروجی تمیز با فرمت CSV شامل اطلاعات کامل پیش‌بینی‌ها، امتیازات کسب شده و پاسخ هر کاربر دریافت کنید.</p>
+              </div>
+              
+              <button
+                onClick={() => {
+                  setIsExporting(true);
+                  onExportExcel().finally(() => setIsExporting(false));
+                }}
+                disabled={isExporting}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-45 disabled:pointer-events-none text-slate-950 font-extrabold text-xs tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 font-sans select-none shrink-0"
+              >
+                <Download className="h-4 w-4" />
+                <span>{isExporting ? 'در حال خروجی گرفتن...' : 'دانلود خروجی پیش‌بینی‌ها (CSV)'}</span>
               </button>
             </div>
           )}

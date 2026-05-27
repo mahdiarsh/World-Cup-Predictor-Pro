@@ -424,11 +424,12 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
 
               {/* Point allocation rule banner */}
               <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1 text-right">
-                <p className="font-bold text-slate-300 flex items-center gap-1.5 font-sans"><CircleHelp className="h-3.5 w-3.5 text-emerald-400 animate-pulse" /> نحوه امتیازدهی:</p>
-                <ul className="list-disc list-inside space-y-0.5 text-slate-400 pr-1 font-sans">
-                  <li>اگر نتیجه نهایی را <span className="text-emerald-400 font-bold">کاملاً دقیق</span> پیش‌بینی کنید: <span className="text-emerald-400 font-bold font-sans">+۳ امتیاز</span></li>
-                  <li>اگر <span className="text-emerald-400 font-bold">برنده یا تساوی</span> را درست بگویید ولی گل‌ها دقیق نباشند: <span className="text-emerald-400 font-bold font-sans">+۱ امتیاز</span></li>
-                  <li>اگر پیش‌بینی شما <span className="text-rose-450 font-bold">اشتباه</span> باشد: <span className="text-slate-400 font-bold font-sans">۰ امتیاز</span></li>
+                <p className="font-bold text-slate-300 flex items-center gap-1.5 font-sans"><CircleHelp className="h-3.5 w-3.5 text-emerald-400 animate-pulse" /> نحوه امتیازدهی مسابقات:</p>
+                <ul className="list-disc list-inside space-y-1 text-slate-400 pr-1 font-sans">
+                  <li>اگر نتیجه را <span className="text-amber-400 font-bold">کاملاً دقیق</span> پیش‌بینی کنید: <span className="text-amber-400 font-extrabold font-sans">۱۰+ امتیاز</span></li>
+                  <li>تخمینی که <span className="text-blue-400 font-bold">تفاضل گل صحیح</span> به همراه برنده را درست حدس بزند: <span className="text-blue-400 font-extrabold font-sans">۷+ امتیاز</span></li>
+                  <li>اگر صرفاً <span className="text-emerald-400 font-bold">برنده یا تساوی</span> درست باشد اما تفاضل متفاوت باشد: <span className="text-emerald-400 font-extrabold font-sans">۵+ امتیاز</span></li>
+                  <li>اگر پیش‌بینی شما کاملاً <span className="text-rose-450 font-bold">اشتباه</span> باشد: <span className="text-slate-500 font-bold font-sans">۰ امتیاز</span></li>
                 </ul>
               </div>
 

@@ -1,20 +1,19 @@
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
+import Database from 'better-sqlite3';
 import { User, Team, Match, Prediction, UserRole, MatchStatus, LeaderboardEntry, MatchStage } from '../src/types';
 import { teamsSeed } from '../src/data/teams';
 import { matchesSeed } from '../src/data/matches';
-
-const DB_FILE = path.join(process.cwd(), 'db.json');
 
 export interface SystemSettings {
   registrationEnabled: boolean;
   syncMode?: 'simulation' | 'manual';
   simulatedTime?: string; // ISO date-time of the tournament clock, e.g., "2026-06-11T00:00:00Z"
-  isFastForwarding?: boolean; // If true, time automatically moves forward
+  isFastForwarding?: boolean; // If true, time automatically movies forward
 }
 
-interface DatabaseSchema {
+export interface DatabaseSchema {
   users: User[];
   teams: Team[];
   matches: Match[];
@@ -23,10 +22,77 @@ interface DatabaseSchema {
   settings: SystemSettings;
 }
 
-function getInitialDB(): DatabaseSchema {
-  // Hash passwords for seed users
-  const adminId = 'u-admin';
+// Initialize high-performance SQLite database connection
+const SQLITE_DB_FILE = path.join(process.cwd(), 'db.sqlite');
+const dbConn = new Database(SQLITE_DB_FILE);
 
+// Set pragmas for better durability & concurrent reads/writes
+dbConn.pragma('journal_mode = WAL');
+dbConn.pragma('synchronous = NORMAL');
+
+// Setup database tables schema
+dbConn.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    fullName TEXT,
+    role TEXT,
+    avatar TEXT,
+    totalScore INTEGER DEFAULT 0,
+    correctPredictions INTEGER DEFAULT 0,
+    exactPredictions INTEGER DEFAULT 0,
+    playedMatches INTEGER DEFAULT 0,
+    isDisabled INTEGER DEFAULT 0,
+    createdAt TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS passwords (
+    userId TEXT PRIMARY KEY,
+    passwordHash TEXT NOT NULL,
+    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS teams (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    shortCode TEXT,
+    logo TEXT,
+    groupName TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS matches (
+    id TEXT PRIMARY KEY,
+    homeTeamId TEXT,
+    awayTeamId TEXT,
+    stage TEXT,
+    stadium TEXT,
+    kickoffTimeUtc TEXT,
+    homeScore INTEGER,
+    awayScore INTEGER,
+    status TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS predictions (
+    id TEXT PRIMARY KEY,
+    userId TEXT,
+    matchId TEXT,
+    predictedHome INTEGER,
+    predictedAway INTEGER,
+    points INTEGER,
+    createdAt TEXT,
+    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY(matchId) REFERENCES matches(id) ON DELETE CASCADE,
+    UNIQUE(userId, matchId)
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+`);
+
+function getInitialDB(): DatabaseSchema {
+  const adminId = 'u-admin';
   const salt = bcrypt.genSaltSync(10);
   const passwords: Record<string, string> = {
     [adminId]: bcrypt.hashSync('admin', salt),
@@ -47,13 +113,11 @@ function getInitialDB(): DatabaseSchema {
     }
   ];
 
-  const predictions: Prediction[] = [];
-
   return {
     users,
     teams: teamsSeed,
     matches: matchesSeed,
-    predictions,
+    predictions: [],
     passwords,
     settings: {
       registrationEnabled: true
@@ -61,43 +125,231 @@ function getInitialDB(): DatabaseSchema {
   };
 }
 
-export function loadDB(): DatabaseSchema {
-  try {
-    if (fs.existsSync(DB_FILE)) {
-      const data = fs.readFileSync(DB_FILE, 'utf-8');
-      const parsed = JSON.parse(data);
-      // Verify validity of keys
-      if (parsed.users && parsed.teams && parsed.matches && parsed.predictions && parsed.passwords) {
-        // Automatically upgrade/reset if database is using the old 32-team 2022 layout, or t1 IDs
-        if (parsed.teams.length < 40 || parsed.teams.some((t: any) => t.id === 't1')) {
-          console.log('Detected deprecated 32-team dataset. Seeding new 104-match 48-team 2026 World Cup data...');
-          const initial = getInitialDB();
-          saveDB(initial);
-          return initial;
-        }
+function writeDBToSQLite(data: DatabaseSchema): void {
+  const transaction = dbConn.transaction(() => {
+    // Safely clear old records before saving the state block
+    dbConn.prepare('DELETE FROM predictions').run();
+    dbConn.prepare('DELETE FROM matches').run();
+    dbConn.prepare('DELETE FROM teams').run();
+    dbConn.prepare('DELETE FROM passwords').run();
+    dbConn.prepare('DELETE FROM users').run();
+    dbConn.prepare('DELETE FROM settings').run();
 
-        // Enforce settings presence if not yet existing (backward compatible upgrade)
-        if (!parsed.settings) {
-          parsed.settings = { registrationEnabled: true };
-          saveDB(parsed);
-        }
-        return parsed as DatabaseSchema;
+    // Insert users
+    const insertUser = dbConn.prepare(`
+      INSERT INTO users (id, username, fullName, role, avatar, totalScore, correctPredictions, exactPredictions, playedMatches, isDisabled, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    for (const u of data.users) {
+      insertUser.run(
+        u.id,
+        u.username,
+        u.fullName,
+        u.role,
+        u.avatar,
+        u.totalScore || 0,
+        u.correctPredictions || 0,
+        u.exactPredictions || 0,
+        u.playedMatches || 0,
+        u.isDisabled ? 1 : 0,
+        u.createdAt || new Date().toISOString()
+      );
+    }
+
+    // Insert passwords
+    const insertPassword = dbConn.prepare(`
+      INSERT INTO passwords (userId, passwordHash)
+      VALUES (?, ?)
+    `);
+    if (data.passwords) {
+      for (const [userId, hash] of Object.entries(data.passwords)) {
+        insertPassword.run(userId, hash);
       }
     }
-  } catch (err) {
-    console.error('Failed to load db.json, falling back to initial seed:', err);
-  }
 
+    // Insert teams
+    const insertTeam = dbConn.prepare(`
+      INSERT INTO teams (id, name, shortCode, logo, groupName)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const teamsToUse = data.teams && data.teams.length > 0 ? data.teams : teamsSeed;
+    for (const t of teamsToUse) {
+      insertTeam.run(t.id, t.name, t.shortCode, t.logo, t.groupName);
+    }
+
+    // Insert matches
+    const insertMatch = dbConn.prepare(`
+      INSERT INTO matches (id, homeTeamId, awayTeamId, stage, stadium, kickoffTimeUtc, homeScore, awayScore, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const matchesToUse = data.matches && data.matches.length > 0 ? data.matches : matchesSeed;
+    for (const m of matchesToUse) {
+      insertMatch.run(
+        m.id,
+        m.homeTeamId,
+        m.awayTeamId,
+        m.stage,
+        m.stadium,
+        m.kickoffTimeUtc,
+        m.homeScore,
+        m.awayScore,
+        m.status
+      );
+    }
+
+    // Insert predictions
+    const insertPrediction = dbConn.prepare(`
+      INSERT INTO predictions (id, userId, matchId, predictedHome, predictedAway, points, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    if (data.predictions) {
+      for (const p of data.predictions) {
+        insertPrediction.run(p.id, p.userId, p.matchId, p.predictedHome, p.predictedAway, p.points, p.createdAt);
+      }
+    }
+
+    // Insert settings
+    const insertSetting = dbConn.prepare(`
+      INSERT INTO settings (key, value)
+      VALUES (?, ?)
+    `);
+    if (data.settings) {
+      for (const [key, val] of Object.entries(data.settings)) {
+        insertSetting.run(key, typeof val === 'object' ? JSON.stringify(val) : String(val));
+      }
+    }
+  });
+
+  transaction();
+}
+
+function seedInitialData(): void {
   const initial = getInitialDB();
-  saveDB(initial);
-  return initial;
+  writeDBToSQLite(initial);
+}
+
+// Load or run automated background migrations from legacy db.json
+const userCountResult = dbConn.prepare('SELECT count(*) as count FROM users').get() as { count: number };
+if (userCountResult.count === 0) {
+  const legacyDbFile = path.join(process.cwd(), 'db.json');
+  if (fs.existsSync(legacyDbFile)) {
+    console.log('Migrating existing legacy db.json to SQLite db.sqlite file...');
+    try {
+      const data = fs.readFileSync(legacyDbFile, 'utf-8');
+      const parsed = JSON.parse(data);
+      writeDBToSQLite(parsed);
+      
+      // Rename legacy file to avoid double-migrations
+      try {
+        fs.renameSync(legacyDbFile, path.join(process.cwd(), 'db.json.old'));
+      } catch (e) {}
+    } catch (err) {
+      console.error('Failed to migrate legacy db.json, fallback seeding...', err);
+      seedInitialData();
+    }
+  } else {
+    seedInitialData();
+  }
+}
+
+export function loadDB(): DatabaseSchema {
+  try {
+    const usersRows = dbConn.prepare('SELECT * FROM users').all() as any[];
+    const passwordsRows = dbConn.prepare('SELECT * FROM passwords').all() as any[];
+    const teamsRows = dbConn.prepare('SELECT * FROM teams').all() as any[];
+    const matchesRows = dbConn.prepare('SELECT * FROM matches').all() as any[];
+    const predictionsRows = dbConn.prepare('SELECT * FROM predictions').all() as any[];
+    const settingsRows = dbConn.prepare('SELECT * FROM settings').all() as any[];
+
+    const users: User[] = usersRows.map(u => ({
+      id: u.id,
+      username: u.username,
+      fullName: u.fullName,
+      role: u.role as UserRole,
+      avatar: u.avatar,
+      totalScore: Number(u.totalScore != null ? u.totalScore : 0),
+      correctPredictions: Number(u.correctPredictions != null ? u.correctPredictions : 0),
+      exactPredictions: Number(u.exactPredictions != null ? u.exactPredictions : 0),
+      playedMatches: Number(u.playedMatches != null ? u.playedMatches : 0),
+      isDisabled: u.isDisabled === 1,
+      createdAt: u.createdAt
+    }));
+
+    const passwords: Record<string, string> = {};
+    for (const p of passwordsRows) {
+      passwords[p.userId] = p.passwordHash;
+    }
+
+    const teams: Team[] = teamsRows.map(t => ({
+      id: t.id,
+      name: t.name,
+      shortCode: t.shortCode,
+      logo: t.logo,
+      groupName: t.groupName
+    }));
+
+    const matches: Match[] = matchesRows.map(m => ({
+      id: m.id,
+      homeTeamId: m.homeTeamId,
+      awayTeamId: m.awayTeamId,
+      stage: m.stage as MatchStage,
+      stadium: m.stadium,
+      kickoffTimeUtc: m.kickoffTimeUtc,
+      homeScore: m.homeScore === null || m.homeScore === undefined ? null : Number(m.homeScore),
+      awayScore: m.awayScore === null || m.awayScore === undefined ? null : Number(m.awayScore),
+      status: m.status as MatchStatus
+    }));
+
+    const predictions: Prediction[] = predictionsRows.map(p => ({
+      id: p.id,
+      userId: p.userId,
+      matchId: p.matchId,
+      predictedHome: Number(p.predictedHome),
+      predictedAway: Number(p.predictedAway),
+      points: p.points === null || p.points === undefined ? null : Number(p.points),
+      createdAt: p.createdAt
+    }));
+
+    const settings: SystemSettings = { registrationEnabled: true };
+    for (const s of settingsRows) {
+      if (s.key === 'registrationEnabled') {
+        settings.registrationEnabled = s.value === 'true' || s.value === '1';
+      } else if (s.key === 'syncMode') {
+        settings.syncMode = s.value as any;
+      } else if (s.key === 'simulatedTime') {
+        settings.simulatedTime = s.value;
+      } else if (s.key === 'isFastForwarding') {
+        settings.isFastForwarding = s.value === 'true' || s.value === '1';
+      }
+    }
+
+    // Force automatic seed recovery if dataset is empty or invalid
+    if (teams.length < 40) {
+      console.log('Teams dataset appears invalid. Re-seeding...');
+      seedInitialData();
+      return loadDB();
+    }
+
+    return {
+      users,
+      teams,
+      matches,
+      predictions,
+      passwords,
+      settings
+    };
+  } catch (err) {
+    console.error('Failed to load DB from SQLite, fallback seeding...', err);
+    return getInitialDB();
+  }
 }
 
 export function saveDB(data: DatabaseSchema): void {
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    writeDBToSQLite(data);
   } catch (err) {
-    console.error('Failed to save database to filesystem:', err);
+    console.error('Failed to save DB to SQLite:', err);
   }
 }
 
