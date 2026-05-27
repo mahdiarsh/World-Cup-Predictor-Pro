@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
+import https from 'https';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { createServer as createViteServer } from 'vite';
@@ -11,6 +12,62 @@ import { GoogleGenAI } from '@google/genai';
 const app = express();
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'worldcup_secret_key_2026_dev_prod_643c';
+
+// Create local flags directory if not exists
+const FLAGS_DIR = path.join(process.cwd(), 'flags');
+if (!fs.existsSync(FLAGS_DIR)) {
+  fs.mkdirSync(FLAGS_DIR, { recursive: true });
+}
+
+// Serve flags statically from the local directory
+app.use('/flags', express.static(FLAGS_DIR));
+
+// Dynamic proxy endpoint to download flags on contrast / network failure and cache locally
+app.get('/flags/:code.png', (req: Request, res: Response) => {
+  try {
+    const code = req.params.code.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (!code) {
+      res.status(400).send('Invalid flag code');
+      return;
+    }
+
+    const filePath = path.join(FLAGS_DIR, `${code}.png`);
+
+    // If cached on disk, send it directly
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+      return;
+    }
+
+    // Otherwise, fetch from secure FlagCDN and write locally
+    const flagUrl = `https://flagcdn.com/w80/${code}.png`;
+    https.get(flagUrl, (apiRes) => {
+      if (apiRes.statusCode !== 200) {
+        res.status(404).send('Flag not found on remote CDN');
+        return;
+      }
+
+      const data: Buffer[] = [];
+      apiRes.on('data', (chunk) => data.push(chunk));
+      apiRes.on('end', () => {
+        const buffer = Buffer.concat(data);
+        try {
+          fs.writeFileSync(filePath, buffer);
+        } catch (e) {
+          console.error('Failed to write flag to disk:', e);
+        }
+        res.setHeader('Content-Type', 'image/png');
+        res.send(buffer);
+      });
+    }).on('error', (err) => {
+      console.error('Error fetching flag from CDN:', err);
+      res.status(502).send('Error proxying flag from source');
+    });
+  } catch (error) {
+    console.error('Flag proxy error:', error);
+    res.status(500).send('Internal flag server error');
+  }
+});
 
 // Body parsers
 app.use(express.json());

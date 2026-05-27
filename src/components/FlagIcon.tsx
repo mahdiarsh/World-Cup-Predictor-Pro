@@ -111,8 +111,8 @@ export default function FlagIcon({ teamIdOrCode, className = 'h-6 w-8', shadow =
   // Get fallback emoji flag
   const emojiFlag = getEmojiFlag(code);
 
-  // Use referrerPolicy="no-referrer" to prevent sandboxed headers blocking CDN rendering
-  const flagUrl = `https://flagcdn.com/w80/${code}.png`;
+  // Serves locally from our application server to bypass sandbox constraints and network block firewalls
+  const flagUrl = `/flags/${code}.png`;
 
   return (
     <img
