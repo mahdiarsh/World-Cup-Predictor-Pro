@@ -215,7 +215,7 @@ export default function QuickPredictor({
           </div>
           <div className="text-right">
             <p className="text-xs text-slate-400 font-bold">کل‌کل مستقیم و مقایسه زنده پیش‌بینی‌ها</p>
-            <p className="text-[10px] text-slate-500 font-normal">رقبای خود را انتخاب کنید تا جدول پیش‌بینی‌هایشان را در کنار خود مقایسه کنید (حداکثر ۵ نفر).</p>
+            <p className="text-[10px] text-slate-500 font-normal">رقبای خود را تک‌به‌تک انتخاب کنید یا با انتخاب گزینه «مقایسه همه کاربران»، همزمان همه را کنار هم بسنجید.</p>
           </div>
         </div>
 
@@ -225,6 +225,11 @@ export default function QuickPredictor({
             onChange={(e) => {
               const val = e.target.value;
               if (val) {
+                if (val === 'all_users') {
+                  const allIds = leaderboard.map(opp => opp.userId);
+                  setSelectedOpponentIds(allIds);
+                  return;
+                }
                 if (selectedOpponentIds.includes(val)) return;
                 if (selectedOpponentIds.length >= 5) {
                   alert('حداکثر امکان انتخاب ۵ رقیب همزمان وجود دارد.');
@@ -236,6 +241,9 @@ export default function QuickPredictor({
             className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs font-bold rounded-xl px-4 py-3 appearance-none focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all font-sans"
           >
             <option value="">-- افزودن رقیب برای مقایسه --</option>
+            {leaderboard.length > 0 && (
+              <option value="all_users" className="text-emerald-400 font-bold bg-slate-900">👥 مقایسه همه کاربران ({leaderboard.length} نفر)</option>
+            )}
             {leaderboard
               .filter((opp) => !selectedOpponentIds.includes(opp.userId))
               .map((opp) => (
@@ -352,7 +360,7 @@ export default function QuickPredictor({
                     key={opp.userId}
                     className="p-4 font-sans text-center text-amber-400 bg-amber-950/15 border-r border-slate-800"
                   >
-                    پیش‌بینی {opp.fullName.split(' ')[0]}
+                    پیش‌بینی {opp.fullName}
                   </th>
                 ))}
               </tr>

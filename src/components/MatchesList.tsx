@@ -10,9 +10,10 @@ interface MatchesListProps {
   currentUser: User | null;
   onSavePrediction: (matchId: string, home: number, away: number) => Promise<boolean>;
   onTriggerAuth: () => void;
+  onTeamClick?: (teamId: string) => void;
 }
 
-export default function MatchesList({ matches, predictions, currentUser, onSavePrediction, onTriggerAuth }: MatchesListProps) {
+export default function MatchesList({ matches, predictions, currentUser, onSavePrediction, onTriggerAuth, onTeamClick }: MatchesListProps) {
   const [selectedStage, setSelectedStage] = useState<string>('ALL');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [predId, setPredId] = useState<string | null>(null);
@@ -27,6 +28,16 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
     const timer = setInterval(() => setCurrentTime(Date.now()), 15000);
     return () => clearInterval(timer);
   }, []);
+
+  const getLiveMatchMinute = (m: Match, curTimeMs: number): string => {
+    const kickoff = new Date(m.kickoffTimeUtc).getTime();
+    const diff = Math.floor((curTimeMs - kickoff) / 60000);
+    if (diff < 0) return "۱'";
+    if (diff <= 45) return `${diff}'`;
+    if (diff <= 60) return "بین دو نیمه";
+    if (diff <= 105) return `${diff - 15}'`;
+    return "۹۰+'";
+  };
 
   // Set selected stage filters
   const stages = ['ALL', ...Object.values(MatchStage)];
@@ -205,16 +216,26 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                 <div className="grid grid-cols-3 items-center py-2">
                   
                   {/* Home Team */}
-                  <div className="text-center flex flex-col items-center space-y-1.5">
-                    <FlagIcon teamIdOrCode={match.homeTeamId} className="h-6 w-9 filter drop-shadow-sm group-hover:scale-105 transition-transform" />
+                  <div 
+                    onClick={() => {
+                      if (onTeamClick && !match.homeTeamId.startsWith('TBD_')) {
+                        onTeamClick(match.homeTeamId);
+                      }
+                    }}
+                    className={`text-center flex flex-col items-center space-y-1.5 ${
+                      onTeamClick && !match.homeTeamId.startsWith('TBD_') ? 'cursor-pointer hover:text-emerald-400 select-none group/team-home' : ''
+                    }`}
+                    title={onTeamClick && !match.homeTeamId.startsWith('TBD_') ? "مشاهده مشخصات و ترکیب تیم" : undefined}
+                  >
+                    <FlagIcon teamIdOrCode={match.homeTeamId} className="h-6 w-9 filter drop-shadow-sm group-hover/team-home:scale-110 transition-transform" />
                     <div>
-                      <span className="font-bold text-slate-100 block tracking-tight text-sm md:text-base">{homeName}</span>
-                      <span className="text-xs font-mono text-slate-500 font-medium">{homeCode}</span>
+                      <span className="font-bold text-slate-105 block tracking-tight text-xs sm:text-sm group-hover/team-home:text-emerald-400 transition-colors">{homeName}</span>
+                      <span className="text-[10px] font-mono text-slate-500 font-medium">{homeCode}</span>
                     </div>
                   </div>
 
                   {/* Mid-results or Kickoff Area */}
-                  <div className="text-center space-y-1">
+                  <div className="text-center space-y-1 bg-slate-900/10 p-1 rounded-xl">
                     {match.status === MatchStatus.FINISHED ? (
                       <div className="space-y-1.5">
                         <div className="inline-flex items-center gap-1 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800">
@@ -222,17 +243,22 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                           <span className="text-slate-600 font-bold">:</span>
                           <span className="text-2xl font-black text-white font-mono">{match.awayScore}</span>
                         </div>
-                        <span className="block text-[10px] text-slate-400 font-sans font-extrabold tracking-widest uppercase bg-emerald-900/10 border border-emerald-500/10 px-1.5 py-0.5 rounded-md text-emerald-400">پایان یافته</span>
+                        <span className="block text-[10px] text-slate-400 font-sans font-extrabold tracking-widest uppercase bg-emerald-900/10 border border-emerald-500/10 px-1.5 py-0.5 rounded-md text-emerald-400">پایان بازی</span>
                       </div>
                     ) : match.status === MatchStatus.LIVE ? (
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 animate-pulse">
                         <div className="inline-flex items-center gap-1 bg-red-950/40 px-3 py-1.5 rounded-lg border border-red-500/20">
                           <span className="text-2xl font-black text-red-500 font-mono">{match.homeScore}</span>
                           <span className="text-red-700 font-bold">:</span>
                           <span className="text-2xl font-black text-red-500 font-mono">{match.awayScore}</span>
                         </div>
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500 animate-ping"></span>
-                        <span className="block text-[10px] text-red-400 font-sans font-extrabold tracking-widest uppercase">زنده</span>
+                        <div className="flex items-center justify-center gap-1 text-[10px] text-red-400 font-sans font-bold">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
+                          </span>
+                          <span>دقیقه {getLiveMatchMinute(match, currentTime)}</span>
+                        </div>
                       </div>
                     ) : (
                       <div className="py-2">
@@ -243,11 +269,21 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                   </div>
 
                   {/* Away Team */}
-                  <div className="text-center flex flex-col items-center space-y-1.5">
-                    <FlagIcon teamIdOrCode={match.awayTeamId} className="h-6 w-9 filter drop-shadow-sm group-hover:scale-105 transition-transform" />
+                  <div 
+                    onClick={() => {
+                      if (onTeamClick && !match.awayTeamId.startsWith('TBD_')) {
+                        onTeamClick(match.awayTeamId);
+                      }
+                    }}
+                    className={`text-center flex flex-col items-center space-y-1.5 ${
+                      onTeamClick && !match.awayTeamId.startsWith('TBD_') ? 'cursor-pointer hover:text-emerald-400 select-none group/team-away' : ''
+                    }`}
+                    title={onTeamClick && !match.awayTeamId.startsWith('TBD_') ? "مشاهده مشخصات و ترکیب تیم" : undefined}
+                  >
+                    <FlagIcon teamIdOrCode={match.awayTeamId} className="h-6 w-9 filter drop-shadow-sm group-hover/team-away:scale-110 transition-transform" />
                     <div>
-                      <span className="font-bold text-slate-100 block tracking-tight text-sm md:text-base">{awayName}</span>
-                      <span className="text-xs font-mono text-slate-500 font-medium">{awayCode}</span>
+                      <span className="font-bold text-slate-105 block tracking-tight text-xs sm:text-sm group-hover/team-away:text-emerald-400 transition-colors">{awayName}</span>
+                      <span className="text-[10px] font-mono text-slate-500 font-medium">{awayCode}</span>
                     </div>
                   </div>
 

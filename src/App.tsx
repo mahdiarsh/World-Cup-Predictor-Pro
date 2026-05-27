@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Trophy, Award, Gamepad, Compass, Star, ArrowRight, ShieldAlert, BadgeCheck } from 'lucide-react';
 import { User, Match, Prediction, LeaderboardEntry, UserRole, MatchStatus } from './types';
-import { getTeamFlag, getTeamCode } from './data/teams';
+import { getTeamFlag, getTeamCode, teamsSeed } from './data/teams';
 import Navbar from './components/Navbar';
 import LeaderboardTable from './components/LeaderboardTable';
 import MatchesList from './components/MatchesList';
@@ -14,9 +14,11 @@ import FeaturedMatchCard from './components/FeaturedMatchCard';
 import Avatar from './components/Avatar';
 import FlagIcon from './components/FlagIcon';
 import LegendsList from './components/LegendsList';
+import TeamDetail from './components/TeamDetail';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('home');
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('wc_token'));
   const [settings, setSettings] = useState<{ registrationEnabled: boolean }>({ registrationEnabled: true });
@@ -655,6 +657,7 @@ export default function App() {
       return (
         <GroupStandings 
           matches={matches} 
+          onTeamClick={setSelectedTeamId}
         />
       );
     }
@@ -670,7 +673,7 @@ export default function App() {
         <LeaderboardTable 
           entries={leaderboard} 
           currentUser={currentUser} 
-          onExportExcel={handleExportExcel}
+          onExportExcel={currentUser?.role === 'admin' ? handleExportExcel : undefined}
         />
       );
     }
@@ -771,6 +774,8 @@ export default function App() {
                     currentUser={currentUser}
                     onSavePrediction={handleSavePrediction}
                     onTriggerAuth={() => setCurrentTab('login')}
+                    onTeamClick={setSelectedTeamId}
+                    settings={settings}
                   />
                 );
               })}
@@ -786,6 +791,7 @@ export default function App() {
             currentUser={currentUser} 
             onSavePrediction={handleSavePrediction} 
             onTriggerAuth={() => setCurrentTab('login')}
+            onTeamClick={setSelectedTeamId}
           />
         </div>
 
@@ -863,6 +869,7 @@ export default function App() {
       <Navbar 
         currentTab={currentTab} 
         setCurrentTab={(tab) => {
+          setSelectedTeamId(null);
           setCurrentTab(tab);
           fetchMatches();
           fetchLeaderboard();
@@ -968,7 +975,22 @@ export default function App() {
         )}
 
         {/* Active router views */}
-        {renderContent()}
+        {selectedTeamId ? (
+          <TeamDetail
+            teamId={selectedTeamId}
+            teams={teamsSeed}
+            matches={matches}
+            predictions={predictions}
+            currentUser={currentUser}
+            onBack={() => setSelectedTeamId(null)}
+            onSavePrediction={handleSavePrediction}
+            onTriggerAuth={() => setCurrentTab('login')}
+            onTeamClick={setSelectedTeamId}
+            settings={settings}
+          />
+        ) : (
+          renderContent()
+        )}
 
       </main>
 

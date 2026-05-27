@@ -7,6 +7,7 @@ import KnockoutBracket from './KnockoutBracket';
 
 interface GroupStandingsProps {
   matches: Match[];
+  onTeamClick?: (teamId: string) => void;
 }
 
 interface TeamStanding {
@@ -25,7 +26,7 @@ interface TeamStanding {
   pts: number;
 }
 
-export default function GroupStandings({ matches }: GroupStandingsProps) {
+export default function GroupStandings({ matches, onTeamClick }: GroupStandingsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSubTab, setActiveSubTab] = useState<'groups' | 'knockout'>('groups');
 
@@ -253,10 +254,14 @@ export default function GroupStandings({ matches }: GroupStandingsProps) {
                               </td>
 
                               {/* Team logo + Name */}
-                              <td className="py-2.5 pr-2 font-medium text-right">
+                              <td 
+                                onClick={() => onTeamClick?.(teamStats.teamId)}
+                                className="py-2.5 pr-2 font-medium text-right cursor-pointer hover:text-emerald-400 transition-colors select-none group/cell"
+                                title="مشاهده پروفایل و اعضای تیم"
+                              >
                                 <div className="flex items-center gap-2">
-                                  <FlagIcon teamIdOrCode={teamStats.teamId} className="h-4 w-6 rounded shadow-sm shrink-0" />
-                                  <span className="truncate max-w-[120px] sm:max-w-none text-slate-200">
+                                  <FlagIcon teamIdOrCode={teamStats.teamId} className="h-4 w-6 rounded shadow-sm shrink-0 group-hover/cell:scale-105 transition-transform" />
+                                  <span className="truncate max-w-[120px] sm:max-w-none text-slate-200 group-hover/cell:text-emerald-400 transition-colors">
                                     {teamStats.name}{' '}
                                     <span className="text-[10px] text-slate-500 font-mono">({teamStats.shortCode})</span>
                                   </span>
