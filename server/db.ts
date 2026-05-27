@@ -742,7 +742,7 @@ export function runFifaLiveSync(): void {
     db.settings = { registrationEnabled: true };
   }
   if (!db.settings.syncMode) {
-    db.settings.syncMode = 'simulation';
+    db.settings.syncMode = 'manual';
   }
   if (!db.settings.simulatedTime) {
     db.settings.simulatedTime = '2026-06-11T00:00:00Z';
@@ -822,4 +822,35 @@ export function runFifaLiveSync(): void {
   } else if (settings.isFastForwarding) {
     saveDB(db);
   }
+}
+
+export function resetTournament(): void {
+  const db = loadDB();
+  
+  // Clone initial matches
+  db.matches = matchesSeed.map(m => ({
+    ...m,
+    homeScore: null,
+    awayScore: null,
+    status: MatchStatus.SCHEDULED
+  }));
+  
+  // Reset predictions
+  for (const p of db.predictions) {
+    p.points = null;
+  }
+  
+  // Reset settings
+  db.settings = {
+    registrationEnabled: db.settings?.registrationEnabled !== false,
+    syncMode: 'manual',
+    simulatedTime: '2026-06-11T00:00:00Z',
+    isFastForwarding: false
+  };
+  
+  // Save database
+  saveDB(db);
+  
+  // Recalculate scores to reset leaderboard to 0
+  recalculateAllScores();
 }

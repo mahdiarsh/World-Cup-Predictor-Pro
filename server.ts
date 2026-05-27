@@ -4,7 +4,7 @@ import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { createServer as createViteServer } from 'vite';
-import { loadDB, saveDB, recalculateAllScores, resolveMatchesWithStandings, runFifaLiveSync } from './server/db';
+import { loadDB, saveDB, recalculateAllScores, resolveMatchesWithStandings, runFifaLiveSync, resetTournament } from './server/db';
 import { User, UserRole, Match, MatchStatus, Prediction, LeaderboardEntry, Team, MatchStage } from './src/types';
 import { GoogleGenAI } from '@google/genai';
 
@@ -894,6 +894,45 @@ app.post('/api/admin/recalculate', authenticateToken, requireAdmin, (req: Authen
   try {
     recalculateAllScores();
     res.json({ message: 'Score calculation engine successfully ran across all matches.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/reset-tournament (Resets all matches and predictions to clean slate)
+app.post('/api/admin/reset-tournament', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    resetTournament();
+    res.json({ message: 'تورنمنت با موفقیت به زمان آغازین و نتایج خام بازنشانی شد.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/stats (Retrieves detailed DB stats and status)
+app.get('/api/admin/stats', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db = loadDB();
+    const finishedMatchesCount = db.matches.filter(m => m.status === MatchStatus.FINISHED).length;
+    
+    // Check if better-sqlite-3 is natively supported
+    let dbEngine = 'JSON fallback (db.json)';
+    try {
+      require('better-sqlite3');
+      dbEngine = 'SQLite Engine (db.sqlite)';
+    } catch(e) {}
+
+    res.json({
+      dbEngine,
+      totalUsers: db.users.length,
+      totalPredictions: db.predictions.length,
+      totalMatches: db.matches.length,
+      finishedMatches: finishedMatchesCount,
+      syncMode: db.settings?.syncMode || 'manual',
+      simulatedTime: db.settings?.simulatedTime || '2026-06-11T00:00:00Z',
+      isFastForwarding: !!db.settings?.isFastForwarding,
+      registrationEnabled: db.settings?.registrationEnabled !== false
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

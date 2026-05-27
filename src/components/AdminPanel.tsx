@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Calendar, Trophy, Zap, Trash2, 
   UserX, UserCheck, Key, Plus, Edit2, Check, RefreshCw, Download
@@ -61,6 +61,66 @@ export default function AdminPanel({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  const [dbStats, setDbStats] = useState<any | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+
+  const fetchDbStats = async () => {
+    try {
+      setIsLoadingStats(true);
+      const tokenVal = localStorage.getItem('wc_token');
+      if (!tokenVal) return;
+      const res = await fetch('/api/admin/stats', {
+        headers: {
+          'Authorization': `Bearer ${tokenVal}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDbStats(data);
+      }
+    } catch (e) {
+      console.error('Failed to load database stats:', e);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'engine') {
+      fetchDbStats();
+    }
+  }, [activeTab]);
+
+  const handleResetTournament = async () => {
+    const isConfirmed = window.confirm('⚠️ توجه بسیار مهم ⚠️\nآیا واقعاً می‌خواهید کل تورنمنت را ریست کنید؟\n\nاین عمل باعث می‌شود:\n۱. تمام گل‌ها و نتایج ثبت شده مسابقات پاک شوند (به حالت برنامه‌ریزی‌شده برگردند).\n۲. تمام پیش‌بینی‌ها و امتیاز کاربران صفر (۰) شوند.\n۳. زمان فرضی سیستم به تاریخ افتتاحیه (۲۱ خرداد) بازگردد.\n۴. حالت همگام‌ساز خودکار به کنترل دستی ادمین تغییر کند تا خودتان بازی‌ها را شبیه‌سازی یا مدیریت کنید.\n\nآیا مطمئن هستید؟');
+    
+    if (!isConfirmed) return;
+    
+    try {
+      setIsRefreshing(true);
+      const tokenVal = localStorage.getItem('wc_token');
+      const res = await fetch('/api/admin/reset-tournament', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenVal}`
+        }
+      });
+      if (res.ok) {
+        triggerAlert('تورنمنت جام جهانی با موفقیت ریست شد! بازی‌ها به حالت آماده استفاده برگشتند.');
+        fetchDbStats();
+        if (onRecalculateScores) {
+          await onRecalculateScores();
+        }
+      } else {
+        triggerAlert('خطا در اجرای بازنشانی دیتابیس تورنمنت.', true);
+      }
+    } catch (e) {
+      triggerAlert('ارتباط با سرور برای بازنشانی برقرار نشد.', true);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleDownloadDatabase = async () => {
     if (!onDownloadDB) return;
@@ -631,6 +691,68 @@ export default function AdminPanel({
             <p className="text-slate-400 text-xs">
               پیکربندی کلیدی، باز یا بسته کردن مسدودیت ثبت نام کاربران عادی جدید و اجرای موتور پردازش امتیازها.
             </p>
+          </div>
+
+          {/* Database Stats Dashboard */}
+          <div className="bg-slate-950/80 p-5 rounded-xl border border-slate-850 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="text-right">
+                <h4 className="text-sm font-black text-amber-400">📊 اطلاعات پایگاه داده دیتابیس پروژه</h4>
+                <p className="text-[11px] text-slate-400 mt-1">ساختار ذخیره‌سازی، تعداد رکوردها و اطلاعات همگام‌ساز</p>
+              </div>
+              <button
+                onClick={fetchDbStats}
+                type="button"
+                className="p-1 px-2.5 bg-slate-900 hover:bg-slate-800 rounded-lg border border-slate-800 text-[10px] text-slate-400 active:scale-95 transition-all cursor-pointer"
+              >
+                🔄 بروزرسانی آمار
+              </button>
+            </div>
+
+            {isLoadingStats ? (
+              <div className="flex justify-center items-center py-6 text-xs text-slate-500 font-sans gap-2">
+                <RefreshCw className="h-4 w-4 animate-spin text-emerald-400" />
+                <span>در حال پرس و جو از سرور...</span>
+              </div>
+            ) : dbStats ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-1">
+                <div className="bg-slate-900 border border-slate-800/60 rounded-xl p-3 text-right">
+                  <p className="text-[10px] text-slate-500 font-sans">نوع ذخیره‌ساز فعال</p>
+                  <p className="text-xs font-black text-slate-205 mt-1 font-sans">{dbStats.dbEngine}</p>
+                </div>
+                <div className="bg-slate-900 border border-slate-800/60 rounded-xl p-3 text-right">
+                  <p className="text-[10px] text-slate-500 font-sans">کاربران ثبت‌نام شده</p>
+                  <p className="text-xs font-black text-emerald-400 mt-1 font-sans">{dbStats.totalUsers} کاربر</p>
+                </div>
+                <div className="bg-slate-900 border border-slate-800/60 rounded-xl p-3 text-right">
+                  <p className="text-[10px] text-slate-500 font-sans">پیش‌بینی‌های ثبت‌شده</p>
+                  <p className="text-xs font-black text-emerald-400 mt-1 font-sans">{dbStats.totalPredictions} عدد</p>
+                </div>
+                <div className="bg-slate-900 border border-slate-800/60 rounded-xl p-3 text-right">
+                  <p className="text-[10px] text-slate-500 font-sans">مسابقات پایان یافته</p>
+                  <p className="text-xs font-black text-amber-400 mt-1 font-sans">{dbStats.finishedMatches} از {dbStats.totalMatches}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-xs text-slate-600">آماری یافت نشد</div>
+            )}
+
+            <div className="border-t border-slate-800 pt-4 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="text-right">
+                <p className="font-extrabold text-red-400 text-xs">⚠️ بازنشانی مجدد (Reset) تورنمنت جهت تست شبیه‌سازی</p>
+                <p className="text-slate-500 text-[10px] mt-1 leading-relaxed">
+                  با کلیک بر روی دکمه زیر کل امتیازها، پیش‌بینی‌ها و نتایج بازی‌ها ریست شده و کلیه بازی‌ها آماده شبیه‌سازی گام‌به‌گام و تست شما می‌شوند.
+                </p>
+              </div>
+              
+              <button
+                type="button"
+                onClick={handleResetTournament}
+                className="px-5 py-2 w-full md:w-auto bg-red-600/20 text-red-400 hover:bg-red-650 hover:text-white font-extrabold text-xs tracking-wider rounded-xl transition-all border border-red-500/25 active:scale-95 cursor-pointer"
+              >
+                🔥 ریست و شروع مجدد تورنمنت
+              </button>
+            </div>
           </div>
 
           {/* Registration Lock Selector */}

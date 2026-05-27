@@ -875,7 +875,7 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 pt-6 space-y-6">
         
         {/* FIFA Simulated Tournament Virtual Clock Banner */}
-        {settings?.syncMode === 'simulation' && (
+        {currentTab === 'home' && settings?.syncMode === 'simulation' && (
           <div className="bg-emerald-950/25 border border-emerald-500/15 rounded-2xl px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between text-right gap-4">
             <div className="flex items-center gap-2.5 self-start sm:self-center">
               <span className="relative flex h-2.5 w-2.5">

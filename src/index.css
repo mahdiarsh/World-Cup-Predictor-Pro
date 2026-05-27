@@ -127,6 +127,38 @@ body, html, #root {
   box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.03) !important;
 }
 
+/* Enable high-quality, readable hover background changes in light mode override context */
+.hover\:bg-slate-800:hover {
+  background-color: #e2e8f0 !important;
+}
+.hover\:bg-slate-800\/80:hover {
+  background-color: rgba(226, 232, 240, 0.8) !important;
+}
+.hover\:bg-slate-805:hover, .hover\:bg-slate-810:hover {
+  background-color: #cbd5e1 !important;
+}
+.hover\:bg-slate-850:hover {
+  background-color: #f1f5f9 !important;
+}
+.hover\:bg-slate-900:hover {
+  background-color: #f8fafc !important;
+}
+.hover\:bg-slate-900\/20:hover {
+  background-color: rgba(241, 245, 249, 0.6) !important;
+}
+.hover\:bg-slate-950\/20:hover {
+  background-color: rgba(241, 245, 249, 0.7) !important;
+}
+.hover\:bg-slate-950\/80:hover {
+  background-color: #cbd5e1 !important;
+}
+.hover\:bg-slate-950:hover {
+  background-color: #f8fafc !important;
+}
+.hover\:bg-slate-900\/50:hover {
+  background-color: #f1f5f9 !important;
+}
+
 /* Force standard dark colors on borders */
 .border-slate-800, 
 .border-slate-850, 
@@ -137,6 +169,11 @@ body, html, #root {
 /* Redefining text-white classes contextually to make them readable on light bg */
 .text-white:not(button):not(span.text-xs):not(h1.text-amber-400 *):not(p.text-xs *):not(.bg-emerald-600 *):not(.bg-emerald-500 *):not(.bg-rose-600 *):not(.bg-gradient-to-r *):not(.bg-amber-400 *):not(.bg-violet-600 *) {
   color: #0f172a !important;
+}
+
+/* Redefining hover:text-white contextually to prevent text disappearing on light background hovers */
+.hover\:text-white:hover:not(.bg-emerald-600 *):not(.bg-emerald-500 *):not(.bg-rose-650 *):not(.bg-rose-600 *):not(.bg-rose-500 *):not(.bg-rose-450 *):not(.bg-red-650 *):not(.bg-red-600 *):not(.bg-red-500 *):not(.bg-gradient-to-r *):not(.bg-gradient-to-l *):not(button.bg-emerald-600):not(button.bg-emerald-500):not(button.bg-rose-600):not(button.bg-rose-500):not(button.bg-red-600):not(button.bg-red-500):not(.text-white) {
+  color: #0d121f !important;
 }
 
 /* Specific enhancements for input elements */
