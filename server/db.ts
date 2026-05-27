@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
-import Database from 'better-sqlite3';
 import { User, Team, Match, Prediction, UserRole, MatchStatus, LeaderboardEntry, MatchStage } from '../src/types';
 import { teamsSeed } from '../src/data/teams';
 import { matchesSeed } from '../src/data/matches';
@@ -22,74 +21,89 @@ export interface DatabaseSchema {
   settings: SystemSettings;
 }
 
-// Initialize high-performance SQLite database connection
-const SQLITE_DB_FILE = path.join(process.cwd(), 'db.sqlite');
-const dbConn = new Database(SQLITE_DB_FILE);
+// Global state controllers for SQLite Engine
+let dbConn: any = null;
+let isSqliteAvailable = false;
+const DB_JSON_FILE = path.join(process.cwd(), 'db.json');
+let memoryDBCache: DatabaseSchema | null = null;
 
-// Set pragmas for better durability & concurrent reads/writes
-dbConn.pragma('journal_mode = WAL');
-dbConn.pragma('synchronous = NORMAL');
+try {
+  // Try to dynamically load better-sqlite3 to remain resilient across VM environments where native bindings are built/rebuilt
+  const Database = require('better-sqlite3');
+  const SQLITE_DB_FILE = path.join(process.cwd(), 'db.sqlite');
+  dbConn = new Database(SQLITE_DB_FILE);
+  
+  // Set pragmas for better durability & concurrent reads/writes
+  dbConn.pragma('journal_mode = WAL');
+  dbConn.pragma('synchronous = NORMAL');
+  
+  // Setup database tables schema
+  dbConn.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      fullName TEXT,
+      role TEXT,
+      avatar TEXT,
+      totalScore INTEGER DEFAULT 0,
+      correctPredictions INTEGER DEFAULT 0,
+      exactPredictions INTEGER DEFAULT 0,
+      playedMatches INTEGER DEFAULT 0,
+      isDisabled INTEGER DEFAULT 0,
+      createdAt TEXT
+    );
 
-// Setup database tables schema
-dbConn.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    fullName TEXT,
-    role TEXT,
-    avatar TEXT,
-    totalScore INTEGER DEFAULT 0,
-    correctPredictions INTEGER DEFAULT 0,
-    exactPredictions INTEGER DEFAULT 0,
-    playedMatches INTEGER DEFAULT 0,
-    isDisabled INTEGER DEFAULT 0,
-    createdAt TEXT
-  );
+    CREATE TABLE IF NOT EXISTS passwords (
+      userId TEXT PRIMARY KEY,
+      passwordHash TEXT NOT NULL,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+    );
 
-  CREATE TABLE IF NOT EXISTS passwords (
-    userId TEXT PRIMARY KEY,
-    passwordHash TEXT NOT NULL,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
+    CREATE TABLE IF NOT EXISTS teams (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      shortCode TEXT,
+      logo TEXT,
+      groupName TEXT
+    );
 
-  CREATE TABLE IF NOT EXISTS teams (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    shortCode TEXT,
-    logo TEXT,
-    groupName TEXT
-  );
+    CREATE TABLE IF NOT EXISTS matches (
+      id TEXT PRIMARY KEY,
+      homeTeamId TEXT,
+      awayTeamId TEXT,
+      stage TEXT,
+      stadium TEXT,
+      kickoffTimeUtc TEXT,
+      homeScore INTEGER,
+      awayScore INTEGER,
+      status TEXT
+    );
 
-  CREATE TABLE IF NOT EXISTS matches (
-    id TEXT PRIMARY KEY,
-    homeTeamId TEXT,
-    awayTeamId TEXT,
-    stage TEXT,
-    stadium TEXT,
-    kickoffTimeUtc TEXT,
-    homeScore INTEGER,
-    awayScore INTEGER,
-    status TEXT
-  );
+    CREATE TABLE IF NOT EXISTS predictions (
+      id TEXT PRIMARY KEY,
+      userId TEXT,
+      matchId TEXT,
+      predictedHome INTEGER,
+      predictedAway INTEGER,
+      points INTEGER,
+      createdAt TEXT,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(matchId) REFERENCES matches(id) ON DELETE CASCADE,
+      UNIQUE(userId, matchId)
+    );
 
-  CREATE TABLE IF NOT EXISTS predictions (
-    id TEXT PRIMARY KEY,
-    userId TEXT,
-    matchId TEXT,
-    predictedHome INTEGER,
-    predictedAway INTEGER,
-    points INTEGER,
-    createdAt TEXT,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY(matchId) REFERENCES matches(id) ON DELETE CASCADE,
-    UNIQUE(userId, matchId)
-  );
-
-  CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
-`);
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+  `);
+  
+  isSqliteAvailable = true;
+  console.log('Successfully connected to SQLite high-performance database.');
+} catch (e) {
+  console.warn('⚡ SQLite database engine (better-sqlite3) could not be loaded or is not installed. Falling back to robust JSON file storage (db.json) dynamically.', e);
+  isSqliteAvailable = false;
+}
 
 function getInitialDB(): DatabaseSchema {
   const adminId = 'u-admin';
@@ -126,6 +140,9 @@ function getInitialDB(): DatabaseSchema {
 }
 
 function writeDBToSQLite(data: DatabaseSchema): void {
+  if (!isSqliteAvailable || !dbConn) {
+    return;
+  }
   const transaction = dbConn.transaction(() => {
     // Safely clear old records before saving the state block
     dbConn.prepare('DELETE FROM predictions').run();
@@ -226,34 +243,77 @@ function writeDBToSQLite(data: DatabaseSchema): void {
 
 function seedInitialData(): void {
   const initial = getInitialDB();
-  writeDBToSQLite(initial);
+  if (isSqliteAvailable) {
+    writeDBToSQLite(initial);
+  } else {
+    fs.writeFileSync(DB_JSON_FILE, JSON.stringify(initial, null, 2), 'utf-8');
+    memoryDBCache = initial;
+  }
 }
 
-// Load or run automated background migrations from legacy db.json
-const userCountResult = dbConn.prepare('SELECT count(*) as count FROM users').get() as { count: number };
-if (userCountResult.count === 0) {
-  const legacyDbFile = path.join(process.cwd(), 'db.json');
-  if (fs.existsSync(legacyDbFile)) {
-    console.log('Migrating existing legacy db.json to SQLite db.sqlite file...');
+// Run migrations or seed initialization depending on loaded engine
+if (isSqliteAvailable) {
+  try {
+    const userCountResult = dbConn.prepare('SELECT count(*) as count FROM users').get() as { count: number };
+    if (userCountResult.count === 0) {
+      const legacyDbFile = path.join(process.cwd(), 'db.json');
+      if (fs.existsSync(legacyDbFile)) {
+        console.log('Migrating existing legacy db.json to SQLite db.sqlite file...');
+        try {
+          const data = fs.readFileSync(legacyDbFile, 'utf-8');
+          const parsed = JSON.parse(data);
+          writeDBToSQLite(parsed);
+          
+          // Rename legacy file to avoid double-migrations
+          try {
+            fs.renameSync(legacyDbFile, path.join(process.cwd(), 'db.json.old'));
+          } catch (e) {}
+        } catch (err) {
+          console.error('Failed to migrate legacy db.json, fallback seeding...', err);
+          seedInitialData();
+        }
+      } else {
+        seedInitialData();
+      }
+    }
+  } catch (err) {
+    console.error('Failed to run SQLite database schema verification, seeding initial data...', err);
+    seedInitialData();
+  }
+} else {
+  // Pure JSON database path
+  if (!fs.existsSync(DB_JSON_FILE)) {
+    seedInitialData();
+  } else {
     try {
-      const data = fs.readFileSync(legacyDbFile, 'utf-8');
-      const parsed = JSON.parse(data);
-      writeDBToSQLite(parsed);
-      
-      // Rename legacy file to avoid double-migrations
-      try {
-        fs.renameSync(legacyDbFile, path.join(process.cwd(), 'db.json.old'));
-      } catch (e) {}
-    } catch (err) {
-      console.error('Failed to migrate legacy db.json, fallback seeding...', err);
+      const data = fs.readFileSync(DB_JSON_FILE, 'utf-8');
+      memoryDBCache = JSON.parse(data);
+    } catch (e) {
+      console.error('Failed reading and parsing database JSON:', e);
       seedInitialData();
     }
-  } else {
-    seedInitialData();
   }
 }
 
 export function loadDB(): DatabaseSchema {
+  if (!isSqliteAvailable) {
+    if (memoryDBCache) {
+      return memoryDBCache;
+    }
+    try {
+      if (fs.existsSync(DB_JSON_FILE)) {
+        const data = fs.readFileSync(DB_JSON_FILE, 'utf-8');
+        memoryDBCache = JSON.parse(data);
+        return memoryDBCache!;
+      }
+    } catch (e) {
+      console.error('Failed reading fallback db.json:', e);
+    }
+    const initial = getInitialDB();
+    memoryDBCache = initial;
+    return initial;
+  }
+
   try {
     const usersRows = dbConn.prepare('SELECT * FROM users').all() as any[];
     const passwordsRows = dbConn.prepare('SELECT * FROM passwords').all() as any[];
@@ -346,6 +406,15 @@ export function loadDB(): DatabaseSchema {
 }
 
 export function saveDB(data: DatabaseSchema): void {
+  if (!isSqliteAvailable) {
+    memoryDBCache = data;
+    try {
+      fs.writeFileSync(DB_JSON_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Failed writing DB to fallback db.json:', e);
+    }
+    return;
+  }
   try {
     writeDBToSQLite(data);
   } catch (err) {
