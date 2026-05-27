@@ -75,6 +75,22 @@ const TEAM_ISO_MAP: Record<string, string> = {
   't-pan': 'pa', PAN: 'pa', pan: 'pa'
 };
 
+// Generates correct regional indicator emoji characters offline representing country flags
+function getEmojiFlag(isoCode: string): string {
+  if (!isoCode) return '⚽';
+  if (isoCode === 'gb-eng') return '🏴󠁧󠁢󠁥󠁮󠁧󠁿';
+  if (isoCode === 'gb-sct') return '🏴󠁧󠁢󠁳󠁣󠁴󠁿';
+  if (isoCode === 'gb-wls') return '🏴󠁧󠁢󠁷󠁬󠁳󠁿';
+  
+  try {
+    return isoCode
+      .toUpperCase()
+      .replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+  } catch (e) {
+    return '⚽';
+  }
+}
+
 interface FlagIconProps {
   teamIdOrCode: string | null | undefined;
   className?: string; // custom classes (e.g. size, shadow)
@@ -83,38 +99,39 @@ interface FlagIconProps {
 
 export default function FlagIcon({ teamIdOrCode, className = 'h-6 w-8', shadow = true }: FlagIconProps) {
   if (!teamIdOrCode) {
-    return <span className="inline-block">⚽</span>;
+    return <span className="inline-block text-base">⚽</span>;
   }
 
   const code = TEAM_ISO_MAP[teamIdOrCode] || TEAM_ISO_MAP[teamIdOrCode.toUpperCase()] || null;
 
   if (!code) {
-    // Return a default ball/flag if code is unknown
-    return <span className="inline-block text-xl">⚽</span>;
+    return <span className="inline-block text-base">⚽</span>;
   }
 
-  // flagcdn.com offers high quality PNG flag assets.
-  // We use the 40px width format or 80px width format depending on context.
-  // England and Wales are supported dynamically by flagcdn.
+  // Get fallback emoji flag
+  const emojiFlag = getEmojiFlag(code);
+
+  // Use referrerPolicy="no-referrer" to prevent sandboxed headers blocking CDN rendering
   const flagUrl = `https://flagcdn.com/w80/${code}.png`;
 
   return (
     <img
       src={flagUrl}
       alt={teamIdOrCode}
-      className={`inline-block object-cover rounded-md border border-slate-700/60 select-none ${className} ${
+      referrerPolicy="no-referrer"
+      className={`inline-block object-cover rounded-md border border-slate-705/10 select-none ${className} ${
         shadow ? 'shadow-sm active:scale-95 transition-transform' : ''
       }`}
       loading="lazy"
       onError={(e) => {
-        // Fallback to soccer ball icon if URL loading fails
+        // Fallback dynamically to country's actual flag icon emoji
         e.currentTarget.onerror = null;
         e.currentTarget.style.display = 'none';
         const parent = e.currentTarget.parentElement;
         if (parent) {
           const fallbackSpan = document.createElement('span');
-          fallbackSpan.className = 'inline-block text-xl';
-          fallbackSpan.innerText = '⚽';
+          fallbackSpan.className = 'inline-block text-base font-bold filter drop-shadow-sm select-none antialiased';
+          fallbackSpan.innerText = emojiFlag;
           parent.appendChild(fallbackSpan);
         }
       }}

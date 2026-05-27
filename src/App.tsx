@@ -684,6 +684,7 @@ export default function App() {
           userRank={activeUserRank}
           onUpdateAvatar={handleUpdateAvatar}
           onUpdateProfile={handleUpdateProfile}
+          onLogout={handleLogout}
         />
       );
     }

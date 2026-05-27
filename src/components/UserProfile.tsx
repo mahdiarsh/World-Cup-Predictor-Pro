@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Award, CheckCircle, Flame, Percent, Sparkles, Activity, Camera, Upload, Check, RefreshCw, X, User as UserIcon, Lock, ShieldAlert, Smartphone } from 'lucide-react';
+import { Award, CheckCircle, Flame, Percent, Sparkles, Activity, Camera, Upload, Check, RefreshCw, X, User as UserIcon, Lock, ShieldAlert, Smartphone, LogOut } from 'lucide-react';
 import { User, Prediction, Match, MatchStatus } from '../types';
 import { getTeamFlag, getTeamName } from '../data/teams';
 import Avatar from './Avatar';
@@ -181,6 +181,7 @@ interface UserProfileProps {
   userRank: number;
   onUpdateAvatar: (newAvatar: string) => Promise<boolean>;
   onUpdateProfile: (fullName?: string, password?: string) => Promise<boolean>;
+  onLogout?: () => void;
 }
 
 export default function UserProfile({ 
@@ -189,7 +190,8 @@ export default function UserProfile({
   matches, 
   userRank, 
   onUpdateAvatar,
-  onUpdateProfile
+  onUpdateProfile,
+  onLogout
 }: UserProfileProps) {
   if (!currentUser) return null;
 
@@ -455,6 +457,18 @@ export default function UserProfile({
       {/* Top Banner Cards with User Identity */}
       <div className="relative bg-gradient-to-r from-slate-900 via-emerald-950/20 to-slate-900 rounded-3xl p-6 border border-emerald-500/20 shadow-2xl overflow-hidden min-h-[160px] flex flex-col md:flex-row items-center md:items-start md:justify-between text-center md:text-right gap-4">
         <div className="absolute top-0 right-0 h-48 w-48 bg-emerald-500/5 rounded-full blur-3xl -z-10"></div>
+        
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-450 hover:text-rose-400 border border-rose-500/25 rounded-xl text-xs font-bold transition-all shadow-md group active:scale-95 z-20 cursor-pointer select-none"
+            title="خروج از حساب کاربری"
+            type="button"
+          >
+            <LogOut className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
+            <span>خروج</span>
+          </button>
+        )}
         
         {/* Profile Card left */}
         <div className="flex flex-col md:flex-row items-center gap-4">
