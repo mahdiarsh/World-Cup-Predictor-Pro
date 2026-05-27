@@ -196,3 +196,26 @@ th, td {
 .from-emerald-600\/40 {
   --tw-gradient-from: rgba(16, 185, 129, 0.08) !important;
 }
+
+/* Custom robust fixes for red style readability under elegant light theme */
+.text-red-400, .text-red-500, .text-red-600, .text-red-700, .text-rose-400, .text-rose-500, .text-rose-600, .text-rose-700 {
+  color: #c5221f !important;
+}
+
+/* Fix light mode soft red/rose alert banners or badges */
+.bg-red-955, .bg-red-950, .bg-red-950\/40, .bg-red-950\/20, .bg-red-500\/15, .bg-red-500\/5, .bg-rose-950\/30, .bg-rose-950\/45, .bg-rose-950\/50, .bg-rose-955 {
+  background-color: #fdf2f2 !important;
+  border-color: #fde8e8 !important;
+  color: #c5221f !important;
+}
+
+.bg-red-950\/40 *, .bg-rose-950\/30 * {
+  color: #c5221f !important;
+}
+
+/* Elegant style override for the targeted dashboard header element and h3 titles */
+div#root > div > main > div > div > div > div > div > h3,
+main h3 {
+  color: #454141 !important;
+}
+
