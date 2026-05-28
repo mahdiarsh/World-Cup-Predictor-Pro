@@ -55,6 +55,23 @@ export default function AdminPanel({
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<'users' | 'matches' | 'engine'>('matches');
 
+  // SMS Panel Settings State
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [smsUsername, setSmsUsername] = useState('');
+  const [smsPassword, setSmsPassword] = useState('');
+  const [smsBodyIdVerify, setSmsBodyIdVerify] = useState('');
+  const [smsBodyIdReset, setSmsBodyIdReset] = useState('');
+
+  useEffect(() => {
+    if (settings) {
+      setSmsEnabled(!!settings.smsEnabled);
+      setSmsUsername(settings.smsUsername || '');
+      setSmsPassword(settings.smsPassword || '');
+      setSmsBodyIdVerify(settings.smsBodyIdVerify !== undefined ? String(settings.smsBodyIdVerify) : '');
+      setSmsBodyIdReset(settings.smsBodyIdReset !== undefined ? String(settings.smsBodyIdReset) : '');
+    }
+  }, [settings]);
+
   // Success / Error alerts
   const [statusMsg, setStatusMsg] = useState('');
   const [statusErr, setStatusErr] = useState('');
@@ -324,7 +341,7 @@ export default function AdminPanel({
               activeTab === 'engine' ? 'bg-amber-400 text-slate-950 shadow-md' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
             }`}
           >
-            <Zap className="h-4 w-4 inline ml-1.5" /> هندل امتیازات
+            <Zap className="h-4 w-4 inline ml-1.5" /> تنظیمات پیشرفته
           </button>
         </div>
       </div>
@@ -872,6 +889,113 @@ export default function AdminPanel({
             >
               {registrationEnabled ? 'مسدودسازی عضویت عمومی 🔒' : 'آزادسازی عضویت عمومی 🔓'}
             </button>
+          </div>
+
+          {/* SMS Panel Settings (تنظیمات پنل پیامکی ملی پیامک) */}
+          <div className="bg-slate-950/60 p-5 rounded-xl border border-slate-800 space-y-4 text-right">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="text-sm font-black text-amber-400">📩 تنظیمات پنل پیامکی (ملی‌پیامک)</h4>
+                <p className="text-[11px] text-slate-400 mt-1">اتصال به سامانه پیامک Melipayamak جهت ارسال کدهای ورود و فراموشی رمز عبور (OTP)</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] px-2 py-0.5 rounded border ${
+                  smsEnabled 
+                    ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/10' 
+                    : 'bg-slate-900 text-slate-500 border-slate-800'
+                }`}>
+                  {smsEnabled ? 'فعال' : 'غیرفعال (شبیه‌ساز)'}
+                </span>
+                <input
+                  type="checkbox"
+                  id="sms-enabled-toggle"
+                  checked={smsEnabled}
+                  onChange={(e) => setSmsEnabled(e.target.checked)}
+                  className="w-4 h-4 cursor-pointer accent-amber-400"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-slate-400 block font-bold">نام کاربری ملی پیامک:</label>
+                <input
+                  type="text"
+                  placeholder="مثال: myusername"
+                  value={smsUsername}
+                  onChange={e => setSmsUsername(e.target.value)}
+                  disabled={!smsEnabled}
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 disabled:opacity-50 text-left font-sans"
+                  dir="ltr"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-slate-400 block font-bold">کلمه عبور ملی پیامک:</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={smsPassword}
+                  onChange={e => setSmsPassword(e.target.value)}
+                  disabled={!smsEnabled}
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 disabled:opacity-50 text-left font-sans"
+                  dir="ltr"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-slate-400 block font-bold">شناسه الگو تأیید شماره (Verification BodyId):</label>
+                <input
+                  type="number"
+                  placeholder="مثال: 124555"
+                  value={smsBodyIdVerify}
+                  onChange={e => setSmsBodyIdVerify(e.target.value)}
+                  disabled={!smsEnabled}
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 disabled:opacity-50 text-left font-sans"
+                  dir="ltr"
+                />
+                <span className="text-[9px] text-slate-500 block leading-tight">الگویی با حداقل یک متغیر برای کد تأیید (مثلا: کد تایید شما: {`{0}`})</span>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-slate-400 block font-bold">شناسه الگو بازیابی رمز عبور (Reset PW BodyId):</label>
+                <input
+                  type="number"
+                  placeholder="مثال: 124556"
+                  value={smsBodyIdReset}
+                  onChange={e => setSmsBodyIdReset(e.target.value)}
+                  disabled={!smsEnabled}
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 disabled:opacity-50 text-left font-sans"
+                  dir="ltr"
+                />
+                <span className="text-[9px] text-slate-500 block leading-tight">الگوی ارسال رمزعبور جدید یا کد ریست (مثلا: کد تایید ریست رمز: {`{0}`})</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-950">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (onUpdateSettings) {
+                    const success = await onUpdateSettings({
+                      smsEnabled,
+                      smsUsername: smsUsername.trim(),
+                      smsPassword: smsPassword.trim(),
+                      smsBodyIdVerify: smsBodyIdVerify ? Number(smsBodyIdVerify) : undefined,
+                      smsBodyIdReset: smsBodyIdReset ? Number(smsBodyIdReset) : undefined
+                    });
+                    if (success) {
+                      triggerAlert('تنظیمات اتصال به پنل پیامکی با موفقیت به‌روزرسانی شد!');
+                    } else {
+                      triggerAlert('خطا در ذخیره‌سازی پیکربندی پنل پیامک.', true);
+                    }
+                  }
+                }}
+                className="px-6 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all"
+              >
+                💾 ذخیره تنظیمات پنل پیامکی
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/60 p-5 rounded-xl border border-slate-800 justify-between">

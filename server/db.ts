@@ -12,6 +12,11 @@ export interface SystemSettings {
   syncMode?: 'simulation' | 'manual';
   simulatedTime?: string; // ISO date-time of the tournament clock, e.g., "2026-06-11T00:00:00Z"
   isFastForwarding?: boolean; // If true, time automatically movies forward
+  smsEnabled?: boolean;
+  smsUsername?: string;
+  smsPassword?: string;
+  smsBodyIdVerify?: number;
+  smsBodyIdReset?: number;
 }
 
 export interface DatabaseSchema {
@@ -375,7 +380,7 @@ export function loadDB(): DatabaseSchema {
 
     const settings: SystemSettings = { registrationEnabled: true };
     for (const s of settingsRows) {
-      if (s.key === 'registrationEnabled') {
+       if (s.key === 'registrationEnabled') {
         settings.registrationEnabled = s.value === 'true' || s.value === '1';
       } else if (s.key === 'syncMode') {
         settings.syncMode = s.value as any;
@@ -383,6 +388,16 @@ export function loadDB(): DatabaseSchema {
         settings.simulatedTime = s.value;
       } else if (s.key === 'isFastForwarding') {
         settings.isFastForwarding = s.value === 'true' || s.value === '1';
+      } else if (s.key === 'smsEnabled') {
+        settings.smsEnabled = s.value === 'true' || s.value === '1';
+      } else if (s.key === 'smsUsername') {
+        settings.smsUsername = s.value;
+      } else if (s.key === 'smsPassword') {
+        settings.smsPassword = s.value;
+      } else if (s.key === 'smsBodyIdVerify') {
+        settings.smsBodyIdVerify = s.value ? Number(s.value) : undefined;
+      } else if (s.key === 'smsBodyIdReset') {
+        settings.smsBodyIdReset = s.value ? Number(s.value) : undefined;
       }
     }
 

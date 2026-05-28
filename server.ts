@@ -8,6 +8,7 @@ import { createServer as createViteServer } from 'vite';
 import { createRequire } from 'module';
 const customRequire = typeof require !== 'undefined' ? require : createRequire(path.join(process.cwd(), 'package.json'));
 import { loadDB, saveDB, recalculateAllScores, resolveMatchesWithStandings, runFifaLiveSync, resetTournament } from './server/db';
+import { sendOtpSms } from './server/sms';
 import { User, UserRole, Match, MatchStatus, Prediction, LeaderboardEntry, Team, MatchStage } from './src/types';
 import { teamsSeed } from './src/data/teams';
 import { matchesSeed } from './src/data/matches';
@@ -145,12 +146,127 @@ const requireAdmin = (req: AuthenticatedRequest, res: Response, next: NextFuncti
   next();
 };
 
+// --- OTP SYSTEM STATE & ENDPOINTS ---
+interface OtpEntry {
+  code: string;
+  expiresAt: number;
+  purpose: 'verify' | 'reset';
+}
+const otpStore = new Map<string, OtpEntry>();
+
+// POST /api/auth/otp/send (Generate and Send One-Time Password via Melipayamak or Simulation)
+app.post('/api/auth/otp/send', async (req: Request, res: Response) => {
+  try {
+    const { mobile, purpose } = req.body;
+    if (!mobile || !purpose || (purpose !== 'verify' && purpose !== 'reset')) {
+      res.status(400).json({ error: 'وارد کردن شماره همراه و هدف ارسال پیامک الزامی است.' });
+      return;
+    }
+
+    const cleanMobile = mobile.trim();
+    const phoneRegex = /^(09\d{8,11}|\+?[0-9]{8,15})$/;
+    if (!phoneRegex.test(cleanMobile)) {
+      res.status(400).json({ error: 'شماره همراه وارد شده نامعتبر است. فرمت صحیح: 09123456789' });
+      return;
+    }
+
+    const db = loadDB();
+
+    if (purpose === 'reset') {
+      // Ensure user with this mobile as username exists
+      const userExists = db.users.some(u => u.username.toLowerCase() === cleanMobile.toLowerCase());
+      if (!userExists) {
+        res.status(404).json({ error: 'هیچ کاربری با این شماره همراه یافت نشد.' });
+        return;
+      }
+    } else if (purpose === 'verify') {
+      // For registration / verification
+      const userExists = db.users.some(u => u.username.toLowerCase() === cleanMobile.toLowerCase());
+      if (userExists) {
+        res.status(400).json({ error: 'این شماره همراه قبلاً در سیستم ثبت نام کرده است.' });
+        return;
+      }
+    }
+
+    // Generate 5-digit OTP
+    const code = Math.floor(10000 + Math.random() * 90000).toString();
+    const expiresAt = Date.now() + 3 * 60 * 1000; // 3 minutes expiration
+
+    otpStore.set(cleanMobile.toLowerCase(), {
+      code,
+      expiresAt,
+      purpose
+    });
+
+    console.log(`[OTP Store Added] Key: ${cleanMobile.toLowerCase()}, Code: ${code}, Purpose: ${purpose}`);
+
+    const smsResult = await sendOtpSms(cleanMobile, code, purpose);
+
+    res.json({
+      success: true,
+      simulated: smsResult.simulated,
+      code: smsResult.simulated ? code : undefined, // Reveal code if simulation is active so users can complete it cleanly
+      message: smsResult.message
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'خطا در ارسال پیامک OTP' });
+  }
+});
+
+// POST /api/auth/otp/reset-password (Verify OTP and change password securely)
+app.post('/api/auth/otp/reset-password', (req: Request, res: Response) => {
+  try {
+    const { mobile, code, newPassword } = req.body;
+    if (!mobile || !code || !newPassword) {
+      res.status(400).json({ error: 'شماره همراه، کد تایید و کلمه عبور جدید الزامی هستند.' });
+      return;
+    }
+
+    const cleanMobile = mobile.trim().toLowerCase();
+    const otp = otpStore.get(cleanMobile);
+
+    if (!otp) {
+      res.status(400).json({ error: 'کد تاییدی صادر نشده یا منقضی گردیده است. لطفاً مجدداً درخواست کنید.' });
+      return;
+    }
+
+    if (otp.expiresAt < Date.now()) {
+      otpStore.delete(cleanMobile);
+      res.status(400).json({ error: 'کد تایید منقضی شده است (مهلت اعتبار ۳ دقیقه).' });
+      return;
+    }
+
+    if (otp.code !== code.trim() || otp.purpose !== 'reset') {
+      res.status(400).json({ error: 'کد تایید وارد شده نادرست است.' });
+      return;
+    }
+
+    // Clean active token
+    otpStore.delete(cleanMobile);
+
+    const db = loadDB();
+    const user = db.users.find(u => u.username.toLowerCase() === cleanMobile);
+    if (!user) {
+      res.status(404).json({ error: 'کاربری جهت بازیابی رمز عبور یافت نشد.' });
+      return;
+    }
+
+    const salt = bcrypt.genSaltSync(10);
+    db.passwords[user.id] = bcrypt.hashSync(newPassword, salt);
+    saveDB(db);
+
+    res.json({ success: true, message: 'کلمه عبور شما با موفقیت با پیامک بازنشانی شد! می‌توانید اکنون وارد شوید.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'خطا در بازیابی رمز عبور' });
+  }
+});
+
 // --- AUTHENTICATION APIS ---
 
 // POST /api/auth/register
 app.post('/api/auth/register', (req: Request, res: Response) => {
   try {
-    const { username, fullName, password } = req.body;
+    const { username, fullName, password, otpCode } = req.body;
     if (!username || !fullName || !password) {
       res.status(400).json({ error: 'All fields (username, full name, password) are required.' });
       return;
@@ -178,6 +294,32 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     if (exists) {
       res.status(400).json({ error: 'Username (Mobile Number) already exists.' });
       return;
+    }
+
+    // Verify OTP code if SMS OTP is enabled in settings
+    if (db.settings && db.settings.smsEnabled) {
+      if (!otpCode) {
+        res.status(400).json({ error: 'کد تایید پیامکی الزامی است و نباید خالی باشد.' });
+        return;
+      }
+      
+      const otp = otpStore.get(cleanUsername);
+      if (!otp) {
+        res.status(400).json({ error: 'کد تاییدی صادر نشده یا منقضی گردیده است. لطفا مجددا درخواست کد کنید.' });
+        return;
+      }
+      if (otp.expiresAt < Date.now()) {
+        otpStore.delete(cleanUsername);
+        res.status(400).json({ error: 'کد تایید منقضی شده است (مهلت ۳ دقیقه).' });
+        return;
+      }
+      if (otp.code !== otpCode.trim() || otp.purpose !== 'verify') {
+        res.status(400).json({ error: 'کد تایید وارد شده اشتباه است.' });
+        return;
+      }
+
+      // Safe deletion of code
+      otpStore.delete(cleanUsername);
     }
 
     const userId = 'u-' + Math.random().toString(36).substr(2, 9);
@@ -1346,7 +1488,17 @@ app.get('/api/settings', (req: Request, res: Response) => {
 // PUT /api/settings (Admin update app settings)
 app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { registrationEnabled, syncMode, simulatedTime, isFastForwarding } = req.body;
+    const { 
+      registrationEnabled, 
+      syncMode, 
+      simulatedTime, 
+      isFastForwarding,
+      smsEnabled,
+      smsUsername,
+      smsPassword,
+      smsBodyIdVerify,
+      smsBodyIdReset
+    } = req.body;
     
     const db = loadDB();
     if (!db.settings) {
@@ -1364,6 +1516,23 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
     }
     if (isFastForwarding !== undefined) {
       db.settings.isFastForwarding = !!isFastForwarding;
+    }
+    
+    // SMS OTP Settings
+    if (smsEnabled !== undefined) {
+      db.settings.smsEnabled = !!smsEnabled;
+    }
+    if (smsUsername !== undefined) {
+      db.settings.smsUsername = smsUsername;
+    }
+    if (smsPassword !== undefined) {
+      db.settings.smsPassword = smsPassword;
+    }
+    if (smsBodyIdVerify !== undefined) {
+      db.settings.smsBodyIdVerify = smsBodyIdVerify ? Number(smsBodyIdVerify) : undefined;
+    }
+    if (smsBodyIdReset !== undefined) {
+      db.settings.smsBodyIdReset = smsBodyIdReset ? Number(smsBodyIdReset) : undefined;
     }
     
     saveDB(db);

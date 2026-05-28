@@ -288,20 +288,23 @@ export default function App() {
     return false;
   };
 
-  const handleRegister = async (username: string, fullName: string, pass: string): Promise<boolean> => {
+  const handleRegister = async (username: string, fullName: string, pass: string, otpCode?: string): Promise<boolean> => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, fullName, password: pass })
+        body: JSON.stringify({ username, fullName, password: pass, otpCode })
       });
       if (res.ok) {
         const data = await res.json();
         setToken(data.token);
         setCurrentUser(data.user);
-        triggerSuccess(`Successfully registered! Good luck in predictions.`);
+        triggerSuccess(`عضویت با موفقیت انجام شد! با آرزوی موفقیت در پیش‌بینی مسابقات.`);
         setCurrentTab('home');
         return true;
+      } else {
+        const data = await res.json();
+        alert(data.error || 'خطا در ثبت نام. لطفا اطلاعات را مجددا بررسی کنید.');
       }
     } catch (err) {
       console.error('Register action failed', err);
