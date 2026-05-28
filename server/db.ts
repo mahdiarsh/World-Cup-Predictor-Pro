@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
+const customRequire = typeof require !== 'undefined' ? require : createRequire(path.join(process.cwd(), 'package.json'));
 import { User, Team, Match, Prediction, UserRole, MatchStatus, LeaderboardEntry, MatchStage } from '../src/types';
 import { teamsSeed } from '../src/data/teams';
 import { matchesSeed } from '../src/data/matches';
@@ -31,7 +31,7 @@ let memoryDBCache: DatabaseSchema | null = null;
 
 try {
   // Try to dynamically load better-sqlite3 to remain resilient across VM environments where native bindings are built/rebuilt
-  const Database = require('better-sqlite3');
+  const Database = customRequire('better-sqlite3');
   const SQLITE_DB_FILE = path.join(process.cwd(), 'db.sqlite');
   dbConn = new Database(SQLITE_DB_FILE);
   

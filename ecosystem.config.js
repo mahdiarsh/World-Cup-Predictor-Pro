@@ -3,8 +3,8 @@ module.exports = {
     {
       name: "worldcup-prediction-platform",
       script: "./dist/server.cjs",
-      instances: "max",
-      exec_mode: "cluster",
+      instances: 1,
+      exec_mode: "fork",
       watch: false,
       env: {
         NODE_ENV: "production",

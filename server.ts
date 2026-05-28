@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { createServer as createViteServer } from 'vite';
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
+const customRequire = typeof require !== 'undefined' ? require : createRequire(path.join(process.cwd(), 'package.json'));
 import { loadDB, saveDB, recalculateAllScores, resolveMatchesWithStandings, runFifaLiveSync, resetTournament } from './server/db';
 import { User, UserRole, Match, MatchStatus, Prediction, LeaderboardEntry, Team, MatchStage } from './src/types';
 import { GoogleGenAI } from '@google/genai';
@@ -1013,7 +1013,7 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, (req: Authenticated
     // Check if better-sqlite-3 is natively supported
     let dbEngine = 'JSON fallback (db.json)';
     try {
-      require('better-sqlite3');
+      customRequire('better-sqlite3');
       dbEngine = 'SQLite Engine (db.sqlite)';
     } catch(e) {}
 
