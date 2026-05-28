@@ -519,9 +519,13 @@ export default function UserProfile({
 
       </div>
 
-      {/* Avatar Customization Drawer / Panel */}
+      {/* Avatar Customization Modal / Popup */}
       {showAvatarEdit && (
-        <div className="bg-slate-900 border border-emerald-500/10 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200 text-right">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+          {/* Modal Overlay backdrop click */}
+          <div className="absolute inset-0 cursor-default" onClick={() => setShowAvatarEdit(false)}></div>
+          
+          <div className="relative w-full max-w-2xl bg-slate-900 border border-emerald-500/20 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200 text-right max-h-[90vh] overflow-y-auto z-10">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <div>
               <h4 className="font-extrabold text-white text-base flex items-center gap-2">
@@ -1020,6 +1024,7 @@ export default function UserProfile({
             </div>
           )}
 
+          </div>
         </div>
       )}
 

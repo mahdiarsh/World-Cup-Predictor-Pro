@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import { User, Team, Match, Prediction, UserRole, MatchStatus, LeaderboardEntry, MatchStage } from '../src/types';
 import { teamsSeed } from '../src/data/teams';
 import { matchesSeed } from '../src/data/matches';

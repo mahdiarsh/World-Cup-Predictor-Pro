@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, MapPin, CheckCircle, Clock, ShieldAlert, Edit3, CircleHelp } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle, Clock, ShieldAlert, Edit3, CircleHelp, LayoutGrid, List } from 'lucide-react';
 import { Match, MatchStage, MatchStatus, Team, Prediction, User } from '../types';
 import { getTeamFlag, getTeamName, getTeamCode } from '../data/teams';
 import FlagIcon from './FlagIcon';
@@ -18,6 +18,9 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [predId, setPredId] = useState<string | null>(null);
   const [homeInput, setHomeInput] = useState<number>(0);
+  const [viewMode, setViewMode] = useState<'card' | 'table'>(() => {
+    return (localStorage.getItem('wc_matches_view') as 'card' | 'table') || 'card';
+  });
   const [awayInput, setAwayInput] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
@@ -155,25 +158,64 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
         </p>
       </div>
 
-      {/* Slideable stage filters for clean mobile swipe actions */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none max-w-4xl mx-auto border-b border-slate-800/60" dir="rtl">
-        {stages.map(stage => (
+      {/* Filters and View Switcher control center */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 max-w-4xl mx-auto border-b border-slate-800/60 pb-3" dir="rtl">
+        {/* Slideable stage filters */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-grow">
+          {stages.map(stage => (
+            <button
+              key={stage}
+              onClick={() => setSelectedStage(stage)}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all ${
+                selectedStage === stage
+                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                  : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-705'
+              }`}
+            >
+              {STAGE_TRANSLATIONS[stage] || stage}
+            </button>
+          ))}
+        </div>
+
+        {/* View Mode Switcher */}
+        <div className="flex items-center gap-1 bg-slate-900/80 border border-slate-800 p-1 rounded-xl shrink-0">
           <button
-            key={stage}
-            onClick={() => setSelectedStage(stage)}
-            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all ${
-              selectedStage === stage
-                ? 'bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(16,185,129,0.3)]'
-                : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+            type="button"
+            onClick={() => {
+              setViewMode('card');
+              localStorage.setItem('wc_matches_view', 'card');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === 'card'
+                ? 'bg-emerald-500 text-slate-950 font-black shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            {STAGE_TRANSLATIONS[stage] || stage}
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span>نمایش کارتی</span>
           </button>
-        ))}
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('table');
+              localStorage.setItem('wc_matches_view', 'table');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === 'table'
+                ? 'bg-emerald-500 text-slate-950 font-black shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <List className="h-3.5 w-3.5" />
+            <span>نمایش جدولی</span>
+          </button>
+        </div>
       </div>
 
-      {/* Match Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+      {/* View Mode Switching conditional block */}
+      {viewMode === 'card' ? (
+        /* Match Grid */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
         {sortedMatches.length > 0 ? (
           sortedMatches.map(match => {
             const getTbdName = (teamId: string) => {
@@ -196,11 +238,11 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
             return (
               <div 
                 key={match.id}
-                className={`relative overflow-hidden rounded-2xl border bg-slate-900/40 p-5 ${
+                className={`relative overflow-hidden rounded-2xl border bg-slate-900/40 p-5 transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)] ${
                   match.status === MatchStatus.FINISHED 
-                    ? 'border-slate-800 bg-slate-950/20 opacity-90' 
-                    : 'border-slate-800/80 hover:border-emerald-500/30'
-                } transition-all shadow-xl group`}
+                    ? 'border-slate-800 bg-slate-950/20 opacity-90 hover:border-slate-700/60' 
+                    : 'border-slate-800/80 hover:border-emerald-500/40'
+                } group`}
               >
                 
                 {/* Stage Header & Date */}
@@ -353,16 +395,194 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                     )}
                   </div>
                 </div>
-
               </div>
             );
-          })
-        ) : (
-          <div className="col-span-1 md:col-span-2 text-center py-12 bg-slate-900/20 border border-slate-800/80 rounded-2xl">
-            <p className="text-slate-500 text-sm">هیچ مسابقه‌ای در این مرحله یافت نشد.</p>
-          </div>
-        )}
-      </div>
+            })
+          ) : (
+            <div className="col-span-1 md:col-span-2 text-center py-12 bg-slate-900/20 border border-slate-800/80 rounded-2xl">
+              <p className="text-slate-500 text-sm">هیچ مسابقه‌ای در این مرحله یافت نشد.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Table View */
+        <div className="overflow-x-auto rounded-3xl border border-slate-800/80 bg-slate-900/30 max-w-4xl mx-auto shadow-xl" dir="rtl">
+          <table className="w-full text-right border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr className="border-b border-slate-800/80 bg-slate-950/80 text-slate-400 font-extrabold text-[11px] sm:text-xs">
+                <th className="p-3 sm:p-4 text-right whitespace-nowrap">مشخصات بازی و ساعت</th>
+                <th className="p-2 text-center">میزبان</th>
+                <th className="p-2 text-center">نتیجه واقعی</th>
+                <th className="p-2 text-center">مهمان</th>
+                <th className="p-3 sm:p-4 text-center">پیش‌بینی شما</th>
+                <th className="p-3 sm:p-4 text-left">عملیات</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/40">
+              {sortedMatches.length > 0 ? (
+                sortedMatches.map(match => {
+                  const getTbdName = (teamId: string) => {
+                    return getTeamName(teamId);
+                  };
+
+                  const getTbdCode = (teamId: string) => {
+                    return getTeamCode(teamId);
+                  };
+
+                  const homeName = getTbdName(match.homeTeamId);
+                  const homeCode = getTbdCode(match.homeTeamId);
+                  
+                  const awayName = getTbdName(match.awayTeamId);
+                  const awayCode = getTbdCode(match.awayTeamId);
+
+                  const pred = getPredictionForMatch(match.id);
+                  const timeInfo = getLockStatus(match);
+
+                  return (
+                    <tr 
+                      key={match.id}
+                      className={`hover:bg-slate-900/40 transition-colors ${
+                        match.status === MatchStatus.FINISHED ? 'opacity-80 bg-slate-950/10' : ''
+                      }`}
+                    >
+                      {/* Match Stage & Date */}
+                      <td className="p-3 sm:p-4 text-right">
+                        <div className="space-y-1">
+                          <span className="inline-block font-mono bg-slate-800/60 text-emerald-400 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wide">
+                            {STAGE_TRANSLATIONS[match.stage] || match.stage}
+                          </span>
+                          <span className="block text-slate-300 text-[10px] sm:text-xs font-semibold whitespace-nowrap">
+                            {formatLocalDate(match.kickoffTimeUtc)}
+                          </span>
+                          <span className="block text-slate-500 text-[9px] truncate max-w-[120px] sm:max-w-none">
+                            {match.stadium}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Home Team */}
+                      <td className="p-2 text-center">
+                        <div 
+                          onClick={() => {
+                            if (onTeamClick && !match.homeTeamId.startsWith('TBD_')) {
+                              onTeamClick(match.homeTeamId);
+                            }
+                          }}
+                          className={`inline-flex items-center gap-1.5 sm:gap-2.5 mx-auto ${
+                            onTeamClick && !match.homeTeamId.startsWith('TBD_') ? 'cursor-pointer hover:text-emerald-400 select-none group/team-tbl-home' : ''
+                          }`}
+                        >
+                          <FlagIcon teamIdOrCode={match.homeTeamId} className="h-5 w-7 filter drop-shadow-sm group-hover/team-tbl-home:scale-105 transition-transform shrink-0" />
+                          <div className="text-right">
+                            <span className="font-extrabold text-slate-200 block sm:inline group-hover/team-tbl-home:text-emerald-400 transition-colors">{homeName}</span>
+                            <span className="hidden sm:inline text-[10px] font-mono text-slate-500 font-medium mr-1">({homeCode})</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Actual Result / VS */}
+                      <td className="p-2 text-center font-mono">
+                        {match.status === MatchStatus.FINISHED ? (
+                          <div className="inline-flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 text-xs sm:text-sm font-black text-white">
+                            <span>{match.homeScore}</span>
+                            <span className="text-slate-600">:</span>
+                            <span>{match.awayScore}</span>
+                          </div>
+                        ) : match.status === MatchStatus.LIVE ? (
+                          <div className="inline-flex flex-col items-center gap-0.5 animate-pulse flex-nowrap">
+                            <div className="inline-flex items-center gap-1 bg-red-950/40 px-2.5 py-1 rounded-lg border border-red-500/20 text-xs sm:text-sm font-black text-red-500">
+                              <span>{match.homeScore}</span>
+                              <span className="text-red-700">:</span>
+                              <span>{match.awayScore}</span>
+                            </div>
+                            <span className="text-[9px] text-red-00 font-sans font-bold whitespace-nowrap">دقیقه {getLiveMatchMinute(match, currentTime)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-500 text-xs font-bold px-2 py-0.5 bg-slate-950 border border-slate-850 rounded-lg">vs</span>
+                        )}
+                      </td>
+
+                      {/* Away Team */}
+                      <td className="p-2 text-center">
+                        <div 
+                          onClick={() => {
+                            if (onTeamClick && !match.awayTeamId.startsWith('TBD_')) {
+                              onTeamClick(match.awayTeamId);
+                            }
+                          }}
+                          className={`inline-flex items-center gap-1.5 sm:gap-2.5 mx-auto ${
+                            onTeamClick && !match.awayTeamId.startsWith('TBD_') ? 'cursor-pointer hover:text-emerald-400 select-none group/team-tbl-away' : ''
+                          }`}
+                        >
+                          <FlagIcon teamIdOrCode={match.awayTeamId} className="h-5 w-7 filter drop-shadow-sm group-hover/team-tbl-away:scale-105 transition-transform shrink-0" />
+                          <div className="text-right">
+                            <span className="font-extrabold text-slate-200 block sm:inline group-hover/team-tbl-away:text-emerald-400 transition-colors">{awayName}</span>
+                            <span className="hidden sm:inline text-[10px] font-mono text-slate-500 font-medium mr-1">({awayCode})</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* User Prediction */}
+                      <td className="p-3 sm:p-4 text-center">
+                        {pred ? (
+                          <div className="inline-flex flex-col items-center gap-0.5">
+                            <span className="font-black font-mono text-xs sm:text-sm text-amber-400">
+                              {pred.predictedHome} - {pred.predictedAway}
+                            </span>
+                            {pred.points !== null && (
+                              <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded font-extrabold font-sans scale-90 ${
+                                pred.points >= 10 || pred.points === 3
+                                  ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30 font-black' 
+                                  : pred.points >= 5 || pred.points === 1
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-extrabold' 
+                                  : 'bg-slate-800 text-slate-450'
+                              }`}>
+                                {pred.points >= 10 ? 'دقیق (+۱۰)' : pred.points === 7 ? 'تفاضل (+۷)' : pred.points === 5 ? 'برنده (+۵)' : pred.points === 3 ? 'دقیق (+۳)' : pred.points === 1 ? 'برنده (+۱)' : 'نادرست (۰)'}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500 font-medium italic">ثبت نشده</span>
+                        )}
+                      </td>
+
+                      {/* Prediction Actions */}
+                      <td className="p-3 sm:p-4 text-left">
+                        {timeInfo.isLocked ? (
+                          <span className="text-[10px] text-slate-500 flex items-center justify-end gap-1 font-semibold">
+                            <Clock className="h-3 w-3 shrink-0" />
+                            <span>قفل</span>
+                          </span>
+                        ) : (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPredictModal(match)}
+                              className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all border ${
+                                pred
+                                  ? 'bg-slate-850 hover:bg-slate-800 border-slate-700 text-slate-300 hover:text-emerald-450 hover:border-emerald-500/35 animate-none'
+                                  : 'bg-emerald-600/15 border-emerald-500/25 text-emerald-400 hover:bg-emerald-600 hover:text-slate-950 hover:border-transparent font-black shadow-sm'
+                              }`}
+                            >
+                              {pred ? 'ویرایش' : '🔮 پیش‌بینی'}
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-slate-500 text-sm">
+                    هیچ مسابقه‌ای در این مرحله یافت نشد.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* MATCH PREDICTIONS MODAL FORM */}
       {selectedMatch && (

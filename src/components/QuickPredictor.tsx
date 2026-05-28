@@ -354,13 +354,17 @@ export default function QuickPredictor({
                 <th className="p-4 font-sans text-right max-w-[200px]">اطلاعات و جزئیات مسابقه</th>
                 <th className="p-4 font-sans text-center">تیم میزبان vs مهمان</th>
                 <th className="p-4 font-sans text-center">نتیجه واقعی</th>
-                <th className="p-4 font-sans text-center text-emerald-400 bg-emerald-950/10">پیش‌بینی شما</th>
+                <th className="p-4 font-sans text-center text-emerald-400 bg-emerald-950/10">
+                  پیش‌بینی شما
+                  <span className="block text-[10px] text-emerald-500 font-bold mt-0.5">({currentUser.totalScore} امتیاز کل)</span>
+                </th>
                 {selectedOpponents.map((opp) => (
                   <th 
                     key={opp.userId}
                     className="p-4 font-sans text-center text-amber-400 bg-amber-950/15 border-r border-slate-800"
                   >
                     پیش‌بینی {opp.fullName}
+                    <span className="block text-[10px] text-amber-500 font-bold mt-0.5">({opp.totalScore} امتیاز کل)</span>
                   </th>
                 ))}
               </tr>

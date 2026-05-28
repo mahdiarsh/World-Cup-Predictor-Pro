@@ -144,6 +144,12 @@ export default function AdminPanel({
   const [passResetOpen, setPassResetOpen] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
 
+  // User edit states
+  const [userEditOpenId, setUserEditOpenId] = useState<string | null>(null);
+  const [editUserFullName, setEditUserFullName] = useState('');
+  const [editUserUsername, setEditUserUsername] = useState('');
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+
   // Matches forms states
   const [matchFormOpen, setMatchFormOpen] = useState(false);
   const [mHomeTeamId, setMHomeTeamId] = useState('t1');
@@ -208,6 +214,22 @@ export default function AdminPanel({
       setNewPassword('');
     } else {
       triggerAlert('خطا در بروزرسانی گذرواژه کاربر.', true);
+    }
+  };
+
+  const handleEditUserSubmit = async (userId: string) => {
+    if (!editUserFullName.trim() || !editUserUsername.trim()) {
+      triggerAlert('نام و نام خانوادگی و نام کاربری نمی‌توانند خالی باشند.', true);
+      return;
+    }
+    setIsUpdatingUser(true);
+    const succ = await onEditUser(userId, { fullName: editUserFullName.trim(), username: editUserUsername.trim() });
+    setIsUpdatingUser(false);
+    if (succ) {
+      triggerAlert('اطلاعات کاربر با موفقیت ویرایش شد!');
+      setUserEditOpenId(null);
+    } else {
+      triggerAlert('خطا در بروزرسانی اطلاعات کاربر. ممکن است نام کاربری تکراری باشد.', true);
     }
   };
 
@@ -437,11 +459,32 @@ export default function AdminPanel({
 
                         {/* Password reset collapse controller */}
                         <button
-                          onClick={() => setPassResetOpen(passResetOpen === u.id ? null : u.id)}
+                          onClick={() => {
+                            setPassResetOpen(passResetOpen === u.id ? null : u.id);
+                            setUserEditOpenId(null);
+                          }}
                           className="p-1.5 rounded-lg border border-slate-800 text-slate-400 bg-slate-950/40 hover:text-white"
                           title="تنظیم گذرواژه جدید"
                         >
                           <Key className="h-4 w-4" />
+                        </button>
+
+                        {/* Edit User Details */}
+                        <button
+                          onClick={() => {
+                            if (userEditOpenId === u.id) {
+                              setUserEditOpenId(null);
+                            } else {
+                              setUserEditOpenId(u.id);
+                              setEditUserFullName(u.fullName);
+                              setEditUserUsername(u.username);
+                              setPassResetOpen(null);
+                            }
+                          }}
+                          className={`p-1.5 rounded-lg border border-slate-800 text-slate-400 bg-slate-950/40 hover:text-white transition-colors ${userEditOpenId === u.id ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/5' : ''}`}
+                          title="ویرایش نام و نام کاربری"
+                        >
+                          <Edit2 className="h-4 w-4" />
                         </button>
 
                         {/* Delete User */}
@@ -467,14 +510,56 @@ export default function AdminPanel({
                             placeholder="رمز جدید..."
                             value={newPassword}
                             onChange={e => setNewPassword(e.target.value)}
-                            className="bg-slate-900 border-none p-1 rounded text-xs text-white placeholder-slate-600 focus:outline-none"
+                            className="bg-slate-900 border border-slate-800 p-1 rounded text-xs text-white placeholder-slate-600 focus:outline-none text-right font-sans"
                           />
                           <button
                             onClick={() => handleResetPasswordSubmit(u.id)}
                             className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 rounded font-bold text-[10px]"
                           >
-                            ثبت
+                             ثبت
                           </button>
+                        </div>
+                      )}
+
+                      {/* Edit User details collapse */}
+                      {userEditOpenId === u.id && (
+                        <div className="mt-2 flex flex-col gap-2 p-3 bg-slate-950/80 backdrop-blur-md rounded-xl border border-slate-800 text-right" dir="rtl">
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500 block">نام و نام خانوادگی:</label>
+                            <input
+                              type="text"
+                              placeholder="نام و نام خانوادگی جدید..."
+                              value={editUserFullName}
+                              onChange={e => setEditUserFullName(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 px-2 py-1.5 rounded text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 text-right font-sans"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500 block">نام کاربری / شماره همراه:</label>
+                            <input
+                              type="text"
+                              placeholder="نام کاربری جدید..."
+                              value={editUserUsername}
+                              onChange={e => setEditUserUsername(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 px-2 py-1.5 rounded text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 text-left font-sans"
+                              dir="ltr"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 justify-end">
+                            <button
+                              onClick={() => setUserEditOpenId(null)}
+                              className="px-2.5 py-1 bg-slate-850 hover:bg-slate-800 text-slate-300 rounded text-[10px]"
+                            >
+                              انصراف
+                            </button>
+                            <button
+                              disabled={isUpdatingUser}
+                              onClick={() => handleEditUserSubmit(u.id)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-slate-950 rounded font-bold text-[10px]"
+                            >
+                              {isUpdatingUser ? 'در حال ثبت...' : 'ذخیره تغییرات'}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </td>

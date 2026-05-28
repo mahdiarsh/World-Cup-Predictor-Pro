@@ -5,6 +5,8 @@ import https from 'https';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { createServer as createViteServer } from 'vite';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import { loadDB, saveDB, recalculateAllScores, resolveMatchesWithStandings, runFifaLiveSync, resetTournament } from './server/db';
 import { User, UserRole, Match, MatchStatus, Prediction, LeaderboardEntry, Team, MatchStage } from './src/types';
 import { GoogleGenAI } from '@google/genai';
@@ -70,7 +72,8 @@ app.get('/flags/:code.png', (req: Request, res: Response) => {
 });
 
 // Body parsers
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Background FIFA Auto-Sync Engine running every 10 seconds
 setInterval(() => {
@@ -81,8 +84,28 @@ setInterval(() => {
   }
 }, 10000);
 
-// Load DB initially
-loadDB();
+// Load DB initially and enforce admin credentials
+const db = loadDB();
+let adminUser = db.users.find(u => u.username === 'admin');
+if (!adminUser) {
+  adminUser = {
+    id: 'u-admin',
+    username: 'admin',
+    fullName: 'System Administrator',
+    role: UserRole.ADMIN,
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=admin',
+    totalScore: 0,
+    correctPredictions: 0,
+    exactPredictions: 0,
+    playedMatches: 0,
+    createdAt: new Date().toISOString()
+  };
+  db.users.push(adminUser);
+}
+// Enforce default admin password is always 'admin'
+const adminSalt = bcrypt.genSaltSync(10);
+db.passwords[adminUser.id] = bcrypt.hashSync('admin', adminSalt);
+saveDB(db);
 
 // JWT Middleware helper
 interface AuthenticatedRequest extends Request {
@@ -848,13 +871,28 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, (req: AuthenticatedRe
       return;
     }
 
-    const { fullName, role } = req.body;
+    const { fullName, username, role } = req.body;
     const user = db.users[userIdx];
     
-    if (fullName) {
-      user.fullName = fullName.trim();
-      user.avatar = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(fullName.trim())}`;
+    if (username && username.trim() !== '') {
+      const cleanUsername = username.trim();
+      const duplicateUser = db.users.find(u => u.username === cleanUsername && u.id !== req.params.id);
+      if (duplicateUser) {
+        res.status(400).json({ error: 'نام کاربری (شماره همراه) تکراری است. کاربر دیگری با این اطلاعات ثبت‌نام کرده است.' });
+        return;
+      }
+      user.username = cleanUsername;
     }
+
+    if (fullName && fullName.trim() !== '') {
+      const cleanFullName = fullName.trim();
+      user.fullName = cleanFullName;
+      // Only set a default avatar seed if there is no current avatar, or if it is a dicebear design
+      if (!user.avatar || user.avatar.includes('api.dicebear.com')) {
+        user.avatar = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(cleanFullName)}`;
+      }
+    }
+
     if (role) {
       user.role = role;
     }

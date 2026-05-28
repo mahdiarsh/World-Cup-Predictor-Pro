@@ -116,12 +116,12 @@ export default function FeaturedMatchCard({
   };
 
   return (
-    <div className={`bg-slate-900/40 rounded-2xl border p-4 flex flex-col justify-between transition-all duration-200 group relative text-right ${
+    <div className={`bg-slate-900/40 rounded-2xl border p-4 flex flex-col justify-between transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)] group relative text-right ${
       match.status === MatchStatus.LIVE 
-        ? 'border-red-500/25 bg-red-950/10' 
+        ? 'border-red-500/25 bg-red-950/10 hover:border-red-500/40' 
         : match.status === MatchStatus.FINISHED 
-          ? 'border-slate-800/80' 
-          : 'border-slate-800 hover:border-emerald-500/10'
+          ? 'border-slate-800/80 hover:border-slate-700' 
+          : 'border-slate-800 hover:border-emerald-500/35'
     }`} dir="rtl">
       
       {/* Target header / badge info */}
@@ -255,10 +255,10 @@ export default function FeaturedMatchCard({
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-lg text-2xs font-bold transition-all flex items-center gap-1"
+                  className="p-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-lg transition-all flex items-center justify-center"
+                  title="ویرایش پیش‌بینی"
                 >
-                  <Edit3 className="h-3 w-3 text-slate-400" />
-                  <span>ویرایش حدس</span>
+                  <Edit3 className="h-3.5 w-3.5 text-slate-400" />
                 </button>
               </div>
             ) : (

@@ -801,44 +801,35 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div id="login-gate-screen" dir="rtl" className="relative min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center overflow-hidden font-sans select-none selection:bg-emerald-500 selection:text-slate-950 px-4 py-12">
+      <div id="login-gate-screen" dir="rtl" className="relative min-h-screen bg-slate-100 text-slate-900 flex flex-col items-center justify-center overflow-hidden font-sans select-none selection:bg-emerald-500 selection:text-slate-950 px-4 py-12">
         
-        {/* Dynamic Stadium-like Professional Background */}
-        <div className="absolute inset-0 z-0 bg-slate-955">
-          {/* Main Soccer Pitch spotlight/pitch gradient lines */}
-          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-emerald-600/40 via-slate-950 to-slate-950" />
+        {/* Dynamic Light Background Gradients */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
           
           {/* Subtle Soccer Grid Texture Overlay */}
-          <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{
-            backgroundImage: `radial-gradient(#10b981 1.5px, transparent 1.5px), radial-gradient(#10b981 1.5px, #0b0f19 1.5px)`,
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
+            backgroundImage: `radial-gradient(#10b981 1.5px, transparent 1.5px), radial-gradient(#10b981 1.5px, #f1f5f9 1.5px)`,
             backgroundSize: '40px 40px',
             backgroundPosition: '0 0, 20px 20px'
           }} />
 
-          {/* Stadium lights spotlight ray designs */}
-          <div className="absolute -top-40 left-1/4 w-[1px] h-[350px] bg-gradient-to-b from-emerald-400/30 to-transparent rotate-[25deg] blur-[2px]" />
-          <div className="absolute -top-40 right-1/4 w-[1px] h-[350px] bg-gradient-to-b from-amber-400/30 to-transparent -rotate-[15deg] blur-[2px]" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/10 rounded-full blur-[120px]" />
-          
-          {/* Stars & FIFA World Cup 2026 hosts glow */}
-          <div className="absolute top-12 left-12 w-2 h-2 rounded-full bg-slate-400/30 blur-[1px]" />
-          <div className="absolute top-24 right-20 w-1.5 h-1.5 rounded-full bg-slate-500/20 blur-[1px]" />
-          <div className="absolute bottom-32 left-1/3 w-2.5 h-2.5 rounded-full bg-emerald-500/20 blur-[2px]" />
-          <div className="absolute bottom-40 right-1/4 w-2 h-2 rounded-full bg-amber-500/20" />
+          {/* Clean ambient light flows */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/5 rounded-full blur-[120px]" />
+          <div className="absolute bottom-0 right-10 w-[300px] h-[300px] bg-amber-500/5 rounded-full blur-[100px]" />
         </div>
 
         {/* FIFA 2026 World Cup Premium Theme Banner */}
-        <div className="relative z-10 w-full max-w-md px-6 text-center space-y-4 pt-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/85 border border-emerald-500/30 text-emerald-400 text-[10px] font-medium uppercase tracking-widest font-extrabold animate-pulse">
+        <div className="relative z-10 w-full max-w-md px-6 text-center space-y-4 pt-4 select-none">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-emerald-500/20 text-emerald-700 text-[11px] font-extrabold uppercase tracking-wide shadow-md">
             🏆 سامانه پیش‌بینی مسابقات جام جهانی ۲۰۲۶
           </div>
           
           {/* Big United Host branding (USA • MEXICO • CANADA) */}
           <div className="space-y-1">
-            <h1 className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-slate-400 tracking-tighter uppercase font-sans">
+            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tighter uppercase font-sans">
               جام جهانی ۲۰۲۶
             </h1>
-            <p className="text-[10px] font-mono font-bold tracking-widest text-emerald-400/95 uppercase">
+            <p className="text-xs font-mono font-black tracking-widest text-emerald-600 uppercase">
               🇺🇸 آمریکا • 🇲🇽 مکزیک • 🇨🇦 کانادا
             </p>
           </div>
@@ -854,7 +845,7 @@ export default function App() {
         </div>
 
         {/* Informative, humble landing page footer (strictly English) */}
-        <div className="relative z-10 text-[10px] text-slate-600 font-mono tracking-wider mt-2 text-center px-4">
+        <div className="relative z-10 text-[10px] text-slate-600 font-bold tracking-wider mt-2 text-center px-4 bg-white/80 border border-slate-200/60 rounded-full py-1.5 shadow-md max-w-[90%] mx-auto">
           دروازه امنیتی ورودی کاربران • وب‌سایت پیش‌بینی جام جهانی فیفا ۲۰۲۶ نسخه ۲.۶
         </div>
 
