@@ -63,22 +63,43 @@ export default function AdminPanel({
   const [smsBodyIdReset, setSmsBodyIdReset] = useState('');
   const [smsInitialized, setSmsInitialized] = useState(false);
 
+  // Gemini Settings State
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [geminiProxyMode, setGeminiProxyMode] = useState<'none' | 'auto' | 'manual'>('none');
+  const [geminiProxyUrl, setGeminiProxyUrl] = useState('');
+  const [geminiInitialized, setGeminiInitialized] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+
   useEffect(() => {
-    if (settings && !smsInitialized && (settings.smsUsername !== undefined || settings.smsEnabled !== undefined)) {
-      setSmsEnabled(!!settings.smsEnabled);
-      setSmsUsername(settings.smsUsername || '');
-      setSmsPassword(settings.smsPassword || '');
-      setSmsBodyIdVerify(settings.smsBodyIdVerify !== undefined ? String(settings.smsBodyIdVerify) : '');
-      setSmsBodyIdReset(settings.smsBodyIdReset !== undefined ? String(settings.smsBodyIdReset) : '');
-      setSmsInitialized(true);
+    if (settings) {
+      if (!smsInitialized && (settings.smsUsername !== undefined || settings.smsEnabled !== undefined)) {
+        setSmsEnabled(!!settings.smsEnabled);
+        setSmsUsername(settings.smsUsername || '');
+        setSmsPassword(settings.smsPassword || '');
+        setSmsBodyIdVerify(settings.smsBodyIdVerify !== undefined ? String(settings.smsBodyIdVerify) : '');
+        setSmsBodyIdReset(settings.smsBodyIdReset !== undefined ? String(settings.smsBodyIdReset) : '');
+        setSmsInitialized(true);
+      }
+      if (!geminiInitialized && (settings.geminiApiKey !== undefined || settings.geminiProxyMode !== undefined)) {
+        setGeminiApiKey(settings.geminiApiKey || '');
+        setGeminiProxyMode(settings.geminiProxyMode || 'none');
+        setGeminiProxyUrl(settings.geminiProxyUrl || '');
+        setGeminiInitialized(true);
+      }
     }
-  }, [settings, smsInitialized]);
+  }, [settings, smsInitialized, geminiInitialized]);
 
   // SMS Test states
   const [testMobile, setTestMobile] = useState('');
   const [isTestingSms, setIsTestingSms] = useState(false);
   const [smsTestSuccess, setSmsTestSuccess] = useState('');
   const [smsTestError, setSmsTestError] = useState('');
+
+  // Gemini Test states
+  const [isTestingGemini, setIsTestingGemini] = useState(false);
+  const [geminiTestSuccess, setGeminiTestSuccess] = useState('');
+  const [geminiTestError, setGeminiTestError] = useState('');
+  const [geminiTestSampleResponse, setGeminiTestSampleResponse] = useState('');
 
   // Success / Error alerts
   const [statusMsg, setStatusMsg] = useState('');
@@ -1071,6 +1092,160 @@ export default function AdminPanel({
                 className="px-6 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all"
               >
                 💾 ذخیره تنظیمات پنل پیامکی
+              </button>
+            </div>
+          </div>
+
+          {/* Gemini AI Settings (تنظیمات وب‌سرویس هوش مصنوعی گوگل لت) */}
+          <div className="bg-slate-950/60 p-5 rounded-xl border border-slate-800 space-y-4 text-right">
+            <div className="border-b border-slate-800 pb-3">
+              <h4 className="text-sm font-black text-emerald-400">🤖 تنظیمات وب‌سرویس هوش مصنوعی (Google Gemini)</h4>
+              <p className="text-[11px] text-slate-400 mt-1">پیکربندی کلید و پروکسی جهت استخراج هوشمند و برخط بازیکنان واقعی، باشگاه‌ها و همگام‌ساز زنده رکوردهای فیفا</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[11px] text-slate-400 block font-bold">کلید معتبر وب‌سرویس (Gemini API Key):</label>
+                <div className="relative">
+                  <input
+                    type={showApiKey ? 'text' : 'password'}
+                    placeholder="AIzaSy..."
+                    value={geminiApiKey}
+                    onChange={e => setGeminiApiKey(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 pl-14 pr-3 py-2 rounded-lg text-xs text-white placeholder-slate-700 focus:outline-none focus:border-emerald-400 text-left font-sans"
+                    dir="ltr"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute left-1.5 top-1.5 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-350 rounded-md select-none cursor-pointer"
+                  >
+                    {showApiKey ? 'مخفی' : 'نمایش'}
+                  </button>
+                </div>
+                <span className="text-[9px] text-slate-500 block leading-tight">شما می‌توانید کلید را در کنسول هوش مصنوعی گوگل (AI Studio) بسازید.</span>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-slate-400 block font-bold">حالت اتصال پروکسی (Proxy Connection Mode):</label>
+                <select
+                  value={geminiProxyMode}
+                  onChange={e => setGeminiProxyMode(e.target.value as any)}
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-400 font-sans"
+                >
+                  <option value="none">اتصال مستقیم (توصیه شده - سرور اروپا بدون فیلتر)</option>
+                  <option value="auto">پروکسی هوشمند ملی پیش‌فرض (Auto Routing)</option>
+                  <option value="manual">تعریف پروکسی دستی و آدرس دلخواه (Manual URL)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-slate-400 block font-bold">آدرس سفارشی پروکسی (Base URL Proxy):</label>
+                <input
+                  type="text"
+                  placeholder="https://generativelanguage.googleapis.com"
+                  value={geminiProxyUrl}
+                  disabled={geminiProxyMode !== 'manual'}
+                  onChange={e => setGeminiProxyUrl(e.target.value)}
+                  className={`w-full bg-slate-900 border px-3 py-2 rounded-lg text-xs text-white placeholder-slate-650 focus:outline-none focus:border-emerald-400 text-left font-sans ${
+                    geminiProxyMode === 'manual' ? 'border-slate-800' : 'border-slate-850/60 opacity-40 cursor-not-allowed'
+                  }`}
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            {/* Live Gemini Connection Tester */}
+            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 space-y-3 text-right">
+              <div className="flex items-center justify-between border-b border-emerald-950/25 pb-2">
+                <span className="text-xs font-black text-emerald-400">🔌 تست فوری پیوند و صحت کارکرد کلید</span>
+                <span className="text-[10px] text-slate-500">ارسال یک کوئری سریع به مدل gemini-3.5-flash برای بررسی اتصال</span>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                <div className="text-right flex-1">
+                  <p className="text-[9px] text-slate-440 leading-relaxed font-sans mt-1">با کلیک روی دکمه مقابل، کلید آزمایشی موقت شما پیش از ذخیره روی سرور فراخوانی شده و یک چت لایو با هوش مصنوعی برای تایپ سلامت برقرار می‌شود.</p>
+                </div>
+                
+                <button
+                  type="button"
+                  disabled={isTestingGemini || !geminiApiKey.trim()}
+                  onClick={async () => {
+                    setGeminiTestSuccess('');
+                    setGeminiTestError('');
+                    setGeminiTestSampleResponse('');
+                    setIsTestingGemini(true);
+                    try {
+                      const token = localStorage.getItem('wc_token');
+                      const res = await fetch('/api/admin/gemini-test', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': token ? `Bearer ${token}` : ''
+                        },
+                        body: JSON.stringify({
+                          testApiKey: geminiApiKey.trim(),
+                          proxyMode: geminiProxyMode,
+                          proxyUrl: geminiProxyUrl.trim()
+                        })
+                      });
+                      const data = await res.json();
+                      if (!res.ok) {
+                        setGeminiTestError(data.error || 'خطا در برقراری ارتباط با وب‌سرویس گوگل جمینای.');
+                      } else {
+                        setGeminiTestSuccess(data.message || 'ارتباط با موفقیت تأیید شد!');
+                        setGeminiTestSampleResponse(data.responseSample || '');
+                      }
+                    } catch (e) {
+                      setGeminiTestError('خطای غیرمنتظره در ارسال کوئری به سرور تست.');
+                    } finally {
+                      setIsTestingGemini(false);
+                    }
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-slate-950 font-black text-xs rounded-lg active:scale-95 transition-all text-center whitespace-nowrap cursor-pointer font-sans"
+                >
+                  {isTestingGemini ? 'در حال پینگ هوش مصنوعی...' : '⚡ ارسل تست اتصال جمینای'}
+                </button>
+              </div>
+
+              {geminiTestSuccess && (
+                <div className="space-y-2 p-2.5 bg-emerald-950/40 text-emerald-400 text-xs rounded-lg border border-emerald-500/10 text-right leading-relaxed">
+                  <p className="font-bold">✅ {geminiTestSuccess}</p>
+                  {geminiTestSampleResponse && (
+                    <p className="text-[10px] text-emerald-300 font-mono bg-slate-950/60 p-2 rounded border border-emerald-950/50 block text-left" dir="ltr">
+                      Response Sample: {geminiTestSampleResponse}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {geminiTestError && (
+                <div className="p-2.5 bg-rose-950/40 text-rose-450 text-xs rounded-lg border border-rose-500/10 text-right font-semibold leading-relaxed">
+                  ❌ {geminiTestError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-950">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (onUpdateSettings) {
+                    const success = await onUpdateSettings({
+                      geminiApiKey: geminiApiKey.trim(),
+                      geminiProxyMode,
+                      geminiProxyUrl: geminiProxyUrl.trim()
+                    });
+                    if (success) {
+                      triggerAlert('تنظیمات وب‌سرویس هوش مصنوعی (Gemini) با موفقیت روی سرور ذخیره شد!');
+                    } else {
+                      triggerAlert('خطا در ذخیره‌سازی پیکربندی وب‌سرویس.', true);
+                    }
+                  }
+                }}
+                className="px-6 py-2 bg-emerald-400 hover:bg-emerald-350 active:scale-95 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all"
+              >
+                💾 ذخیره تنظیمات جمینای
               </button>
             </div>
           </div>

@@ -17,6 +17,9 @@ export interface SystemSettings {
   smsPassword?: string;
   smsBodyIdVerify?: number;
   smsBodyIdReset?: number;
+  geminiApiKey?: string;
+  geminiProxyMode?: 'none' | 'auto' | 'manual';
+  geminiProxyUrl?: string;
 }
 
 export interface DatabaseSchema {
@@ -398,6 +401,12 @@ export function loadDB(): DatabaseSchema {
         settings.smsBodyIdVerify = s.value ? Number(s.value) : undefined;
       } else if (s.key === 'smsBodyIdReset') {
         settings.smsBodyIdReset = s.value ? Number(s.value) : undefined;
+      } else if (s.key === 'geminiApiKey') {
+        settings.geminiApiKey = s.value;
+      } else if (s.key === 'geminiProxyMode') {
+        settings.geminiProxyMode = s.value as any;
+      } else if (s.key === 'geminiProxyUrl') {
+        settings.geminiProxyUrl = s.value;
       }
     }
 

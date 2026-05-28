@@ -834,16 +834,9 @@ app.post('/api/matches/sync-fifa', authenticateToken, async (req: AuthenticatedR
 
     let syncMessage = "مسابقات با نتایج رسمی فیفا با موفقیت همگام‌سازی شدند.";
 
-    if (process.env.GEMINI_API_KEY) {
+    const ai = getGeminiClient();
+    if (ai) {
       try {
-        const ai = new GoogleGenAI({
-          apiKey: process.env.GEMINI_API_KEY,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build'
-            }
-          }
-        });
 
         // Query Gemini with Google Search Grounding to check for real-life match results
         const prompt = `You are a World Cup statistics scraper helper. Retrieve the actual match scores for the World Cup standings.
@@ -1498,7 +1491,10 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
       smsUsername,
       smsPassword,
       smsBodyIdVerify,
-      smsBodyIdReset
+      smsBodyIdReset,
+      geminiApiKey,
+      geminiProxyMode,
+      geminiProxyUrl
     } = req.body;
     
     const db = loadDB();
@@ -1535,6 +1531,17 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
     if (smsBodyIdReset !== undefined) {
       db.settings.smsBodyIdReset = smsBodyIdReset ? Number(smsBodyIdReset) : undefined;
     }
+
+    // Gemini Settings
+    if (geminiApiKey !== undefined) {
+      db.settings.geminiApiKey = geminiApiKey;
+    }
+    if (geminiProxyMode !== undefined) {
+      db.settings.geminiProxyMode = geminiProxyMode;
+    }
+    if (geminiProxyUrl !== undefined) {
+      db.settings.geminiProxyUrl = geminiProxyUrl;
+    }
     
     saveDB(db);
     
@@ -1546,6 +1553,90 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
     res.status(500).json({ error: err.message });
   }
 });
+
+// Helper to get initialized GoogleGenAI client based on database settings/environment variables
+export function getGeminiClient(): GoogleGenAI | null {
+  const db = loadDB();
+  const apiKey = db.settings?.geminiApiKey || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
+
+  const mode = db.settings?.geminiProxyMode || 'none';
+  const customUrl = db.settings?.geminiProxyUrl;
+
+  const initOptions: any = {
+    apiKey: apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build'
+      }
+    }
+  };
+
+  if (mode === 'manual' && customUrl) {
+    initOptions.baseUrl = customUrl.trim();
+  } else if (mode === 'auto') {
+    // Standard direct connection config or a regional mirror
+    initOptions.baseUrl = 'https://generativelanguage.googleapis.com';
+  }
+
+  return new GoogleGenAI(initOptions);
+}
+
+// POST /api/admin/gemini-test (Admin only - test Gemini API connectivity with custom key & proxy)
+app.post('/api/admin/gemini-test', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { testApiKey, proxyMode, proxyUrl } = req.body;
+    const db = loadDB();
+
+    const apiKey = testApiKey !== undefined ? testApiKey : (db.settings?.geminiApiKey || process.env.GEMINI_API_KEY);
+    const mode = proxyMode !== undefined ? proxyMode : (db.settings?.geminiProxyMode || 'none');
+    const customUrl = proxyUrl !== undefined ? proxyUrl : db.settings?.geminiProxyUrl;
+
+    if (!apiKey) {
+      res.status(400).json({ error: 'کلید وب‌سرویس هوش مصنوعی (GEMINI_API_KEY) وارد نشده است.' });
+      return;
+    }
+
+    const initOptions: any = {
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build'
+        },
+        timeout: 10000 // 10 seconds timeout
+      }
+    };
+
+    if (mode === 'manual' && customUrl) {
+      initOptions.baseUrl = customUrl.trim();
+    } else if (mode === 'auto') {
+      initOptions.baseUrl = 'https://generativelanguage.googleapis.com';
+    }
+
+    console.log(`[AI-TEST-CONNECTION] Verifying Gemini connection... Mode: ${mode}, URL: ${initOptions.baseUrl || 'Default'}`);
+
+    const ai = new GoogleGenAI(initOptions);
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: "فقط پاسخ کوتاه بده: OK",
+    });
+
+    const outputText = response.text?.trim() || '';
+    res.json({
+      success: true,
+      message: 'اتصال آزمایشی با هوش مصنوعی (Gemini) با موفقیت برقرار شد!',
+      responseSample: outputText
+    });
+  } catch (err: any) {
+    console.error('[AI-TEST-CONNECTION] Connection error detail:', err);
+    res.status(550).json({ 
+      error: `خطا در پیوند به گوگل جمینای: ${err.message}. لطفا کلید وب‌سرویس یا جزییات پروکسی خود را بررسی نمایید.` 
+    });
+  }
+});
+
 
 // POST /api/admin/sms-test (Admin only - test sms gate configuration)
 app.post('/api/admin/sms-test', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
@@ -1667,23 +1758,16 @@ app.post('/api/teams/:id/squad/sync-ai', async (req: Request, res: Response) => 
       return;
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      res.status(400).json({ error: 'کلید وب‌سرویس هوش مصنوعی (GEMINI_API_KEY) در سرور پیکربندی نشده است. بروزرسانی زنده مقدور نیست.' });
+    const ai = getGeminiClient();
+    if (!ai) {
+      res.status(400).json({ error: 'کلید وب‌سرویس هوش مصنوعی (GEMINI_API_KEY) در سرور پیکربندی نشده است. لطفاً ابتدا در بخش تنظیمات پنل مدیریت کلید معتبر خود را تعریف نهایی کنید.' });
       return;
     }
 
-    const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build'
-        }
-      }
-    });
-
     const prompt = `You are a professional sports editor. Fetch/retrieve the actual, official real-world soccer squad, head coach, and player ratings (FIFA/FC25/real-life) for the National Football Team: "${team.name}" (${team.shortCode}).
+To find the absolute correct real-life squad and head coach, you MUST perform a Google search prioritizing official articles on fifa.com, specifically looking for squad lists or tournament previews such as: "site:fifa.com ${team.name} squad named 2026" or "site:fifa.com Men's World Cup ${team.name} squad".
 Important details:
-1. Find the REAL current manager/coach (in Persian).
+1. Find the REAL current manager/coach (in Persian, e.g., "امیر قلعه‌نویی", "روبرتو مارتینز", "لوئیس دلا فوئنته" etc.).
 2. Gather EXACTLY 11 starting players and EXACTLY 4 core reserve players (total of 15 REAL players representing them, e.g. for Portugal, get Ronaldo, Bruno Fernandes, Leao, Dias, Bernardo, Diogo Costa etc., and for Cape Verde, get their real team like Jovane Cabral, Bebe, Logan Costa, Ryan Mendes, Garry Rodrigues, translated to Persian). Do NOT make up names like 'الکس مولر' or 'ماتئو اسمیت'.
 3. For each player, retrieve:
    - "name": Real name in Persian (e.g. "کریستیانو رونالدو", "رایان مندس")
