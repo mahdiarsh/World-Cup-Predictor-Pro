@@ -9,6 +9,8 @@ import { createRequire } from 'module';
 const customRequire = typeof require !== 'undefined' ? require : createRequire(path.join(process.cwd(), 'package.json'));
 import { loadDB, saveDB, recalculateAllScores, resolveMatchesWithStandings, runFifaLiveSync, resetTournament } from './server/db';
 import { User, UserRole, Match, MatchStatus, Prediction, LeaderboardEntry, Team, MatchStage } from './src/types';
+import { teamsSeed } from './src/data/teams';
+import { matchesSeed } from './src/data/matches';
 import { GoogleGenAI } from '@google/genai';
 
 const app = express();
@@ -528,15 +530,21 @@ app.get('/api/predictions/user/:userId', authenticateToken, (req: AuthenticatedR
 // POST /api/predictions (Create or Edit prediction)
 app.post('/api/predictions', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { matchId, predictedHome, predictedAway } = req.body;
-    if (!matchId || predictedHome === undefined || predictedAway === undefined) {
-      res.status(400).json({ error: 'matchId, predictedHome and predictedAway are required.' });
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    if (!userId) {
+      res.status(401).json({ error: 'Authentication required' });
       return;
     }
 
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Authentication required' });
+    if (userRole === UserRole.ADMIN) {
+      res.status(403).json({ error: 'کاربران با دسترسی ادمین مجاز به ثبت پیش‌بینی نیستند.' });
+      return;
+    }
+
+    const { matchId, predictedHome, predictedAway } = req.body;
+    if (!matchId || predictedHome === undefined || predictedAway === undefined) {
+      res.status(400).json({ error: 'matchId, predictedHome and predictedAway are required.' });
       return;
     }
 
@@ -593,15 +601,21 @@ app.post('/api/predictions', authenticateToken, (req: AuthenticatedRequest, res:
 // POST /api/predictions/batch (Submit multiple predictions at once)
 app.post('/api/predictions/batch', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { predictions } = req.body;
-    if (!predictions || !Array.isArray(predictions)) {
-      res.status(400).json({ error: 'predictions array is required.' });
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    if (!userId) {
+      res.status(401).json({ error: 'Authentication required' });
       return;
     }
 
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Authentication required' });
+    if (userRole === UserRole.ADMIN) {
+      res.status(403).json({ error: 'کاربران با دسترسی ادمین مجاز به ثبت پیش‌بینی نیستند.' });
+      return;
+    }
+
+    const { predictions } = req.body;
+    if (!predictions || !Array.isArray(predictions)) {
+      res.status(400).json({ error: 'predictions array is required.' });
       return;
     }
 
@@ -1052,15 +1066,115 @@ app.get('/api/admin/download-db', authenticateToken, requireAdmin, (req: Authent
 // POST /api/admin/import-db (Admin only - upload / import backup db.json)
 app.post('/api/admin/import-db', express.json({ limit: '50mb' }), authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
   try {
-    const data = req.body;
-    if (!data || !Array.isArray(data.users) || !Array.isArray(data.teams) || !Array.isArray(data.matches) || !Array.isArray(data.predictions) || !data.passwords) {
-      res.status(400).json({ error: 'فرمت بکاپ ارسالی نامعتبر است. ساختار دیتابیس صحیح نیست.' });
+    const backup = req.body;
+    if (!backup || !Array.isArray(backup.users) || !backup.passwords) {
+      res.status(400).json({ error: 'فرمت بکاپ ارسالی نامعتبر است. لیست کاربران یا رمزهای عبور یافت نشد.' });
       return;
     }
-    
-    saveDB(data);
+
+    const currentDb = loadDB();
+
+    // 1. Users & Passwords smart merge (preserve administrators, ensure forward compatible fields)
+    const mergedUsers = [...backup.users];
+    const mergedPasswords = { ...backup.passwords };
+
+    // Prevent administrative lockouts by transferring existing admin accounts if missing in backup
+    for (const curU of currentDb.users) {
+      if (curU.role === UserRole.ADMIN && !mergedUsers.some(u => u.id === curU.id)) {
+        mergedUsers.push(curU);
+        if (currentDb.passwords[curU.id]) {
+          mergedPasswords[curU.id] = currentDb.passwords[curU.id];
+        }
+      }
+    }
+
+    // Adapt user records safely for forward-compatibility with any properties
+    for (const u of mergedUsers) {
+      if (u.isDisabled === undefined) u.isDisabled = false;
+      if (u.totalScore === undefined) u.totalScore = 0;
+      if (u.correctPredictions === undefined) u.correctPredictions = 0;
+      if (u.exactPredictions === undefined) u.exactPredictions = 0;
+      if (u.playedMatches === undefined) u.playedMatches = 0;
+      if (!u.createdAt) u.createdAt = new Date().toISOString();
+      if (!u.avatar) u.avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`;
+    }
+
+    // 2. Teams smart merge (always respect latest team list from code seed, fallback to backup only for non-existent ones)
+    const mergedTeams = teamsSeed.map(tSeed => {
+      const backupTeam = backup.teams?.find((bt: any) => bt.id === tSeed.id);
+      return {
+        ...tSeed,
+        name: backupTeam?.name || tSeed.name,
+        logo: backupTeam?.logo || tSeed.logo,
+        groupName: backupTeam?.groupName || tSeed.groupName,
+      };
+    });
+
+    if (Array.isArray(backup.teams)) {
+      for (const bt of backup.teams) {
+        if (!mergedTeams.some(t => t.id === bt.id)) {
+          mergedTeams.push(bt);
+        }
+      }
+    }
+
+    // 3. Matches smart merge (CRITICAL: preserve schedule details/dates/venues from matchesSeed of the newer version, only importing actual results/assignments)
+    const mergedMatches = matchesSeed.map(mSeed => {
+      const backupMatch = backup.matches?.find((bm: any) => bm.id === mSeed.id);
+      if (backupMatch) {
+        return {
+          ...mSeed, // Use modern code details of stadium, kickoff, stage, etc.
+          homeTeamId: backupMatch.homeTeamId || mSeed.homeTeamId,
+          awayTeamId: backupMatch.awayTeamId || mSeed.awayTeamId,
+          homeScore: backupMatch.homeScore !== undefined ? backupMatch.homeScore : mSeed.homeScore,
+          awayScore: backupMatch.awayScore !== undefined ? backupMatch.awayScore : mSeed.awayScore,
+          status: backupMatch.status || mSeed.status,
+        };
+      }
+      return mSeed;
+    });
+
+    if (Array.isArray(backup.matches)) {
+      for (const bm of backup.matches) {
+        if (!mergedMatches.some(m => m.id === bm.id)) {
+          mergedMatches.push(bm);
+        }
+      }
+    }
+
+    // 4. Predictions smart merge & Admin cleanup
+    const adminUserIds = mergedUsers.filter(u => u.role === UserRole.ADMIN || u.id === 'u-admin').map(u => u.id);
+    const backupPredictions = Array.isArray(backup.predictions) ? backup.predictions : [];
+    const mergedPredictions = backupPredictions
+      .filter((p: any) => p && p.userId && !adminUserIds.includes(p.userId)) // exclude admin predictions safely
+      .map((p: any) => ({
+        id: p.id || 'p-' + Math.random().toString(36).substr(2, 9),
+        userId: p.userId,
+        matchId: p.matchId,
+        predictedHome: Number(p.predictedHome),
+        predictedAway: Number(p.predictedAway),
+        points: p.points !== undefined ? p.points : null,
+        createdAt: p.createdAt || new Date().toISOString()
+      }));
+
+    // 5. Settings merge
+    const mergedSettings = {
+      ...(currentDb.settings || {}),
+      ...(backup.settings || {}),
+    };
+
+    const finalMergedDb = {
+      users: mergedUsers,
+      teams: mergedTeams,
+      matches: mergedMatches,
+      predictions: mergedPredictions,
+      passwords: mergedPasswords,
+      settings: mergedSettings,
+    };
+
+    saveDB(finalMergedDb);
     recalculateAllScores();
-    res.json({ message: 'پایگاه داده با موفقیت بازگردانی کامل شد و تمام امتیازات مجددا محاسبه گردید!' });
+    res.json({ message: 'پایگاه داده با موفقیت بازگردانی هوشمند شد! تداخل‌ها با موفقیت رفع گردیده و امتیازات مجددا محاسبه شدند.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'خطا در بازخوانی بکاپ دیتابیس' });
   }

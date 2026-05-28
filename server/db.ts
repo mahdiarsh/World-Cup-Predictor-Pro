@@ -462,6 +462,10 @@ export function calculatePredictionPoints(
 export function recalculateAllScores(): void {
   const db = loadDB();
   
+  // Clean up any accidentally created predictions belonging to admins
+  const adminIds = db.users.filter(u => u.role === UserRole.ADMIN || u.id === 'u-admin').map(u => u.id);
+  db.predictions = db.predictions.filter(p => !adminIds.includes(p.userId));
+
   // Reset all stats for active users (excluding admin who doesn't play usually)
   const userStatsMap: Record<string, { totalScore: number; correct: number; exact: number; played: number }> = {};
   
@@ -837,7 +841,11 @@ export function resetTournament(): void {
     status: MatchStatus.SCHEDULED
   }));
   
-  // Reset predictions
+  // Delete all predictions belonging to any admin user
+  const adminIds = db.users.filter(u => u.role === UserRole.ADMIN || u.id === 'u-admin').map(u => u.id);
+  db.predictions = db.predictions.filter(p => !adminIds.includes(p.userId));
+
+  // Reset remaining predictions
   for (const p of db.predictions) {
     p.points = null;
   }

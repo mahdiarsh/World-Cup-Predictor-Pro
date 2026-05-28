@@ -7,9 +7,10 @@ interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
   currentUser: User | null;
   onExportExcel?: () => Promise<boolean>;
+  onUserClick?: (userId: string) => void;
 }
 
-export default function LeaderboardTable({ entries, currentUser, onExportExcel }: LeaderboardTableProps) {
+export default function LeaderboardTable({ entries, currentUser, onExportExcel, onUserClick }: LeaderboardTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
@@ -55,18 +56,22 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel }
           
           {/* 2nd Place */}
           {topThree[1] && (
-            <div className="relative bg-slate-900/60 rounded-2xl p-5 border-t-2 border-slate-400/50 border-x border-b border-slate-800 text-center flex flex-col justify-between hover:scale-[1.02] transition-transform order-2 sm:order-1 pt-8 shadow-lg">
+            <div 
+              onClick={() => onUserClick && onUserClick(topThree[1].userId)}
+              className="relative bg-slate-900/60 rounded-2xl p-5 border-t-2 border-slate-400/50 border-x border-b border-slate-800 text-center flex flex-col justify-between hover:scale-[1.02] hover:border-slate-300 transition-all cursor-pointer order-2 sm:order-1 pt-8 shadow-lg group"
+              title="مشاهده نمایه و پیش‌بینی‌های کاربر"
+            >
               <div className="absolute top-2 right-2 px-2.5 py-0.5 bg-slate-800 text-slate-300 font-bold rounded-md font-mono text-xs">رتبه ۲</div>
               <div className="space-y-3">
-                <div className="relative mx-auto w-16 h-16 rounded-full border-2 border-slate-400 overflow-hidden bg-slate-800 select-none">
+                <div className="relative mx-auto w-16 h-16 rounded-full border-2 border-slate-400 overflow-hidden bg-slate-800 select-none group-hover:ring-2 group-hover:ring-emerald-450 transition-all">
                   <Avatar avatar={topThree[1].avatar} className="object-cover w-full h-full" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white tracking-tight text-base line-clamp-1">{topThree[1].fullName}</h4>
+                  <h4 className="font-bold text-white tracking-tight text-base line-clamp-1 group-hover:text-emerald-400 transition-colors">{topThree[1].fullName}</h4>
                   <p className="text-xs text-slate-400">@{topThree[1].username}</p>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-800">
+              <div className="mt-4 pt-3 border-t border-slate-800 pb-1">
                 <p className="text-2xl font-black text-slate-200">{topThree[1].totalScore} <span className="text-xs text-slate-400 font-medium">امتیاز</span></p>
                 <p className="text-[10px] text-slate-400 font-sans">{topThree[1].exactPredictions} پیش‌بینی دقیق</p>
               </div>
@@ -75,20 +80,24 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel }
 
           {/* 1st Place (Gold Highlight) */}
           {topThree[0] && (
-            <div className="relative bg-emerald-950/20 rounded-3xl p-6 border-t-4 border-amber-400 border-x border-b border-emerald-500/20 text-center flex flex-col justify-between hover:scale-[1.04] transition-all order-1 sm:order-2 pt-10 shadow-[0_0_25px_rgba(245,158,11,0.15)] ring-1 ring-amber-400/20">
+            <div 
+              onClick={() => onUserClick && onUserClick(topThree[0].userId)}
+              className="relative bg-emerald-950/20 rounded-3xl p-6 border-t-4 border-amber-400 border-x border-b border-emerald-500/20 text-center flex flex-col justify-between hover:scale-[1.04] hover:border-amber-400 transition-all cursor-pointer order-1 sm:order-2 pt-10 shadow-[0_0_25px_rgba(245,158,11,0.15)] ring-1 ring-amber-400/20 group"
+              title="مشاهده نمایه و پیش‌بینی‌های کاربر"
+            >
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-amber-400 text-slate-950 text-xs font-black px-4 py-1 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider font-sans">
                 👑 قهرمان
               </div>
               <div className="space-y-3">
-                <div className="relative mx-auto w-20 h-20 rounded-full border-4 border-amber-400 overflow-hidden bg-slate-800 shadow-[0_0_15px_rgba(245,158,11,0.3)] select-none">
+                <div className="relative mx-auto w-20 h-20 rounded-full border-4 border-amber-400 overflow-hidden bg-slate-800 shadow-[0_0_15px_rgba(245,158,11,0.3)] select-none group-hover:ring-4 group-hover:ring-amber-300 transition-all">
                   <Avatar avatar={topThree[0].avatar} className="object-cover w-full h-full" />
                 </div>
                 <div>
-                  <h4 className="font-extrabold text-white text-lg tracking-tight line-clamp-1">{topThree[0].fullName}</h4>
-                  <p className="text-xs text-amber-300">@{topThree[0].username}</p>
+                  <h4 className="font-extrabold text-white text-lg tracking-tight line-clamp-1 group-hover:text-amber-300 transition-colors">{topThree[0].fullName}</h4>
+                  <p className="text-xs text-amber-300 font-bold font-sans">@{topThree[0].username}</p>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-emerald-500/20">
+              <div className="mt-4 pt-3 border-t border-emerald-500/20 pb-1">
                 <p className="text-3xl font-black text-amber-400">{topThree[0].totalScore} <span className="text-xs text-slate-300 font-medium">امتیاز</span></p>
                 <p className="text-xs text-emerald-400 font-medium font-sans">{topThree[0].exactPredictions} حدس دقیق مسابقات!</p>
               </div>
@@ -97,19 +106,23 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel }
 
           {/* 3rd Place */}
           {topThree[2] && (
-            <div className="relative bg-slate-900/60 rounded-2xl p-5 border-t-2 border-amber-700/50 border-x border-b border-slate-800 text-center flex flex-col justify-between hover:scale-[1.02] transition-transform order-3 pt-8 shadow-lg">
+            <div 
+              onClick={() => onUserClick && onUserClick(topThree[2].userId)}
+              className="relative bg-slate-900/60 rounded-2xl p-5 border-t-2 border-amber-700/50 border-x border-b border-slate-800 text-center flex flex-col justify-between hover:scale-[1.02] hover:border-amber-600/70 transition-all cursor-pointer order-3 pt-8 shadow-lg group"
+              title="مشاهده نمایه و پیش‌بینی‌های کاربر"
+            >
               <div className="absolute top-2 right-2 px-2.5 py-0.5 bg-slate-800 text-amber-600 font-bold rounded-md font-mono text-xs">رتبه ۳</div>
               <div className="space-y-3">
-                <div className="relative mx-auto w-16 h-16 rounded-full border-2 border-amber-700 overflow-hidden bg-slate-800 select-none">
+                <div className="relative mx-auto w-16 h-16 rounded-full border-2 border-amber-700 overflow-hidden bg-slate-800 select-none group-hover:ring-2 group-hover:ring-amber-500 transition-all">
                   <Avatar avatar={topThree[2].avatar} className="object-cover w-full h-full" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white tracking-tight text-base line-clamp-1">{topThree[2].fullName}</h4>
+                  <h4 className="font-bold text-white tracking-tight text-base line-clamp-1 group-hover:text-emerald-400 transition-colors">{topThree[2].fullName}</h4>
                   <p className="text-xs text-slate-400">@{topThree[2].username}</p>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-800">
-                <p className="text-2xl font-black text-amber-700">{topThree[2].totalScore} <span className="text-xs text-slate-400 font-medium">امتیاز</span></p>
+              <div className="mt-4 pt-3 border-t border-slate-800 pb-1">
+                <p className="text-2xl font-black text-amber-705 text-amber-605 font-mono">{topThree[2].totalScore} <span className="text-xs text-slate-400 font-medium">امتیاز</span></p>
                 <p className="text-[10px] text-slate-400 font-sans">{topThree[2].exactPredictions} پیش‌بینی دقیق</p>
               </div>
             </div>
@@ -186,9 +199,13 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel }
                       </td>
                       
                       {/* Participant Profile and Username */}
-                      <td className="px-6 py-4 text-right">
+                      <td 
+                        className="px-6 py-4 text-right cursor-pointer hover:bg-slate-800/60 select-none group"
+                        onClick={() => onUserClick && onUserClick(user.userId)}
+                        title="مشاهده نمایه و پیش‌بینی‌های کاربر"
+                      >
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full overflow-hidden bg-slate-850 border border-slate-800 select-none">
+                          <div className="h-9 w-9 rounded-full overflow-hidden bg-slate-850 border border-slate-800 select-none group-hover:ring-2 group-hover:ring-emerald-450 transition-all">
                             <Avatar 
                               avatar={user.avatar} 
                               alt={user.fullName} 
@@ -196,7 +213,7 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel }
                             />
                           </div>
                           <div>
-                            <span className="text-sm text-slate-100 flex items-center gap-1.5 font-sans font-medium">
+                            <span className="text-sm text-slate-100 flex items-center gap-1.5 font-sans font-medium group-hover:text-emerald-400 group-hover:underline transition-colors">
                               {user.fullName}
                               {isCurUser && (
                                 <span className="bg-emerald-500/20 text-emerald-300 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full font-mono border border-emerald-400/20">
@@ -204,7 +221,7 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel }
                                 </span>
                               )}
                             </span>
-                            <span className="block text-xs text-slate-500 text-left">@{user.username}</span>
+                            <span className="block text-xs text-slate-500 text-right">@{user.username}</span>
                           </div>
                         </div>
                       </td>

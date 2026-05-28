@@ -15,6 +15,7 @@ import Avatar from './components/Avatar';
 import FlagIcon from './components/FlagIcon';
 import LegendsList from './components/LegendsList';
 import TeamDetail from './components/TeamDetail';
+import UserPublicProfileModal from './components/UserPublicProfileModal';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('home');
@@ -22,6 +23,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('wc_token'));
   const [settings, setSettings] = useState<{ registrationEnabled: boolean }>({ registrationEnabled: true });
+  const [selectedPublicUserId, setSelectedPublicUserId] = useState<string | null>(null);
 
   // Global State
   const [matches, setMatches] = useState<Match[]>([]);
@@ -674,6 +676,7 @@ export default function App() {
           entries={leaderboard} 
           currentUser={currentUser} 
           onExportExcel={currentUser?.role === 'admin' ? handleExportExcel : undefined}
+          onUserClick={setSelectedPublicUserId}
         />
       );
     }
@@ -925,14 +928,16 @@ export default function App() {
                 return (
                   <div 
                     key={entry.userId} 
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all shrink-0 snap-center ${
+                    onClick={() => setSelectedPublicUserId(entry.userId)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all shrink-0 snap-center cursor-pointer select-none ${
                       isMe 
-                        ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400 font-bold' 
+                        ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400 font-bold hover:bg-emerald-950/60' 
                         : 'bg-slate-950/60 border-slate-800/85 text-slate-350 hover:bg-slate-900 hover:border-slate-700'
                     }`}
+                    title="مشاهده نمایه و پیش‌بینی‌های کاربر"
                   >
                     <span className="text-[10px] font-mono leading-none">{medal}</span>
-                    <div className="h-5 w-5 rounded-full overflow-hidden border border-slate-700/80 shrink-0 select-none">
+                    <div className="h-5 w-5 rounded-full overflow-hidden border border-slate-700/80 shrink-0">
                       <Avatar 
                         avatar={entry.avatar} 
                         alt={entry.fullName} 
@@ -984,6 +989,17 @@ export default function App() {
         )}
 
       </main>
+
+      {/* User Public Profile details modal popup */}
+      {selectedPublicUserId && (
+        <UserPublicProfileModal
+          userId={selectedPublicUserId}
+          onClose={() => setSelectedPublicUserId(null)}
+          leaderboard={leaderboard}
+          matches={matches}
+          token={token}
+        />
+      )}
 
     </div>
   );
