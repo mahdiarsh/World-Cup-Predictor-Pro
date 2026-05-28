@@ -61,16 +61,24 @@ export default function AdminPanel({
   const [smsPassword, setSmsPassword] = useState('');
   const [smsBodyIdVerify, setSmsBodyIdVerify] = useState('');
   const [smsBodyIdReset, setSmsBodyIdReset] = useState('');
+  const [smsInitialized, setSmsInitialized] = useState(false);
 
   useEffect(() => {
-    if (settings) {
+    if (settings && !smsInitialized && (settings.smsUsername !== undefined || settings.smsEnabled !== undefined)) {
       setSmsEnabled(!!settings.smsEnabled);
       setSmsUsername(settings.smsUsername || '');
       setSmsPassword(settings.smsPassword || '');
       setSmsBodyIdVerify(settings.smsBodyIdVerify !== undefined ? String(settings.smsBodyIdVerify) : '');
       setSmsBodyIdReset(settings.smsBodyIdReset !== undefined ? String(settings.smsBodyIdReset) : '');
+      setSmsInitialized(true);
     }
-  }, [settings]);
+  }, [settings, smsInitialized]);
+
+  // SMS Test states
+  const [testMobile, setTestMobile] = useState('');
+  const [isTestingSms, setIsTestingSms] = useState(false);
+  const [smsTestSuccess, setSmsTestSuccess] = useState('');
+  const [smsTestError, setSmsTestError] = useState('');
 
   // Success / Error alerts
   const [statusMsg, setStatusMsg] = useState('');
@@ -924,8 +932,7 @@ export default function AdminPanel({
                   placeholder="مثال: myusername"
                   value={smsUsername}
                   onChange={e => setSmsUsername(e.target.value)}
-                  disabled={!smsEnabled}
-                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 disabled:opacity-50 text-left font-sans"
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 text-left font-sans"
                   dir="ltr"
                 />
               </div>
@@ -937,8 +944,7 @@ export default function AdminPanel({
                   placeholder="••••••••"
                   value={smsPassword}
                   onChange={e => setSmsPassword(e.target.value)}
-                  disabled={!smsEnabled}
-                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 disabled:opacity-50 text-left font-sans"
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 text-left font-sans"
                   dir="ltr"
                 />
               </div>
@@ -950,8 +956,7 @@ export default function AdminPanel({
                   placeholder="مثال: 124555"
                   value={smsBodyIdVerify}
                   onChange={e => setSmsBodyIdVerify(e.target.value)}
-                  disabled={!smsEnabled}
-                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 disabled:opacity-50 text-left font-sans"
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 text-left font-sans"
                   dir="ltr"
                 />
                 <span className="text-[9px] text-slate-500 block leading-tight">الگویی با حداقل یک متغیر برای کد تأیید (مثلا: کد تایید شما: {`{0}`})</span>
@@ -964,12 +969,84 @@ export default function AdminPanel({
                   placeholder="مثال: 124556"
                   value={smsBodyIdReset}
                   onChange={e => setSmsBodyIdReset(e.target.value)}
-                  disabled={!smsEnabled}
-                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 disabled:opacity-50 text-left font-sans"
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 text-left font-sans"
                   dir="ltr"
                 />
                 <span className="text-[9px] text-slate-500 block leading-tight">الگوی ارسال رمزعبور جدید یا کد ریست (مثلا: کد تایید ریست رمز: {`{0}`})</span>
               </div>
+            </div>
+
+            {/* Live SMS Tester */}
+            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 space-y-3 text-right">
+              <div className="flex items-center justify-between border-b border-indigo-950/25 pb-2">
+                <span className="text-xs font-black text-indigo-400">🔌 تست زنده و فوری ارسال پیامک</span>
+                <span className="text-[10px] text-slate-500">یک شماره همراه وارد کنید تا پس از تست مستقیم اتصال شما بررسی شود</span>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3 items-end">
+                <div className="flex-1 space-y-1 text-right w-full">
+                  <label className="text-[10px] text-slate-400 block font-bold font-sans">شماره همراه مقصد برای دریافت پیامک تست:</label>
+                  <input
+                    type="text"
+                    placeholder="مثال: 09123456789"
+                    value={testMobile}
+                    onChange={e => setTestMobile(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-700 focus:outline-none focus:border-indigo-400 font-sans text-left"
+                    dir="ltr"
+                  />
+                </div>
+                
+                <button
+                  type="button"
+                  disabled={isTestingSms || !testMobile.trim()}
+                  onClick={async () => {
+                    setSmsTestSuccess('');
+                    setSmsTestError('');
+                    setIsTestingSms(true);
+                    try {
+                      const token = localStorage.getItem('wc_token');
+                      const res = await fetch('/api/admin/sms-test', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': token ? `Bearer ${token}` : ''
+                        },
+                        body: JSON.stringify({
+                          testMobile: testMobile.trim(),
+                          smsUsername: smsUsername.trim(),
+                          smsPassword: smsPassword.trim(),
+                          smsBodyIdVerify: smsBodyIdVerify ? Number(smsBodyIdVerify) : undefined
+                        })
+                      });
+                      const data = await res.json();
+                      if (!res.ok) {
+                        setSmsTestError(data.error || 'خطا در ارسال پیامک تست.');
+                      } else {
+                        setSmsTestSuccess(data.message || 'پیامک با موفقیت ارسال شد!');
+                      }
+                    } catch (e) {
+                      setSmsTestError('خطای ناشناخته در اتصال به سرور.');
+                    } finally {
+                      setIsTestingSms(false);
+                    }
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg active:scale-95 transition-all text-center whitespace-nowrap cursor-pointer font-sans"
+                >
+                  {isTestingSms ? 'در حال ارسال پیامک...' : '⚡ ارسال پیامک تست'}
+                </button>
+              </div>
+
+              {smsTestSuccess && (
+                <div className="p-2.5 bg-emerald-950/40 text-emerald-400 text-xs rounded-lg border border-emerald-500/10 text-right font-semibold leading-relaxed">
+                  ✅ {smsTestSuccess}
+                </div>
+              )}
+
+              {smsTestError && (
+                <div className="p-2.5 bg-red-950/40 text-red-400 text-xs rounded-lg border border-red-500/10 text-right font-semibold leading-relaxed">
+                  ❌ {smsTestError}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end pt-2 border-t border-slate-950">

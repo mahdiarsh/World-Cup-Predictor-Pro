@@ -521,27 +521,6 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
         </button>
 
       </form>
-
-      {/* Demo helper logins */}
-      {isLoginTab && (
-        <div className="border-t border-slate-100 pt-4 space-y-2">
-          <p className="text-[10px] text-slate-400 text-center font-bold">ورود مستقیم و سریع جهت بازبینی (مخصوص داور گرامی):</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => handleDirectLogin('09120000000', 'admin123')}
-              className="py-1.5 px-2 bg-slate-900 border border-slate-800 text-[10px] text-amber-400 font-black rounded-lg transition-all active:scale-95 text-center cursor-pointer"
-            >
-              👑 ورود مستقیم به ادمین (Admin)
-            </button>
-            <button
-              onClick={() => handleDirectLogin('09121111111', 'user123')}
-              className="py-1.5 px-2 bg-slate-50 border border-slate-200 text-[10px] text-slate-700 font-bold rounded-lg transition-all active:scale-95 text-center cursor-pointer"
-            >
-              ⚽ ورود مستقیم به کاربر دمو (User)
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

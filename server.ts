@@ -1546,6 +1546,68 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
   }
 });
 
+// POST /api/admin/sms-test (Admin only - test sms gate configuration)
+app.post('/api/admin/sms-test', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { testMobile, smsUsername, smsPassword, smsBodyIdVerify } = req.body;
+    if (!testMobile) {
+      res.status(400).json({ error: 'شماره همراه گیرنده تست الزامی است.' });
+      return;
+    }
+
+    const db = loadDB();
+    const activeUsername = smsUsername || db.settings?.smsUsername;
+    const activePassword = smsPassword || db.settings?.smsPassword;
+    const activeBodyId = smsBodyIdVerify || db.settings?.smsBodyIdVerify;
+
+    if (!activeUsername || !activePassword || !activeBodyId) {
+      res.status(400).json({ error: 'نام کاربری، کلمه عبور و شناسه الگوی تایید ملی‌پیامک جهت ارسال تست بازبینی نشده است.' });
+      return;
+    }
+
+    // Generate test code
+    const testCode = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit simple test code
+
+    const payload = {
+      username: activeUsername,
+      password: activePassword,
+      text: String(testCode),
+      to: testMobile.trim(),
+      bodyId: Number(activeBodyId)
+    };
+
+    console.log(`[SMS-TEST] Sending test SMS to ${testMobile} with template ${activeBodyId}...`);
+
+    const response = await fetch('https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`خطای پاسخ دهی وب سرویس ملی پیامک: وضعیت ${response.status}`);
+    }
+
+    const data = await response.json();
+    const returnVal = data.Value || data.RetVal || data;
+    const parsedRet = Number(returnVal);
+
+    if (!isNaN(parsedRet) && parsedRet < 0) {
+      throw new Error(`خطای ملی پیامک (کد خطای سامانه): ${parsedRet}`);
+    }
+
+    res.json({
+      success: true,
+      code: testCode,
+      message: `پیامک تستی حاوی کد ${testCode} با موفقیت توسط ملی‌پیامک به شماره همراه ${testMobile} ارسال شد!`
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'خطا در برقراری ارتباط با درگاه ملی‌پیامک' });
+  }
+});
+
 
 // --- VITE MIDDLEWARE SETUP ---
 
