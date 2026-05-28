@@ -384,34 +384,87 @@ export default function UserProfile({
 
   const processFile = (file: File) => {
     setUploadError('');
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Invalid file type. Please select or drop an image file.');
-      return;
-    }
-    // limit size to 1.5MB to make sure json DB storage is lightweight and fits nicely
-    if (file.size > 1.5 * 1024 * 1024) {
-      setUploadError('Image size exceeds limit. Please upload an image under 1.5MB.');
+    
+    // Check if the file is an image by mimetype or extension
+    const isImg = file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|gif)$/i.test(file.name);
+    if (!isImg) {
+      setUploadError('حسگر تصاویر: لطفاً یک تصویر معتبر با پسوند مجاز انتخاب کنید (PNG یا JPG/WEBP).');
       return;
     }
 
-    const reader = new FileReader();
     setIsPendingUpload(true);
-    reader.onload = async (event) => {
-      const base64String = event.target?.result as string;
-      if (base64String) {
-        const success = await onUpdateAvatar(base64String);
-        if (success) {
-          setShowAvatarEdit(false);
-        } else {
-          setUploadError('Could not synchronize base64 image with server.');
-        }
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const srcUrl = event.target?.result as string;
+      if (!srcUrl) {
+        setUploadError('بارگذاری لغو شد یا خطایی در خواندن تصویر رخ داد.');
+        setIsPendingUpload(false);
+        return;
       }
-      setIsPendingUpload(false);
+
+      // Load image into HTMLImageElement
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          // Downscale and compress image using HTML5 Canvas
+          const canvas = document.createElement('canvas');
+          const maxDimension = 512; // Maximum resolution for user profiles
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            setUploadError('خطا در دسترسی به کتابخانه گرافیک مرورگر جهت فشرده‌سازی.');
+            setIsPendingUpload(false);
+            return;
+          }
+
+          // Draw the image onto the canvas with scaling
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Quality is set to 0.82 for excellent quality yet very compact size
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
+
+          const success = await onUpdateAvatar(compressedBase64);
+          if (success) {
+            setShowAvatarEdit(false);
+          } else {
+            setUploadError('وب‌سرویس قادر به ذخیره آواتار شما نبود. لطفا مجدد تلاش کنید.');
+          }
+        } catch (err) {
+          setUploadError('خطا در فشرده‌سازی زنده تصویر.');
+        } finally {
+          setIsPendingUpload(false);
+        }
+      };
+
+      img.onerror = () => {
+        setUploadError('فرمت تصویر انتخابی آسیب دیده است یا قابل تحلیل نیست.');
+        setIsPendingUpload(false);
+      };
+
+      img.src = srcUrl;
     };
+
     reader.onerror = () => {
-      setUploadError('Error parsing image stream.');
+      setUploadError('بارگذاری تصویر متوقف شد.');
       setIsPendingUpload(false);
     };
+
     reader.readAsDataURL(file);
   };
 
@@ -1009,9 +1062,9 @@ export default function UserProfile({
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-200">
-                      {isPendingUpload ? 'در حال بارگذاری عکس شما...' : 'عکس نمایه دلخواه را به این کادر بکشید یا برای انتخاب فایل کلیک نمایید'}
+                      {isPendingUpload ? 'در حال بارگذاری و بهینه‌سازی عکس شما...' : 'عکس نمایه دلخواه را به این کادر بکشید یا برای انتخاب فایل کلیک نمایید'}
                     </p>
-                    <p className="text-[10px] text-slate-500 font-sans mt-1">پسوندهای مجاز: PNG, JPG, WEBP (حداکثر ۱.۵ مگابایت)</p>
+                    <p className="text-[10px] text-emerald-400/90 font-sans mt-1">پسوندهای مجاز: PNG, JPG, WEBP (فشرده‌سازی هوشمند خودکار بدون محدودیت سایز)</p>
                   </div>
                 </div>
               </div>

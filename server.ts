@@ -12,6 +12,7 @@ import { sendOtpSms } from './server/sms';
 import { User, UserRole, Match, MatchStatus, Prediction, LeaderboardEntry, Team, MatchStage } from './src/types';
 import { teamsSeed } from './src/data/teams';
 import { matchesSeed } from './src/data/matches';
+import { getSquadForTeam } from './src/data/squads';
 import { GoogleGenAI } from '@google/genai';
 
 const app = express();
@@ -1605,6 +1606,185 @@ app.post('/api/admin/sms-test', authenticateToken, requireAdmin, async (req: Aut
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'خطا در برقراری ارتباط با درگاه ملی‌پیامک' });
+  }
+});
+
+
+// --- SQUAD AI CACHING & FETCHING ENDPOINTS ---
+const SQUADS_CACHE_FILE = path.join(process.cwd(), 'squads_cache.json');
+
+function loadSquadsCache(): Record<string, any> {
+  try {
+    if (fs.existsSync(SQUADS_CACHE_FILE)) {
+      const data = fs.readFileSync(SQUADS_CACHE_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('Error reading squads_cache.json:', err);
+  }
+  return {};
+}
+
+function saveSquadsCache(cache: Record<string, any>) {
+  try {
+    fs.writeFileSync(SQUADS_CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving squads_cache.json:', err);
+  }
+}
+
+// GET /api/teams/:id/squad - Get team squad (checks cache first, then defaults to presets/generator)
+app.get('/api/teams/:id/squad', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const team = teamsSeed.find(t => t.id === id);
+    if (!team) {
+      res.status(404).json({ error: 'تیم یافت نشد.' });
+      return;
+    }
+
+    const cache = loadSquadsCache();
+    if (cache[id]) {
+      res.json(cache[id]);
+      return;
+    }
+
+    // Default fallback to deterministic preset generator
+    const squad = getSquadForTeam(id, team.name);
+    res.json(squad);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/teams/:id/squad/sync-ai - Sync specific team roster live using Search-grounded Gemini 3.5
+app.post('/api/teams/:id/squad/sync-ai', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const team = teamsSeed.find(t => t.id === id);
+    if (!team) {
+      res.status(404).json({ error: 'تیم یافت نشد.' });
+      return;
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      res.status(400).json({ error: 'کلید وب‌سرویس هوش مصنوعی (GEMINI_API_KEY) در سرور پیکربندی نشده است. بروزرسانی زنده مقدور نیست.' });
+      return;
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build'
+        }
+      }
+    });
+
+    const prompt = `You are a professional sports editor. Fetch/retrieve the actual, official real-world soccer squad, head coach, and player ratings (FIFA/FC25/real-life) for the National Football Team: "${team.name}" (${team.shortCode}).
+Important details:
+1. Find the REAL current manager/coach (in Persian).
+2. Gather EXACTLY 11 starting players and EXACTLY 4 core reserve players (total of 15 REAL players representing them, e.g. for Portugal, get Ronaldo, Bruno Fernandes, Leao, Dias, Bernardo, Diogo Costa etc., and for Cape Verde, get their real team like Jovane Cabral, Bebe, Logan Costa, Ryan Mendes, Garry Rodrigues, translated to Persian). Do NOT make up names like 'الکس مولر' or 'ماتئو اسمیت'.
+3. For each player, retrieve:
+   - "name": Real name in Persian (e.g. "کریستیانو رونالدو", "رایان مندس")
+   - "number": Real lineup shirt number
+   - "position": One of 'GK', 'DF', 'MF', 'FW'
+   - "isStarting": boolean (exactly 11 must be true, 4 must be false)
+   - "club": Their current professional club in Persian (e.g. "النصر", "رئال مادرید" or local league/foreign leagues)
+   - "age": Real current age
+   - "rating": Valid realistic overall rating (70-98)
+
+Return ONLY a raw JSON string matching this exact structure:
+{
+  "formation": "4-3-3",
+  "coach": "سرمربی به فارسی",
+  "strikersCount": 3,
+  "midfieldersCount": 3,
+  "defendersCount": 4,
+  "stats": { "attack": 85, "midfield": 84, "defense": 82, "overall": 84 },
+  "players": [
+    { "name": "...", "number": 1, "position": "GK", "isStarting": true, "club": "...", "age": 28, "rating": 85 },
+    ...
+  ]
+}
+Do not write markdown blocks (like \`\`\`json) or conversational explanations. Just return the JSON starting with { and ending with }.`;
+
+    console.log(`[AI-SQUAD] Requesting AI updated squad for ${team.name} (${id})...`);
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+      }
+    });
+
+    const rawText = response.text || '';
+    const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    const parsedSquad = JSON.parse(cleanJson);
+
+    // Recompute attack/midfield/defense/overall stats dynamically on server to ensure accuracy
+    let baseRatingSum = 0;
+    let gkCount = 0, dfCount = 0, mfCount = 0, fwCount = 0;
+    let dfRating = 0, mfRating = 0, fwRating = 0;
+
+    parsedSquad.players.forEach((p: any) => {
+      const pRating = Number(p.rating) || 75;
+      baseRatingSum += pRating;
+      
+      if (!p.isStarting) {
+        p.gridPos = { x: 0, y: 0 };
+        return;
+      }
+      
+      if (p.position === 'GK') {
+        gkCount++;
+        p.gridPos = { x: 50, y: 12 };
+      } else if (p.position === 'DF') {
+        dfCount++;
+        dfRating += pRating;
+        if (dfCount === 1) p.gridPos = { x: 18, y: 32 };
+        else if (dfCount === 2) p.gridPos = { x: 38, y: 28 };
+        else if (dfCount === 3) p.gridPos = { x: 62, y: 28 };
+        else p.gridPos = { x: 82, y: 32 };
+      } else if (p.position === 'MF') {
+        mfCount++;
+        mfRating += pRating;
+        if (mfCount === 1) p.gridPos = { x: 30, y: 56 };
+        else if (mfCount === 2) p.gridPos = { x: 50, y: 46 };
+        else p.gridPos = { x: 70, y: 56 };
+      } else if (p.position === 'FW') {
+        fwCount++;
+        fwRating += pRating;
+        if (fwCount === 1) p.gridPos = { x: 20, y: 75 };
+        else if (fwCount === 2) p.gridPos = { x: 50, y: 85 };
+        else p.gridPos = { x: 80, y: 75 };
+      } else {
+        p.gridPos = { x: 50, y: 50 };
+      }
+    });
+
+    parsedSquad.strikersCount = fwCount || 1;
+    parsedSquad.midfieldersCount = mfCount || 1;
+    parsedSquad.defendersCount = dfCount || 1;
+
+    // Standardize overall ratings
+    parsedSquad.stats = {
+      attack: Math.round(fwRating / (fwCount || 1)) || 75,
+      midfield: Math.round(mfRating / (mfCount || 1)) || 75,
+      defense: Math.round(dfRating / (dfCount || 1)) || 75,
+      overall: Math.round(baseRatingSum / parsedSquad.players.length) || 75
+    };
+
+    const cache = loadSquadsCache();
+    cache[id] = parsedSquad;
+    saveSquadsCache(cache);
+
+    console.log(`[AI-SQUAD] Successfully synced and cached ${team.name} squad with ${parsedSquad.players.length} players!`);
+    res.json({ success: true, squad: parsedSquad });
+  } catch (err: any) {
+    console.error(`Error generating team ${id} squad:`, err);
+    res.status(500).json({ error: `خطا در استخراج زنده بازیکنان توسط هوش مصنوعی: ${err.message}` });
   }
 });
 

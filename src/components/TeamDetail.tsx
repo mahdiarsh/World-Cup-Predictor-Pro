@@ -4,7 +4,7 @@ import { getSquadForTeam, Player } from '../data/squads';
 import { getTeamCode, getTeamFlag } from '../data/teams';
 import FlagIcon from './FlagIcon';
 import FeaturedMatchCard from './FeaturedMatchCard';
-import { ArrowLeft, User as UserIcon, Calendar, Info, Award, ShieldAlert, CheckCircle, Flame } from 'lucide-react';
+import { ArrowLeft, User as UserIcon, Calendar, Info, Award, ShieldAlert, CheckCircle, Flame, Sparkles, RefreshCw } from 'lucide-react';
 
 interface TeamDetailProps {
   teamId: string;
@@ -89,13 +89,74 @@ export default function TeamDetail({
     );
   }
 
-  const squad = getSquadForTeam(team.id, team.name);
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(squad.players[0] || null);
+  const [squad, setSquad] = useState<any>(() => getSquadForTeam(team.id, team.name));
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Sync selected player when team ID changes
+  // Load squad from our server cache on mount or ID change
   useEffect(() => {
-    setSelectedPlayer(squad.players[0] || null);
+    let active = true;
+    const fetchCachedSquad = async () => {
+      try {
+        const res = await fetch(`/api/teams/${team.id}/squad`);
+        if (res.ok && active) {
+          const data = await res.json();
+          setSquad(data);
+        }
+      } catch (err) {
+        console.error('Error loading server-cached squad:', err);
+      }
+    };
+    
+    // Reset to local preset initially for instant rendering speed
+    setSquad(getSquadForTeam(team.id, team.name));
+    setSyncStatus(null);
+    fetchCachedSquad();
+    
+    return () => {
+      active = false;
+    };
   }, [team.id]);
+
+  // Sync selected player when squad updates
+  useEffect(() => {
+    if (squad && squad.players) {
+      setSelectedPlayer(squad.players[0] || null);
+    } else {
+      setSelectedPlayer(null);
+    }
+  }, [squad]);
+
+  const handleAISync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    setSyncStatus(null);
+    try {
+      const response = await fetch(`/api/teams/${team.id}/squad/sync-ai`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'خطا در ارتباط با سرور هوش مصنوعی.');
+      }
+      if (data.success && data.squad) {
+        setSquad(data.squad);
+        setSyncStatus({ 
+          type: 'success', 
+          message: `لیست رسمی و مشخصات واقعی ۱۵ بازیکن ${team.name} همراه با باشگاه‌ها و مشخصات سال ۲۰۲۶ با موفقیت توسط هوش مصنوعی برخط استخراج و جایگزین شد!` 
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setSyncStatus({ 
+        type: 'error', 
+        message: err.message || 'خطا در ارتباط یا تکمیل درخواست توسط هوش مصنوعی.' 
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Get matching team matches (excluding finished ones)
   const teamMatches = matches
@@ -105,6 +166,23 @@ export default function TeamDetail({
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-300" dir="rtl">
       
+      {/* Sync Status Alert Toast */}
+      {syncStatus && (
+        <div className={`p-4 rounded-2xl border text-xs font-bold shadow-lg animate-in slide-in-from-top duration-300 flex items-center justify-between gap-3 ${
+          syncStatus.type === 'success' 
+            ? 'bg-emerald-950/70 border-emerald-500/30 text-emerald-300' 
+            : 'bg-rose-950/70 border-rose-500/30 text-rose-300'
+        }`}>
+          <span>{syncStatus.type === 'success' ? '✅' : '⚠️'} {syncStatus.message}</span>
+          <button 
+            onClick={() => setSyncStatus(null)} 
+            className="px-2 py-1 hover:bg-white/10 rounded-lg text-[10px] uppercase tracking-wider"
+          >
+            بستن
+          </button>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="relative bg-gradient-to-l from-slate-900 via-slate-950 to-emerald-950/20 border border-slate-800/80 rounded-3xl p-6 sm:p-8 overflow-hidden shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
         
@@ -113,46 +191,71 @@ export default function TeamDetail({
         <div className="absolute bottom-0 left-10 w-48 h-48 bg-blue-500/5 rounded-full blur-[80px] pointer-events-none" />
 
         {/* Back and Team Name */}
-        <div className="flex items-center gap-4 z-10">
-          <button 
-            onClick={onBack}
-            className="p-3 bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white rounded-2xl border border-slate-800 transition-all flex items-center justify-center shrink-0"
-            title="بازگشت"
-          >
-            <ArrowLeft className="h-5 w-5 transform rotate-180" />
-          </button>
-          
-          <div className="flex items-center gap-3.5">
-            <div className="bg-slate-900 border border-slate-800/80 p-3.5 rounded-2xl shadow-xl flex items-center justify-center shrink-0">
-              <span className="text-4xl select-none leading-none filter drop-shadow-md"><FlagIcon teamIdOrCode={team.id} className="h-10 w-14 rounded-md object-contain" /></span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-black text-white tracking-tight leading-none text-[21px] sm:text-[21px]">{team.name}</h1>
-                <span className="text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold px-2.5 py-0.5 rounded-lg font-mono uppercase tracking-widest">{getTeamCode(team.id)}</span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 z-10 w-full md:w-auto">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={onBack}
+              className="p-3 bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white rounded-2xl border border-slate-800 transition-all flex items-center justify-center shrink-0"
+              title="بازگشت"
+            >
+              <ArrowLeft className="h-5 w-5 transform rotate-180" />
+            </button>
+            
+            <div className="flex items-center gap-3.5">
+              <div className="bg-slate-900 border border-slate-800/80 p-3.5 rounded-2xl shadow-xl flex items-center justify-center shrink-0">
+                <span className="text-4xl select-none leading-none filter drop-shadow-md"><FlagIcon teamIdOrCode={team.id} className="h-10 w-14 rounded-md object-contain" /></span>
               </div>
-              <p className="text-xs text-slate-400 mt-2 font-medium">سرمربی: <span className="text-slate-200 font-bold">{squad.coach}</span> | گروه: <span className="text-amber-400 font-bold">{team.groupName}</span></p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-black text-white tracking-tight leading-none text-[21px] sm:text-[21px]">{team.name}</h1>
+                  <span className="text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold px-2.5 py-0.5 rounded-lg font-mono uppercase tracking-widest">{getTeamCode(team.id)}</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-2 font-medium">سرمربی: <span className="text-slate-200 font-bold">{squad ? squad.coach : 'در حال بارگذاری...'}</span> | گروه: <span className="text-amber-400 font-bold">{team.groupName}</span></p>
+              </div>
             </div>
           </div>
+
+          {/* New Live AI Squad Updater Button */}
+          <button
+            onClick={handleAISync}
+            disabled={isSyncing}
+            className={`sm:mr-4 px-4 py-2.5 text-[11px] font-black rounded-2xl border transition-all duration-300 flex items-center justify-center gap-2 shadow-lg ${
+              isSyncing 
+                ? 'bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed'
+                : 'bg-emerald-950/80 hover:bg-emerald-900/90 border-emerald-500/40 hover:border-emerald-500/70 text-emerald-400 font-bold focus:ring-2 focus:ring-emerald-500/20'
+            }`}
+          >
+            {isSyncing ? (
+              <>
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <span>در حال استخراج رسمی وب (Gemini)...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5 animate-pulse text-emerald-400" />
+                <span>به‌روزرسانی ترکیب واقعی بازار با هوش مصنوعی مراجع رسمی</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Team Overall Stats Indicators */}
         <div className="grid grid-cols-4 gap-2 bg-slate-950/80 border border-slate-800/60 p-3 sm:p-4 rounded-2xl z-10 w-full md:w-auto md:min-w-[340px] shadow-lg">
           <div className="text-center px-1">
             <span className="text-[10px] text-rose-400 font-extrabold block">حمله</span>
-            <span className="text-md sm:text-lg font-black text-rose-500 font-mono block mt-1">{squad.stats.attack}</span>
+            <span className="text-md sm:text-lg font-black text-rose-500 font-mono block mt-1">{squad ? squad.stats.attack : '...'}</span>
           </div>
           <div className="text-center border-r border-slate-800/60 px-1">
             <span className="text-[10px] text-amber-400 font-extrabold block">هافبک</span>
-            <span className="text-md sm:text-lg font-black text-amber-500 font-mono block mt-1">{squad.stats.midfield}</span>
+            <span className="text-md sm:text-lg font-black text-amber-500 font-mono block mt-1">{squad ? squad.stats.midfield : '...'}</span>
           </div>
           <div className="text-center border-r border-slate-800/60 px-1">
             <span className="text-[10px] text-emerald-400 font-extrabold block">دفاع</span>
-            <span className="text-md sm:text-lg font-black text-emerald-500 font-mono block mt-1">{squad.stats.defense}</span>
+            <span className="text-md sm:text-lg font-black text-emerald-500 font-mono block mt-1">{squad ? squad.stats.defense : '...'}</span>
           </div>
           <div className="text-center border-r border-slate-800/60 bg-emerald-500/5 rounded-lg py-0.5 px-1">
             <span className="text-[10px] text-emerald-400 font-extrabold block">امتیاز کلی</span>
-            <span className="text-md sm:text-lg font-black text-emerald-400 font-mono block mt-1">{squad.stats.overall}</span>
+            <span className="text-md sm:text-lg font-black text-emerald-400 font-mono block mt-1">{squad ? squad.stats.overall : '...'}</span>
           </div>
         </div>
 

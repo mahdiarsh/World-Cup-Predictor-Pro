@@ -45,7 +45,7 @@ export const teamsSeed: Team[] = [
 
   // Group H
   { id: 't-esp', name: 'اسپانیا', shortCode: 'ESP', logo: '🇪🇸', groupName: 'گروه H' },
-  { id: 't-cpv', name: 'دماغه سبز', shortCode: 'CPV', logo: '🇨🇻', groupName: 'گروه H' },
+  { id: 't-cpv', name: 'کیپ ورد', shortCode: 'CPV', logo: '🇨🇻', groupName: 'گروه H' },
   { id: 't-uru', name: 'اروگوئه', shortCode: 'URU', logo: '🇺🇾', groupName: 'گروه H' },
   { id: 't-ksa', name: 'عربستان سعودی', shortCode: 'KSA', logo: '🇸🇦', groupName: 'گروه H' },
 
