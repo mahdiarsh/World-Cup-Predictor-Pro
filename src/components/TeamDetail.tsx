@@ -4,7 +4,8 @@ import { getSquadForTeam, Player } from '../data/squads';
 import { getTeamCode, getTeamFlag } from '../data/teams';
 import FlagIcon from './FlagIcon';
 import FeaturedMatchCard from './FeaturedMatchCard';
-import { ArrowLeft, User as UserIcon, Calendar, Info, Award, ShieldAlert, CheckCircle, Flame } from 'lucide-react';
+import FUTCard from './FUTCard';
+import { ArrowLeft, User as UserIcon, Calendar, Info, Award, ShieldAlert, CheckCircle, Flame, Sparkles } from 'lucide-react';
 
 interface TeamDetailProps {
   teamId: string;
@@ -91,6 +92,41 @@ export default function TeamDetail({
 
   const [squad, setSquad] = useState<any>(() => getSquadForTeam(team.id, team.name));
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [cardTheme, setCardTheme] = useState<'gold' | 'hero' | 'radioactive' | 'icon'>('gold');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
+
+  const handleSyncAISquad = async () => {
+    setIsSyncing(true);
+    setSyncError(null);
+    setSyncSuccess(null);
+    try {
+      const tokenVal = localStorage.getItem('wc_token');
+      const res = await fetch(`/api/teams/${team.id}/squad/sync-ai`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenVal || ''}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'خطا در ارتباط با سرور.');
+      }
+      if (data.success && data.squad) {
+        setSquad(data.squad);
+        setSyncSuccess('لیست بازیکنان و اطلاعات سرمربی با موفقیت توسط هوش مصنوعی (OpenRouter) به‌روزرسانی شد!');
+        setTimeout(() => setSyncSuccess(null), 8000);
+      } else {
+        throw new Error('ساختار داده برگشتی از هوش مصنوعی معتبر نبود.');
+      }
+    } catch (err: any) {
+      console.error('Error syncing squad with AI:', err);
+      setSyncError(err.message || 'خطا در همگام‌سازی ترکیب بازیکنان با هوش مصنوعی.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Load squad from our server cache on mount or ID change
   useEffect(() => {
@@ -297,28 +333,54 @@ export default function TeamDetail({
 
           </div>
 
-          {/* Render selected player stats & profile card */}
+          {/* Render selected player stats & profile details */}
           {selectedPlayer && (
-            <div className="mt-4 p-4 bg-slate-900/55 rounded-2xl border border-slate-800/80 grid grid-cols-1 sm:grid-cols-4 items-center gap-4 animate-in slide-in-from-bottom-2 duration-150">
-              <div className="sm:col-span-2 space-y-1 text-right">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 bg-slate-800 text-slate-100 font-bold border border-slate-700 rounded text-[9px] font-mono">شماره {selectedPlayer.number}</span>
-                  <span className="text-xs text-slate-400 font-bold font-sans">
-                    {selectedPlayer.position === 'GK' ? '💥 دروازه‌بان' : selectedPlayer.position === 'DF' ? '🛡️ مدافع' : selectedPlayer.position === 'MF' ? '⚡ هافبک' : '⚽ مهاجم'}
+            <div className="mt-5 p-5 bg-slate-900 border border-slate-800/80 rounded-3xl shadow-xl flex flex-col md:flex-row items-center gap-6 animate-in slide-in-from-bottom-3 duration-250 text-right" dir="rtl">
+              
+              {/* Left Column: Visual representation of rating without any player photos or virtual cards */}
+              <div className="shrink-0 flex flex-col items-center justify-center p-4 bg-slate-950/50 border border-slate-800/60 rounded-2xl w-full md:w-44 text-center">
+                <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">قدرت کل بازیکن</span>
+                <div className="relative my-4 flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-tr from-amber-600/10 to-amber-500/20 border-2 border-amber-500/30 shadow-inner">
+                  <span className="text-4xl font-black text-amber-500 font-sans tracking-tighter">
+                    {selectedPlayer.rating || 78}
                   </span>
                 </div>
-                <h3 className="text-md sm:text-lg font-black text-white">{selectedPlayer.name}</h3>
+                <div className="px-3 py-1 bg-slate-900 border border-slate-800 rounded-full text-[10px] font-black font-mono text-slate-300">
+                  {selectedPlayer.position}
+                </div>
               </div>
 
-              <div className="border-t sm:border-t-0 sm:border-r border-slate-800/80 pt-2 sm:pt-0 pr-0 sm:pr-4 text-center">
-                <span className="text-[10px] text-slate-500 block font-bold">رتبه‌بندی فیفا</span>
-                <span className="text-2xl font-black text-amber-500 font-mono block mt-1">{selectedPlayer.rating || 78} ⭐</span>
+              {/* Right Column: Attribute Details and Info card */}
+              <div className="flex-1 space-y-4 w-full">
+                <div>
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-800/60 pb-2.5 mb-2.5">
+                    <h3 className="text-xl font-black text-white">
+                      {selectedPlayer.name}
+                    </h3>
+                    <span className="text-xs bg-slate-950 text-emerald-400 border border-emerald-950 px-3 py-1 rounded-xl font-mono font-black">
+                      شماره {selectedPlayer.number}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs mt-3 font-sans">
+                    <div className="bg-slate-950/30 p-2.5 rounded-xl border border-slate-850">
+                      <span className="text-slate-500 block text-[10px] font-bold">پست تخصصی</span>
+                      <span className="text-slate-200 font-black block mt-0.5">
+                        {selectedPlayer.position === 'GK' ? '💥 دروازه‌بان' : selectedPlayer.position === 'DF' ? '🛡️ مدافع' : selectedPlayer.position === 'MF' ? '⚡ هافبک' : '⚽ مهاجم'}
+                      </span>
+                    </div>
+                    <div className="bg-slate-950/30 p-2.5 rounded-xl border border-slate-850">
+                      <span className="text-slate-500 block text-[10px] font-bold">سن بازیکن</span>
+                      <span className="text-slate-200 font-black block mt-0.5">{selectedPlayer.age || 26} سال</span>
+                    </div>
+                    <div className="bg-slate-950/30 p-2.5 rounded-xl border border-slate-850">
+                      <span className="text-slate-500 block text-[10px] font-bold">باشگاه فعلی</span>
+                      <span className="text-slate-200 font-black block mt-0.5 truncate">{selectedPlayer.club || 'تیم ملی'}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="border-t sm:border-t-0 sm:border-r border-slate-800/80 pt-2 sm:pt-0 pr-0 sm:pr-4 text-center">
-                <span className="text-[10px] text-slate-500 block font-bold">سن بازیکن</span>
-                <span className="text-lg font-black text-slate-300 font-mono block mt-1">{selectedPlayer.age || 26} سال</span>
-              </div>
             </div>
           )}
 
@@ -363,12 +425,47 @@ export default function TeamDetail({
 
           {/* 2. Full Squad Roster List with detailed cards */}
           <div className="bg-slate-950/60 border border-slate-800/80 rounded-3xl p-5 shadow-xl flex flex-col justify-between">
-            <div className="flex items-center justify-between border-b border-slate-800/60 pb-3 mb-4">
-              <h2 className="text-md sm:text-lg font-extrabold text-white flex items-center gap-2">
-                👤 لیست کامل بازیکنان تیمی
-              </h2>
-              <span className="text-[10px] text-slate-500 font-bold">{squad.players.length} بازیکن</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/60 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-md sm:text-lg font-extrabold text-white flex items-center gap-2">
+                  👤 بازیکنان تیمی
+                </h2>
+                <span className="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 font-extrabold px-2 py-0.5 rounded-full">{squad.players.length} بازیکن</span>
+              </div>
+              
+              {currentUser?.role === 'admin' && (
+                <button
+                  id="btn-sync-ai-squad"
+                  onClick={handleSyncAISquad}
+                  disabled={isSyncing}
+                  className="text-[10px] bg-emerald-950 hover:bg-emerald-900 active:bg-emerald-950 border border-emerald-500/30 hover:border-emerald-500/60 text-emerald-400 font-extrabold py-1.5 px-3 rounded-xl transition-all flex items-center gap-1.5 self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isSyncing ? (
+                    <>
+                      <span className="animate-spin text-emerald-400">⚡</span>
+                      در حال همگام‌سازی...
+                    </>
+                  ) : (
+                    <>
+                      <span>🤖</span>
+                      بروزرسانی با هوش مصنوعی (OpenRouter)
+                    </>
+                  )}
+                </button>
+              )}
             </div>
+
+            {/* AI Call Feedback Banners */}
+            {syncError && (
+              <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-medium leading-relaxed">
+                ⚠️ {syncError}
+              </div>
+            )}
+            {syncSuccess && (
+              <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold leading-relaxed">
+                ✅ {syncSuccess}
+              </div>
+            )}
 
             <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
               {squad.players.map((p) => {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Trophy, Search, ChevronLeft, ChevronRight, Award, Flame, Download } from 'lucide-react';
+import { motion } from 'motion/react';
 import { LeaderboardEntry, User } from '../types';
 import Avatar from './Avatar';
 
@@ -56,12 +57,22 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
           
           {/* 2nd Place */}
           {topThree[1] && (
-            <div 
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: "easeOut", delay: 0.1 }}
               onClick={() => onUserClick && onUserClick(topThree[1].userId)}
               className="relative bg-slate-900/60 rounded-2xl p-5 border-t-2 border-slate-400/50 border-x border-b border-slate-800 text-center flex flex-col justify-between hover:scale-[1.02] hover:border-slate-300 transition-all cursor-pointer order-2 sm:order-1 pt-8 shadow-lg group"
               title="مشاهده نمایه و پیش‌بینی‌های کاربر"
             >
-              <div className="absolute top-2 right-2 px-2.5 py-0.5 bg-slate-800 text-slate-300 font-bold rounded-md font-mono text-xs">رتبه ۲</div>
+              <motion.div 
+                initial={{ scale: 0.6, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 12, delay: 0.3 }}
+                className="absolute top-2 right-2 px-2.5 py-0.5 bg-slate-800 text-slate-300 font-bold rounded-md font-mono text-xs flex items-center gap-1"
+              >
+                🥈 رتبه ۲
+              </motion.div>
               <div className="space-y-3">
                 <div className="relative mx-auto w-16 h-16 rounded-full border-2 border-slate-400 overflow-hidden bg-slate-800 select-none group-hover:ring-2 group-hover:ring-emerald-450 transition-all">
                   <Avatar avatar={topThree[1].avatar} className="object-cover w-full h-full" />
@@ -75,19 +86,27 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
                 <p className="text-2xl font-black text-slate-200">{topThree[1].totalScore} <span className="text-xs text-slate-400 font-medium">امتیاز</span></p>
                 <p className="text-[10px] text-slate-400 font-sans">{topThree[1].exactPredictions} پیش‌بینی دقیق</p>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* 1st Place (Gold Highlight) */}
           {topThree[0] && (
-            <div 
+            <motion.div 
+              initial={{ opacity: 0, y: 40, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
               onClick={() => onUserClick && onUserClick(topThree[0].userId)}
               className="relative bg-emerald-950/20 rounded-3xl p-6 border-t-4 border-amber-400 border-x border-b border-emerald-500/20 text-center flex flex-col justify-between hover:scale-[1.04] hover:border-amber-400 transition-all cursor-pointer order-1 sm:order-2 pt-10 shadow-[0_0_25px_rgba(245,158,11,0.15)] ring-1 ring-amber-400/20 group"
               title="مشاهده نمایه و پیش‌بینی‌های کاربر"
             >
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-amber-400 text-slate-950 text-xs font-black px-4 py-1 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider font-sans">
-                👑 قهرمان
-              </div>
+              <motion.div 
+                initial={{ y: -15, opacity: 0, scale: 0.8 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 220, damping: 12, delay: 0.25 }}
+                className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-amber-400 text-slate-950 text-xs font-black px-4 py-1 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider font-sans"
+              >
+                👑🥇 قهرمان
+              </motion.div>
               <div className="space-y-3">
                 <div className="relative mx-auto w-20 h-20 rounded-full border-4 border-amber-400 overflow-hidden bg-slate-800 shadow-[0_0_15px_rgba(245,158,11,0.3)] select-none group-hover:ring-4 group-hover:ring-amber-300 transition-all">
                   <Avatar avatar={topThree[0].avatar} className="object-cover w-full h-full" />
@@ -101,17 +120,27 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
                 <p className="text-3xl font-black text-amber-400">{topThree[0].totalScore} <span className="text-xs text-slate-300 font-medium">امتیاز</span></p>
                 <p className="text-xs text-emerald-400 font-medium font-sans">{topThree[0].exactPredictions} حدس دقیق مسابقات!</p>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* 3rd Place */}
           {topThree[2] && (
-            <div 
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: "easeOut", delay: 0.2 }}
               onClick={() => onUserClick && onUserClick(topThree[2].userId)}
               className="relative bg-slate-900/60 rounded-2xl p-5 border-t-2 border-amber-700/50 border-x border-b border-slate-800 text-center flex flex-col justify-between hover:scale-[1.02] hover:border-amber-600/70 transition-all cursor-pointer order-3 pt-8 shadow-lg group"
               title="مشاهده نمایه و پیش‌بینی‌های کاربر"
             >
-              <div className="absolute top-2 right-2 px-2.5 py-0.5 bg-slate-800 text-amber-600 font-bold rounded-md font-mono text-xs">رتبه ۳</div>
+              <motion.div 
+                initial={{ scale: 0.6, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 12, delay: 0.35 }}
+                className="absolute top-2 right-2 px-2.5 py-0.5 bg-slate-800 text-amber-600 font-bold rounded-md font-mono text-xs flex items-center gap-1"
+              >
+                🥉 رتبه ۳
+              </motion.div>
               <div className="space-y-3">
                 <div className="relative mx-auto w-16 h-16 rounded-full border-2 border-amber-700 overflow-hidden bg-slate-800 select-none group-hover:ring-2 group-hover:ring-amber-500 transition-all">
                   <Avatar avatar={topThree[2].avatar} className="object-cover w-full h-full" />
@@ -125,7 +154,7 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
                 <p className="text-2xl font-black text-amber-705 text-amber-605 font-mono">{topThree[2].totalScore} <span className="text-xs text-slate-400 font-medium">امتیاز</span></p>
                 <p className="text-[10px] text-slate-400 font-sans">{topThree[2].exactPredictions} پیش‌بینی دقیق</p>
               </div>
-            </div>
+            </motion.div>
           )}
 
         </div>
@@ -150,7 +179,7 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
               onExportExcel().finally(() => setIsExporting(false));
             }}
             disabled={isExporting}
-            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-50 text-slate-950 font-extrabold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.15)] select-none shrink-0"
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-50 text-white font-extrabold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.15)] select-none shrink-0"
           >
             <Download className="h-4 w-4" />
             <span>{isExporting ? 'در حال خروجی گرفتن...' : 'خروجی اکسل پیش‌بینی‌ها'}</span>
@@ -188,11 +217,32 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
                       {/* Rank Indicator column */}
                       <td className="px-6 py-4 text-center font-mono">
                         {user.rank === 1 ? (
-                          <span className="inline-flex items-center justify-center p-1 bg-amber-400/10 border border-amber-400/40 rounded-full text-amber-400 font-bold h-7 w-7 text-xs">🥇</span>
+                          <motion.span 
+                            initial={{ scale: 0, opacity: 0, rotate: -25 }}
+                            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                            transition={{ type: "spring", stiffness: 220, damping: 14, delay: Math.min(idx * 0.05, 0.45) }}
+                            className="inline-flex items-center justify-center p-1 bg-amber-400/10 border border-amber-400/40 rounded-full text-amber-400 font-bold h-7 w-7 text-xs shadow-[0_0_10px_rgba(251,191,36,0.15)]"
+                          >
+                            🥇
+                          </motion.span>
                         ) : user.rank === 2 ? (
-                          <span className="inline-flex items-center justify-center p-1 bg-slate-200/10 border border-slate-300/40 rounded-full text-slate-200 font-bold h-7 w-7 text-xs">🥈</span>
+                          <motion.span 
+                            initial={{ scale: 0, opacity: 0, rotate: -25 }}
+                            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                            transition={{ type: "spring", stiffness: 220, damping: 14, delay: Math.min(idx * 0.05, 0.45) }}
+                            className="inline-flex items-center justify-center p-1 bg-slate-200/10 border border-slate-300/40 rounded-full text-slate-200 font-bold h-7 w-7 text-xs shadow-[0_0_10px_rgba(226,232,240,0.1)]"
+                          >
+                            🥈
+                          </motion.span>
                         ) : user.rank === 3 ? (
-                          <span className="inline-flex items-center justify-center p-1 bg-amber-800/10 border border-amber-900/40 rounded-full text-amber-700 font-bold h-7 w-7 text-xs">🥉</span>
+                          <motion.span 
+                            initial={{ scale: 0, opacity: 0, rotate: -25 }}
+                            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                            transition={{ type: "spring", stiffness: 220, damping: 14, delay: Math.min(idx * 0.05, 0.45) }}
+                            className="inline-flex items-center justify-center p-1 bg-amber-800/10 border border-amber-900/40 rounded-full text-amber-700 font-bold h-7 w-7 text-xs shadow-[0_0_10px_rgba(180,83,9,0.1)]"
+                          >
+                            🥉
+                          </motion.span>
                         ) : (
                           <span className="text-xs font-mono text-slate-400">#{user.rank}</span>
                         )}

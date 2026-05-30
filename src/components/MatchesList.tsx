@@ -3,6 +3,7 @@ import { Calendar, MapPin, CheckCircle, Clock, ShieldAlert, Edit3, CircleHelp, L
 import { Match, MatchStage, MatchStatus, Team, Prediction, User } from '../types';
 import { getTeamFlag, getTeamName, getTeamCode } from '../data/teams';
 import FlagIcon from './FlagIcon';
+import OthersPredictionsModal from './OthersPredictionsModal';
 
 interface MatchesListProps {
   matches: Match[];
@@ -22,6 +23,7 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
   const [viewMode, setViewMode] = useState<'card' | 'table'>(() => {
     return (localStorage.getItem('wc_matches_view') as 'card' | 'table') || 'card';
   });
+  const [viewOthersMatch, setViewOthersMatch] = useState<Match | null>(null);
   const [awayInput, setAwayInput] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
@@ -334,70 +336,82 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                 </div>
 
                 {/* Bottom Prediction / Status Rail */}
-                <div className="mt-4 pt-3.5 border-t border-slate-800/40 flex items-center justify-between">
-                  {/* Left: Open/Closed lock countdown badge */}
-                  <div>
-                    {timeInfo.isLocked ? (
-                      <span className="inline-flex items-center gap-1.5 text-slate-500 text-xs">
-                        <Clock className="h-3.5 w-3.5" />
-                        {timeInfo.text}
-                      </span>
-                    ) : (
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${timeInfo.urgent ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`}>
-                        {timeInfo.urgent ? <ShieldAlert className="h-4 w-4" /> : <Clock className="h-3.5 w-3.5" />}
-                        {timeInfo.text}
-                      </span>
-                    )}
-                  </div>
+                <div className="mt-4 pt-3.5 border-t border-slate-800/40 flex flex-col gap-2">
+                  <div className="flex items-center justify-between w-full">
+                    {/* Left: Open/Closed lock countdown badge */}
+                    <div>
+                      {timeInfo.isLocked ? (
+                        <span className="inline-flex items-center gap-1.5 text-slate-500 text-xs">
+                          <Clock className="h-3.5 w-3.5" />
+                          {timeInfo.text}
+                        </span>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${timeInfo.urgent ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`}>
+                          {timeInfo.urgent ? <ShieldAlert className="h-4 w-4" /> : <Clock className="h-3.5 w-3.5" />}
+                          {timeInfo.text}
+                        </span>
+                      )}
+                    </div>
 
-                  {/* Right: User Prediction Display or Action Button */}
-                  <div>
-                    {pred ? (
-                      <div className="flex items-center gap-2" dir="rtl">
-                        <div className="text-right">
-                          <p className="text-[10px] text-slate-500 font-sans leading-none">حدس شما</p>
-                          <p className="font-black font-mono text-sm text-amber-400 tracking-tight text-left">
-                            {pred.predictedHome} - {pred.predictedAway}
-                          </p>
-                          {pred.points !== null && (
-                            <span className={`inline-block text-[10px] px-2 py-0.5 rounded-md font-extrabold font-sans ${
-                              pred.points >= 10 || pred.points === 3
-                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 font-black' 
-                                : pred.points === 7
-                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20'
-                                : pred.points === 5 || pred.points === 1
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' 
-                                : 'bg-slate-800 text-slate-400'
-                            }`}>
-                              {pred.points >= 10 ? 'دقیق (+۱۰)' : pred.points === 7 ? 'تفاضل (+۷)' : pred.points === 5 ? 'برنده (+۵)' : pred.points === 3 ? 'دقیق (+۳)' : pred.points === 1 ? 'برنده (+۱)' : 'نادرست (۰)'}
-                            </span>
+                    {/* Right: User Prediction Display or Action Button */}
+                    <div>
+                      {pred ? (
+                        <div className="flex items-center gap-2" dir="rtl">
+                          <div className="text-right">
+                            <p className="text-[10px] text-slate-500 font-sans leading-none">حدس شما</p>
+                            <p className="font-black font-mono text-sm text-amber-400 tracking-tight text-left">
+                              {pred.predictedHome} - {pred.predictedAway}
+                            </p>
+                            {pred.points !== null && (
+                              <span className={`inline-block text-[10px] px-2 py-0.5 rounded-md font-extrabold font-sans ${
+                                pred.points >= 10 || pred.points === 3
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 font-black' 
+                                  : pred.points === 7
+                                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20'
+                                  : pred.points === 5 || pred.points === 1
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' 
+                                  : 'bg-slate-800 text-slate-400'
+                              }`}>
+                                {pred.points >= 10 ? 'دقیق (+۱۰)' : pred.points === 7 ? 'تفاضل (+۷)' : pred.points === 5 ? 'برنده (+۵)' : pred.points === 3 ? 'دقیق (+۳)' : pred.points === 1 ? 'برنده (+۱)' : 'نادرست (۰)'}
+                              </span>
+                            )}
+                          </div>
+                          {!timeInfo.isLocked && (
+                            <button 
+                              onClick={() => handleOpenPredictModal(match)}
+                              className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors"
+                              title="ویرایش پیش‌بینی"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </button>
                           )}
                         </div>
-                        {!timeInfo.isLocked && (
-                          <button 
-                            onClick={() => handleOpenPredictModal(match)}
-                            className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors"
-                            title="ویرایش پیش‌بینی"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div>
-                        {timeInfo.isLocked ? (
-                          <span className="text-xs text-slate-500 font-sans italic">پیش‌بینی ثبت نشده</span>
-                        ) : (
-                          <button
-                            onClick={() => handleOpenPredictModal(match)}
-                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-extrabold text-xs tracking-wide rounded-lg transition-all transform hover:scale-[1.03] shadow-[0_0_10px_rgba(16,185,129,0.2)]"
-                          >
-                            🔮 ثبت پیش‌بینی
-                          </button>
-                        )}
-                      </div>
-                    )}
+                      ) : (
+                        <div>
+                          {timeInfo.isLocked ? (
+                            <span className="text-xs text-slate-500 font-sans italic">پیش‌بینی ثبت نشده</span>
+                          ) : (
+                            <button
+                              onClick={() => handleOpenPredictModal(match)}
+                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs tracking-wide rounded-lg transition-all transform hover:scale-[1.03] shadow-[0_0_10px_rgba(16,185,129,0.25)]"
+                            >
+                              🔮 ثبت پیش‌بینی
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {timeInfo.isLocked && (
+                    <button
+                      type="button"
+                      onClick={() => setViewOthersMatch(match)}
+                      className="w-full mt-1.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 hover:border-emerald-500/40 text-emerald-400 text-[10px] font-extrabold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      👁️ مشاهده پیش‌بینی سایر کاربران
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -499,7 +513,7 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                               <span className="text-red-700">:</span>
                               <span>{match.awayScore}</span>
                             </div>
-                            <span className="text-[9px] text-red-00 font-sans font-bold whitespace-nowrap">دقیقه {getLiveMatchMinute(match, currentTime)}</span>
+                            <span className="text-[10px] text-red-400 font-sans font-extrabold whitespace-nowrap">دقیقه {getLiveMatchMinute(match, currentTime)}</span>
                           </div>
                         ) : (
                           <span className="text-slate-500 text-xs font-bold px-2 py-0.5 bg-slate-950 border border-slate-850 rounded-lg">vs</span>
@@ -551,12 +565,21 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                       </td>
 
                       {/* Prediction Actions */}
-                      <td className="p-3 sm:p-4 text-left">
+                      <td className="p-3 sm:p-4 text-left whitespace-nowrap">
                         {timeInfo.isLocked ? (
-                          <span className="text-[10px] text-slate-500 flex items-center justify-end gap-1 font-semibold">
-                            <Clock className="h-3 w-3 shrink-0" />
-                            <span>قفل</span>
-                          </span>
+                          <div className="flex justify-end gap-2 items-center">
+                            <span className="text-[10px] text-slate-500 flex items-center gap-1 font-semibold">
+                              <Clock className="h-3 w-3 shrink-0" />
+                              <span>قفل</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setViewOthersMatch(match)}
+                              className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 hover:border-emerald-500/40 text-emerald-400 font-extrabold text-[10px] rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              👁️ پیش‌بینی‌ها
+                            </button>
+                          </div>
                         ) : (
                           <div className="flex justify-end">
                             <button
@@ -712,7 +735,7 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-45 disabled:pointer-events-none text-slate-950 text-sm font-bold tracking-wide rounded-xl transition-all font-sans shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-45 disabled:pointer-events-none text-white text-sm font-bold tracking-wide rounded-xl transition-all font-sans shadow-[0_0_15px_rgba(16,185,129,0.25)]"
                 >
                   {isSubmitting ? 'در حال ثبت...' : predId ? 'ویرایش پیش‌بینی' : 'ذخیره پیش‌بینی'}
                 </button>
@@ -723,6 +746,13 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
           </div>
         </div>
       )}
+
+      <OthersPredictionsModal
+        match={viewOthersMatch}
+        isOpen={!!viewOthersMatch}
+        onClose={() => setViewOthersMatch(null)}
+        token={localStorage.getItem('wc_token')}
+      />
 
     </div>
   );

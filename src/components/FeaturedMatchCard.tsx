@@ -3,6 +3,7 @@ import { Match, MatchStatus, Prediction, User } from '../types';
 import { getTeamCode, getTeamName } from '../data/teams';
 import FlagIcon from './FlagIcon';
 import { Calendar, Check, Save, Edit3, Clock, ShieldAlert, CircleHelp } from 'lucide-react';
+import OthersPredictionsModal from './OthersPredictionsModal';
 
 interface FeaturedMatchCardProps {
   match: Match;
@@ -29,6 +30,7 @@ export default function FeaturedMatchCard({
   const [homeInput, setHomeInput] = useState<number>(prediction ? prediction.predictedHome : 0);
   const [awayInput, setAwayInput] = useState<number>(prediction ? prediction.predictedAway : 0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isOthersModalOpen, setIsOthersModalOpen] = useState(false);
 
   // Sync state if user's prediction updates in background
   useEffect(() => {
@@ -215,31 +217,40 @@ export default function FeaturedMatchCard({
           </div>
         ) : isLocked() ? (
           // Locked State: Display user prediction if any
-          <div className="bg-slate-950/40 border border-slate-850 py-1.5 rounded-lg text-slate-400 text-2xs space-y-1">
-            <span className="block text-[8px] font-sans text-slate-500 font-bold uppercase tracking-wider">🔒 قفل شده</span>
-            {prediction ? (
-              <div className="flex items-center justify-center gap-1" dir="rtl">
-                <span className="text-slate-400 text-xs">ثبت شده:</span>
-                <span className="font-bold text-white font-mono bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-left">
-                  {prediction.predictedHome} - {prediction.predictedAway}
-                </span>
-                {prediction.points !== null && prediction.points !== undefined && match.status === MatchStatus.FINISHED && (
-                  <span className={`ml-1 px-1.5 py-0.5 rounded text-[8px] font-black font-sans ${
-                    prediction.points === 10 
-                      ? 'bg-amber-955 text-amber-400 border border-amber-500/25' 
-                      : prediction.points === 7 
-                      ? 'bg-blue-955 text-blue-400 border border-blue-500/25' 
-                      : prediction.points === 5 
-                      ? 'bg-emerald-955 text-emerald-400 border border-emerald-500/25' 
-                      : 'bg-slate-900 text-slate-500 border border-slate-800'
-                  }`}>
-                    {prediction.points === 10 ? '+۱۰ امتیاز' : prediction.points === 7 ? '+۷ امتیاز' : prediction.points === 5 ? '+۵ امتیاز' : '۰ امتیاز'}
+          <div className="space-y-2">
+            <div className="bg-slate-950/40 border border-slate-850 py-1.5 rounded-lg text-slate-400 text-2xs space-y-1">
+              <span className="block text-[8px] font-sans text-slate-500 font-bold uppercase tracking-wider">🔒 قفل شده</span>
+              {prediction ? (
+                <div className="flex items-center justify-center gap-1" dir="rtl">
+                  <span className="text-slate-400 text-xs">ثبت شده:</span>
+                  <span className="font-bold text-white font-mono bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-left">
+                    {prediction.predictedHome} - {prediction.predictedAway}
                   </span>
-                )}
-              </div>
-            ) : (
-              <span className="text-slate-500">پیش‌بینی نشده</span>
-            )}
+                  {prediction.points !== null && prediction.points !== undefined && match.status === MatchStatus.FINISHED && (
+                    <span className={`ml-1 px-1.5 py-0.5 rounded text-[8px] font-black font-sans ${
+                      prediction.points === 10 
+                        ? 'bg-amber-955 text-amber-400 border border-amber-500/25' 
+                        : prediction.points === 7 
+                        ? 'bg-blue-955 text-blue-400 border border-blue-500/25' 
+                        : prediction.points === 5 
+                        ? 'bg-emerald-955 text-emerald-400 border border-emerald-500/25' 
+                        : 'bg-slate-900 text-slate-500 border border-slate-800'
+                    }`}>
+                      {prediction.points === 10 ? '+۱۰ امتیاز' : prediction.points === 7 ? '+۷ امتیاز' : prediction.points === 5 ? '+۵ امتیاز' : '۰ امتیاز'}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-slate-500">پیش‌بینی نشده</span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsOthersModalOpen(true)}
+              className="w-full py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 hover:border-emerald-500/40 text-emerald-400 font-extrabold text-[10px] rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+            >
+              👁️ مشاهده پیش‌بینی دیگران
+            </button>
           </div>
         ) : (
           // MatchesList style predictor button
@@ -265,7 +276,7 @@ export default function FeaturedMatchCard({
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-extrabold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 font-sans shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 font-sans shadow-[0_0_10px_rgba(16,185,129,0.25)]"
               >
                 🔮 ثبت پیش‌بینی‌
               </button>
@@ -399,7 +410,7 @@ export default function FeaturedMatchCard({
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-45 disabled:pointer-events-none text-slate-950 text-sm font-bold tracking-wide rounded-xl transition-all font-sans shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-45 disabled:pointer-events-none text-white font-bold tracking-wide rounded-xl transition-all font-sans shadow-[0_0_15px_rgba(16,185,129,0.25)]"
                 >
                   {isSaving ? 'در حال ثبت...' : prediction ? 'ویرایش پیش‌بینی' : 'ذخیره پیش‌بینی'}
                 </button>
@@ -410,6 +421,13 @@ export default function FeaturedMatchCard({
           </div>
         </div>
       )}
+
+      <OthersPredictionsModal
+        match={match}
+        isOpen={isOthersModalOpen}
+        onClose={() => setIsOthersModalOpen(false)}
+        token={localStorage.getItem('wc_token')}
+      />
 
     </div>
   );

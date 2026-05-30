@@ -9,15 +9,17 @@ import { createRequire } from 'module';
 const customRequire = typeof require !== 'undefined' ? require : createRequire(path.join(process.cwd(), 'package.json'));
 import { loadDB, saveDB, recalculateAllScores, resolveMatchesWithStandings, runFifaLiveSync, resetTournament } from './server/db';
 import { sendOtpSms } from './server/sms';
+import { triggerBackupInDirectory, checkAndTriggerBackup, getFarsiDayName } from './server/backup';
 import { User, UserRole, Match, MatchStatus, Prediction, LeaderboardEntry, Team, MatchStage } from './src/types';
 import { teamsSeed } from './src/data/teams';
 import { matchesSeed } from './src/data/matches';
 import { getSquadForTeam } from './src/data/squads';
-import { GoogleGenAI } from '@google/genai';
-import { ProxyAgent } from 'undici';
+import { Duplex } from 'stream';
+import WebSocket from 'ws';
+import tls from 'tls';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'worldcup_secret_key_2026_dev_prod_643c';
 
 // Create local flags directory if not exists, supporting both development and production paths
@@ -675,12 +677,64 @@ app.get('/api/predictions/my', authenticateToken, (req: AuthenticatedRequest, re
   res.json(myPreds);
 });
 
-function isMatchLocked(match: any): boolean {
+function getEffectiveServerTime(settings: any): number {
+  if (settings?.syncMode === 'simulation' && settings?.simulatedTime) {
+    return new Date(settings.simulatedTime).getTime();
+  }
+  return Date.now();
+}
+
+function isMatchLocked(match: any, settings: any): boolean {
   if (match.status === 'FINISHED' || match.status === 'LIVE') return true;
   const kickoff = new Date(match.kickoffTimeUtc).getTime();
   const thirtyMins = 30 * 60 * 1000;
-  return kickoff - Date.now() < thirtyMins;
+  const effectiveTime = getEffectiveServerTime(settings);
+  return kickoff - effectiveTime < thirtyMins;
 }
+
+// GET /api/predictions/match/:matchId (Get all predictions for a match, strictly allowed ONLY if match is locked)
+app.get('/api/predictions/match/:matchId', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db = loadDB();
+    const matchId = req.params.matchId;
+    const match = db.matches.find(m => m.id === matchId);
+    if (!match) {
+      res.status(404).json({ error: 'مسابقه یافت نشد.' });
+      return;
+    }
+
+    const locked = isMatchLocked(match, db.settings);
+    if (!locked) {
+      res.status(403).json({ error: 'پیش‌بینی‌های این مسابقه تا ۳۰ دقیقه پیش از شروع بازی محرمانه هستند.' });
+      return;
+    }
+
+    // Get all predictions for this match
+    const predsObj = db.predictions.filter(p => p.matchId === matchId);
+    
+    // Enrich with user names / avatars
+    const result = predsObj.map(p => {
+      const u = db.users.find(user => user.id === p.userId);
+      return {
+        id: p.id,
+        userId: p.userId,
+        matchId: p.matchId,
+        predictedHome: p.predictedHome,
+        predictedAway: p.predictedAway,
+        points: p.points,
+        createdAt: p.createdAt,
+        fullName: u ? u.fullName : 'کاربر مهمان',
+        username: u ? u.username : 'guest',
+        avatar: u ? u.avatar : null,
+        totalScore: u ? u.totalScore : 0
+      };
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // GET /api/predictions/user/:userId (Safely fetch predictions of any user, hiding un-locked ones to prevent cheating)
 app.get('/api/predictions/user/:userId', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
@@ -702,7 +756,7 @@ app.get('/api/predictions/user/:userId', authenticateToken, (req: AuthenticatedR
       const match = db.matches.find(m => m.id === pred.matchId);
       if (!match) return null;
 
-      const locked = isMatchLocked(match);
+      const locked = isMatchLocked(match, db.settings);
 
       if (isSelf || locked) {
         return {
@@ -761,13 +815,9 @@ app.post('/api/predictions', authenticateToken, (req: AuthenticatedRequest, res:
     // Restriction check: Active only up to 30 minutes before kickoff
     const kickoffTime = new Date(match.kickoffTimeUtc).getTime();
     const thirtyMinutesInMs = 30 * 60 * 1000;
-    if (kickoffTime - Date.now() < thirtyMinutesInMs) {
-      res.status(400).json({ error: 'امکان ثبت پیش‌بینی فراتر از ۳۰ دقیقه مانده به شروع مسابقه مقدور نیست.' });
-      return;
-    }
-
-    if (match.status === MatchStatus.FINISHED) {
-      res.status(400).json({ error: 'این مسابقه پایان یافته است و امکان ثبت پیش‌بینی برای آن وجود ندارد.' });
+    const effectiveTime = getEffectiveServerTime(db.settings);
+    if (kickoffTime - effectiveTime < thirtyMinutesInMs || match.status === MatchStatus.FINISHED || match.status === MatchStatus.LIVE) {
+      res.status(400).json({ error: 'امکان ثبت پیش‌بینی فراتر از ۳۰ دقیقه مانده به شروع مسابقه مقدور نیست یا مسابقه هم‌اکنون لایو/به‌پایان رسیده است.' });
       return;
     }
 
@@ -842,7 +892,8 @@ app.post('/api/predictions/batch', authenticateToken, (req: AuthenticatedRequest
       // Check kickoff / locked status
       const kickoffTime = new Date(match.kickoffTimeUtc).getTime();
       const thirtyMinutesInMs = 30 * 60 * 1000;
-      if (kickoffTime - Date.now() < thirtyMinutesInMs || match.status === MatchStatus.FINISHED) {
+      const effectiveTime = getEffectiveServerTime(db.settings);
+      if (kickoffTime - effectiveTime < thirtyMinutesInMs || match.status === MatchStatus.FINISHED || match.status === MatchStatus.LIVE) {
         errors.push(`پیش‌بینی بازی ${matchId} قفل شده است.`);
         continue;
       }
@@ -894,11 +945,10 @@ app.post('/api/matches/sync-fifa', authenticateToken, async (req: AuthenticatedR
 
     let syncMessage = "مسابقات با نتایج رسمی فیفا با موفقیت همگام‌سازی شدند.";
 
-    const ai = getGeminiClient();
-    if (ai) {
+    const hasAIConfig = !!(db.settings?.openRouterApiKey || db.settings?.geminiApiKey || process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY);
+    if (hasAIConfig) {
       try {
-
-        // Query Gemini with Google Search Grounding to check for real-life match results
+        // Query OpenRouter to check for real-life match results
         const prompt = `You are a World Cup statistics scraper helper. Retrieve the actual match scores for the World Cup standings.
 For the following matches, find if there are real completed matches and their final scores:
 - Spain vs Germany
@@ -917,27 +967,20 @@ Example output format:
 }
 If a match is not finished yet or not played, omit it or set final values. Please return *only* the JSON object, do not write conversational prefix or suffix.`;
 
-        const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
-          contents: prompt,
-          config: {
-            tools: [{ googleSearch: {} }],
-            responseMimeType: "application/json"
-          }
-        });
-
-        if (response.text) {
-          const parsed = JSON.parse(response.text.trim());
+        const responseText = await callOpenRouterAI(prompt);
+        if (responseText) {
+          const cleanText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(cleanText);
           // Merge parsed scores with officialResults dictionary
           for (const key in parsed) {
             if (parsed[key] && typeof parsed[key].home === 'number' && typeof parsed[key].away === 'number') {
               officialResults[key] = { home: parsed[key].home, away: parsed[key].away };
             }
           }
-          syncMessage = "مسابقات به صورت هوشمند و زنده از طریق هوش مصنوعی گوگل و پایگاه داده رسمی FIFA همگام‌سازی شدند.";
+          syncMessage = "مسابقات به صورت هوشمند و زنده از طریق هوش مصنوعی (OpenRouter) و پایگاه داده رسمی FIFA همگام‌سازی شدند.";
         }
       } catch (gemError) {
-        console.error("Gemini Search Grounding Sync failed, falling back to cached seed simulation values:", gemError);
+        console.error("OpenRouter Sync failed, falling back to cached seed simulation values:", gemError);
         syncMessage = "مسابقات با مقادیر شبیه‌ساز پایگاه داده رسمی FIFA با موفقیت همگام‌سازی شدند.";
       }
     } else {
@@ -1259,6 +1302,91 @@ app.get('/api/admin/download-db', authenticateToken, requireAdmin, (req: Authent
   }
 });
 
+// GET /api/admin/backups (Admin only - list auto/manual premium backup snaps)
+app.get('/api/admin/backups', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const backupsDir = path.join(process.cwd(), 'backups');
+    if (!fs.existsSync(backupsDir)) {
+      fs.mkdirSync(backupsDir, { recursive: true });
+    }
+    const files = fs.readdirSync(backupsDir);
+    const backupList = files
+      .filter(f => f.startsWith('backup_') && f.endsWith('.json'))
+      .map(f => {
+        const filePath = path.join(backupsDir, f);
+        const stats = fs.statSync(filePath);
+        return {
+          filename: f,
+          size: stats.size,
+          createdAt: stats.mtime.toISOString()
+        };
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    res.json(backupList);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'خطا در خواندن لیست بکاپ‌ها.' });
+  }
+});
+
+// POST /api/admin/backups/create (Admin only - create manual snapshot instantly)
+app.post('/api/admin/backups/create', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const filename = triggerBackupInDirectory();
+    res.json({ success: true, message: 'بکاپ جدید با موفقیت ایجاد شد.', filename });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'خطا در ایجاد بکاپ جدید دیتابیس.' });
+  }
+});
+
+// POST /api/admin/backups/restore (Admin only - restore state from dynamic snapshot)
+app.post('/api/admin/backups/restore', express.json({ limit: '10mb' }), authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { filename } = req.body;
+    if (!filename) {
+      res.status(400).json({ error: 'نام فایل بکاپ الزامی است.' });
+      return;
+    }
+    const backupsDir = path.join(process.cwd(), 'backups');
+    const filePath = path.join(backupsDir, filename);
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: 'فایل بکاپ مورد نظر یافت نشد.' });
+      return;
+    }
+    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    const parsedData = JSON.parse(fileContent);
+    
+    if (!parsedData || !Array.isArray(parsedData.users) || !parsedData.passwords) {
+      res.status(400).json({ error: 'محتویات فایل بکاپ معتبر یا سازگار با ساختار دیتابیس نیست.' });
+      return;
+    }
+    
+    saveDB(parsedData);
+    recalculateAllScores();
+    res.json({ success: true, message: 'بازگردانی اطلاعات دیتابیس با موفقیت انجام شد و جدول امتیازات بازمحاسبه گردید.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'خطا در بازگردانی اطلاعات دیتابیس.' });
+  }
+});
+
+// DELETE /api/admin/backups/:filename (Admin only - remove backup file)
+app.delete('/api/admin/backups/:filename', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { filename } = req.params;
+    const backupsDir = path.join(process.cwd(), 'backups');
+    const filePath = path.join(backupsDir, filename);
+    
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      res.json({ success: true, message: 'فایل بکاپ با موفقیت حذف گردید.' });
+    } else {
+      res.status(404).json({ error: 'فایل بکاپ یافت نشد.' });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'خطا در حذف فایل بکاپ.' });
+  }
+});
+
 // POST /api/admin/import-db (Admin only - upload / import backup db.json)
 app.post('/api/admin/import-db', express.json({ limit: '50mb' }), authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -1555,7 +1683,14 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
       geminiApiKey,
       geminiProxyMode,
       geminiProxyUrl,
-      geminiHttpProxy
+      geminiHttpProxy,
+      openRouterApiKey,
+      openRouterModel,
+      proxyType,
+      backupEnabled,
+      backupFrequency,
+      backupDays,
+      backupTimesPerDay
     } = req.body;
     
     const db = loadDB();
@@ -1568,12 +1703,29 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
     }
     if (syncMode !== undefined) {
       db.settings.syncMode = syncMode;
+      db.settings.lastSimulatedSyncRealTime = Date.now();
     }
     if (simulatedTime !== undefined) {
       db.settings.simulatedTime = simulatedTime;
+      db.settings.lastSimulatedSyncRealTime = Date.now();
     }
     if (isFastForwarding !== undefined) {
       db.settings.isFastForwarding = !!isFastForwarding;
+      db.settings.lastSimulatedSyncRealTime = Date.now();
+    }
+    
+    // Backup Scheduler Settings
+    if (backupEnabled !== undefined) {
+      db.settings.backupEnabled = !!backupEnabled;
+    }
+    if (backupFrequency !== undefined) {
+      db.settings.backupFrequency = backupFrequency;
+    }
+    if (backupDays !== undefined) {
+      db.settings.backupDays = Array.isArray(backupDays) ? backupDays : [];
+    }
+    if (backupTimesPerDay !== undefined) {
+      db.settings.backupTimesPerDay = Number(backupTimesPerDay) || 1;
     }
     
     // SMS OTP Settings
@@ -1607,6 +1759,17 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
       db.settings.geminiHttpProxy = geminiHttpProxy;
     }
     
+    // OpenRouter and Proxy Protocol Settings
+    if (openRouterApiKey !== undefined) {
+      db.settings.openRouterApiKey = openRouterApiKey;
+    }
+    if (openRouterModel !== undefined) {
+      db.settings.openRouterModel = openRouterModel;
+    }
+    if (proxyType !== undefined) {
+      db.settings.proxyType = proxyType;
+    }
+    
     saveDB(db);
     
     // Automatically trigger a live sync tick on change to instantly update games if time changed
@@ -1618,118 +1781,563 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
   }
 });
 
-// Helper to get initialized GoogleGenAI client based on database settings/environment variables
-export function getGeminiClient(): GoogleGenAI | null {
-  const db = loadDB();
-  const apiKey = db.settings?.geminiApiKey || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return null;
-  }
-
-  const mode = db.settings?.geminiProxyMode || 'none';
-  const customUrl = db.settings?.geminiProxyUrl;
-  const httpProxy = db.settings?.geminiHttpProxy;
-
-  const initOptions: any = {
-    apiKey: apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build'
-      }
-    }
-  };
-
-  if (mode === 'manual' && customUrl) {
-    initOptions.baseUrl = customUrl.trim();
-  } else if (mode === 'auto') {
-    // Standard direct connection config or a regional mirror
-    initOptions.baseUrl = 'https://generativelanguage.googleapis.com';
-  }
-
-  if (httpProxy && httpProxy.trim()) {
-    try {
-      const dispatcher = new ProxyAgent({ uri: httpProxy.trim() });
-      initOptions.httpOptions.fetch = (url: any, init: any) => {
-        return fetch(url, {
-          ...init,
-          dispatcher
-        });
-      };
-      console.log(`[AI-PROXY-INIT] Configured HTTP Proxy routing for Gemini client: ${httpProxy.trim()}`);
-    } catch (e: any) {
-      console.error('[AI-PROXY-INIT] Failed to create ProxyAgent for Gemini:', e);
-    }
-  }
-
-  return new GoogleGenAI(initOptions);
+// VLESS Tunneling & Proxy System
+interface VlessConfig {
+  uuid: string;
+  serverHost: string;
+  serverPort: number;
+  type: string;
+  path: string;
+  hostHeader: string;
+  security: string;
+  sni: string;
 }
 
-// POST /api/admin/gemini-test (Admin only - test Gemini API connectivity with custom key & proxy)
+export function parseVlessUri(uri: string): VlessConfig | null {
+  try {
+    if (!uri.startsWith('vless://')) return null;
+    let remaining = uri.slice(8);
+    
+    const atIdx = remaining.indexOf('@');
+    if (atIdx === -1) return null;
+    const uuid = remaining.slice(0, atIdx);
+    remaining = remaining.slice(atIdx + 1);
+    
+    const qIdx = remaining.indexOf('?');
+    let hostPortStr = '';
+    let queryStr = '';
+    
+    const hashIdx = remaining.indexOf('#');
+    const hasHash = hashIdx !== -1;
+    const actualRemaining = hasHash ? remaining.slice(0, hashIdx) : remaining;
+    
+    if (qIdx !== -1 && (!hasHash || qIdx < hashIdx)) {
+      hostPortStr = actualRemaining.slice(0, qIdx);
+      queryStr = actualRemaining.slice(qIdx + 1);
+    } else {
+      hostPortStr = actualRemaining;
+    }
+    
+    const colonIdx = hostPortStr.lastIndexOf(':');
+    let serverHost = hostPortStr;
+    let serverPort = 443;
+    if (colonIdx !== -1) {
+      serverHost = hostPortStr.slice(0, colonIdx);
+      serverPort = parseInt(hostPortStr.slice(colonIdx + 1), 10) || 443;
+    }
+    
+    if (serverHost.startsWith('[') && serverHost.endsWith(']')) {
+      serverHost = serverHost.slice(1, -1);
+    }
+    
+    const params = new URLSearchParams(queryStr);
+    const type = params.get('type') || 'ws';
+    let path = params.get('path') || '/';
+    if (!path.startsWith('/')) {
+      path = '/' + path;
+    }
+    const rawHost = params.get('host');
+    const hostHeader = (rawHost && rawHost.trim()) ? rawHost.trim() : serverHost;
+    const security = params.get('security') || 'tls';
+    const rawSni = params.get('sni');
+    const sni = (rawSni && rawSni.trim()) ? rawSni.trim() : hostHeader;
+    
+    return {
+      uuid,
+      serverHost,
+      serverPort,
+      type,
+      path,
+      hostHeader,
+      security,
+      sni
+    };
+  } catch (e) {
+    console.error('Error parsing VLESS URI:', e);
+    return null;
+  }
+}
+
+export function parseUUIDToBuffer(uuidStr: string): Buffer {
+  const hex = uuidStr.replace(/-/g, '');
+  if (hex.length !== 32) {
+    throw new Error('Invalid UUID length');
+  }
+  return Buffer.from(hex, 'hex');
+}
+
+export function buildVlessHeader(uuid: string, targetHost: string, targetPort: number): Buffer {
+  const uuidBuffer = parseUUIDToBuffer(uuid);
+  const targetHostBuffer = Buffer.from(targetHost, 'ascii');
+  
+  return Buffer.concat([
+    Buffer.from([0x00]), // vless protocol version
+    uuidBuffer,          // 16-byte UUID
+    Buffer.from([0x00]), // addons length (0)
+    Buffer.from([0x01]), // command: 0x01 (TCP)
+    Buffer.from([(targetPort >> 8) & 0xff, targetPort & 0xff]), // port (2 bytes)
+    Buffer.from([0x02]), // address type: domain
+    Buffer.from([targetHostBuffer.length]), // domain length
+    targetHostBuffer // domain ascii bytes
+  ]);
+}
+
+class VlessWsSocket extends Duplex {
+  private ws: WebSocket;
+  private firstWrite = true;
+  private headerBuffer: Buffer;
+  private headerBytesDiscarded = 0;
+  private expectedHeaderLen = 2; // Need at least 2 bytes to read the addonLen
+
+  constructor(ws: WebSocket, headerBuffer: Buffer) {
+    super();
+    this.ws = ws;
+    this.headerBuffer = headerBuffer;
+
+    this.ws.on('message', (data: any) => {
+      let buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+      
+      if (this.headerBytesDiscarded < this.expectedHeaderLen) {
+        // We still need to discard header bytes from response
+        const neededForBaseHeader = 2 - this.headerBytesDiscarded;
+        if (neededForBaseHeader > 0) {
+          const consumeLen = Math.min(buffer.length, neededForBaseHeader);
+          if (this.headerBytesDiscarded === 0 && consumeLen === 2) {
+            const addonLen = buffer[1];
+            this.expectedHeaderLen = 2 + addonLen;
+          } else if (this.headerBytesDiscarded === 1 && consumeLen === 1) {
+            const addonLen = buffer[0];
+            this.expectedHeaderLen = 2 + addonLen;
+          } else if (this.headerBytesDiscarded === 0 && consumeLen === 1 && buffer.length > 1) {
+            const addonLen = buffer[1];
+            this.expectedHeaderLen = 2 + addonLen;
+          }
+          this.headerBytesDiscarded += consumeLen;
+          buffer = buffer.slice(consumeLen);
+        }
+
+        if (buffer.length > 0 && this.headerBytesDiscarded < this.expectedHeaderLen) {
+          const neededAddons = this.expectedHeaderLen - this.headerBytesDiscarded;
+          const consumeAddons = Math.min(buffer.length, neededAddons);
+          this.headerBytesDiscarded += consumeAddons;
+          buffer = buffer.slice(consumeAddons);
+        }
+      }
+
+      if (buffer.length > 0) {
+        if (!this.push(buffer)) {
+          // Backpressure support
+        }
+      }
+    });
+
+    this.ws.on('close', () => {
+      this.push(null);
+    });
+
+    this.ws.on('error', (err) => {
+      this.destroy(err);
+    });
+  }
+
+  _read(size: number) {}
+
+  _write(chunk: any, encoding: string, callback: (error?: Error | null) => void) {
+    let buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding as any);
+
+    if (this.firstWrite) {
+      this.firstWrite = false;
+      buffer = Buffer.concat([this.headerBuffer, buffer]);
+    }
+
+    if (this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(buffer, { binary: true }, (err) => {
+        callback(err);
+      });
+    } else {
+      callback(new Error('VLESS WebSocket is closed'));
+    }
+  }
+
+  _final(callback: (error?: Error | null) => void) {
+    if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+      this.ws.close();
+    }
+    callback();
+  }
+
+  _destroy(err: Error | null, callback: (error: Error | null) => void) {
+    if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+      this.ws.close();
+    }
+    callback(err);
+  }
+}
+
+export function createVlessAgent(vlessUri: string) {
+  const config = parseVlessUri(vlessUri);
+  if (!config) {
+    throw new Error('فرمت لینک VLESS نامعتبر است.');
+  }
+
+  const { Agent } = customRequire('undici');
+
+  return new Agent({
+    connect(opts: any, callback: any) {
+      const targetHost = opts.hostname;
+      const targetPort = opts.port || (opts.protocol === 'https:' ? 443 : 80);
+
+      let headerBuffer: Buffer;
+      try {
+        headerBuffer = buildVlessHeader(config.uuid, targetHost, targetPort);
+      } catch (err: any) {
+        return callback(err);
+      }
+
+      const isSecure = (config.security === 'tls' || config.security === 'xtls' || config.security === 'wss') || (config.security !== 'none' && [443, 9443, 8443, 2053, 2083, 2087, 2096].includes(config.serverPort));
+      const protocol = isSecure ? 'wss' : 'ws';
+      const wsUrl = `${protocol}://${config.serverHost}:${config.serverPort}${config.path}`;
+
+      const headers: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      };
+      if (config.hostHeader) {
+        headers['Host'] = config.hostHeader;
+      }
+
+      const wsOptions: any = {
+        headers,
+        rejectUnauthorized: false,
+        perMessageDeflate: false
+      };
+      if (isSecure && config.sni) {
+        wsOptions.servername = config.sni;
+      }
+      const ws = new WebSocket(wsUrl, wsOptions);
+
+      let isCallbackCalled = false;
+
+      const cleanup = () => {
+        ws.removeAllListeners('open');
+        ws.removeAllListeners('error');
+      };
+
+      ws.on('open', () => {
+        cleanup();
+        const plainSocket = new VlessWsSocket(ws, headerBuffer);
+
+        if (opts.protocol === 'https:') {
+          const tlsSocket = tls.connect({
+            socket: plainSocket,
+            servername: opts.hostname,
+            rejectUnauthorized: false
+          });
+
+          tlsSocket.on('error', (err) => {
+            if (!isCallbackCalled) {
+              isCallbackCalled = true;
+              callback(err, null);
+            }
+          });
+
+          tlsSocket.on('secureConnect', () => {
+            if (!isCallbackCalled) {
+              isCallbackCalled = true;
+              callback(null, tlsSocket);
+            }
+          });
+        } else {
+          if (!isCallbackCalled) {
+            isCallbackCalled = true;
+            callback(null, plainSocket);
+          }
+        }
+      });
+
+      ws.on('error', (err) => {
+        cleanup();
+        if (!isCallbackCalled) {
+          isCallbackCalled = true;
+          callback(err, null);
+        }
+      });
+    }
+  });
+}
+
+// Core universal proxy agent request helper supporting HTTP, SOCKS and MIX
+export async function requestWithProxy(url: string, options: any, proxyUrl?: string, proxyType: 'none' | 'http' | 'socks' | 'mix' = 'none') {
+  if (!proxyUrl || !proxyUrl.trim() || proxyType === 'none') {
+    const response = await fetch(url, options);
+    const text = await response.text();
+    return {
+      status: response.status,
+      ok: response.ok,
+      text: async () => text,
+      json: async () => JSON.parse(text)
+    };
+  }
+
+  let agent: any = undefined;
+  const targetProxy = proxyUrl.trim();
+
+  try {
+    const { SocksProxyAgent } = customRequire('socks-proxy-agent');
+    const { HttpsProxyAgent } = customRequire('https-proxy-agent');
+
+    if (proxyType === 'socks') {
+      let fullProxy = targetProxy;
+      if (!fullProxy.startsWith('socks://') && !fullProxy.startsWith('socks5://') && !fullProxy.startsWith('socks4://')) {
+        fullProxy = 'socks5://' + fullProxy;
+      }
+      agent = new SocksProxyAgent(fullProxy);
+    } else if (proxyType === 'http') {
+      let fullProxy = targetProxy;
+      if (!fullProxy.startsWith('http://') && !fullProxy.startsWith('https://')) {
+        fullProxy = 'http://' + fullProxy;
+      }
+      agent = new HttpsProxyAgent(fullProxy);
+    } else if (proxyType === 'mix') {
+      if (targetProxy.startsWith('socks5://') || targetProxy.startsWith('socks://') || targetProxy.startsWith('socks4://')) {
+        agent = new SocksProxyAgent(targetProxy);
+      } else if (targetProxy.startsWith('http://') || targetProxy.startsWith('https://')) {
+        agent = new HttpsProxyAgent(targetProxy);
+      } else {
+        try {
+          agent = new SocksProxyAgent('socks5://' + targetProxy);
+        } catch (e) {
+          agent = new HttpsProxyAgent('http://' + targetProxy);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[AI-PROXY-AGENT] Failed to initialize agent:', err);
+  }
+
+  return new Promise<any>((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const reqOptions: any = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || 443,
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: options.method || 'GET',
+      headers: {
+        ...options.headers,
+        'Host': parsedUrl.hostname,
+      },
+      timeout: options.timeout || 15000
+    };
+
+    if (agent) {
+      reqOptions.agent = agent;
+    }
+
+    const req = https.request(reqOptions, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode || 200,
+          ok: (res.statusCode || 200) >= 200 && (res.statusCode || 200) < 300,
+          text: async () => data,
+          json: async () => {
+            try {
+              return JSON.parse(data);
+            } catch (jsonErr) {
+              throw new Error(`Invalid JSON response: ${data.substring(0, 200)}`);
+            }
+          }
+        });
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request Timeout'));
+    });
+
+    if (options.body) {
+      req.write(typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+    }
+    req.end();
+  });
+}
+
+// Fetch helper from OpenRouter supporting custom prompts, model, and routing configurations
+export async function callOpenRouterAI(prompt: string, maxTokens: number = 2000): Promise<string> {
+  const db = loadDB();
+  const apiKey = db.settings?.openRouterApiKey || db.settings?.geminiApiKey || process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('کلید وب‌سرویس OpenRouter تعریف نشده است.');
+  }
+
+  const model = db.settings?.openRouterModel || 'google/gemini-2.5-flash';
+  const proxyUrl = db.settings?.geminiHttpProxy;
+  const proxyType = db.settings?.proxyType || 'none';
+
+  console.log(`[OPENROUTER] Invoking model: ${model}, Proxy: ${proxyType} (${proxyUrl || 'None'})`);
+
+  const response = await requestWithProxy(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://ai.studio/build',
+        'X-Title': 'AI Studio World Cup Build'
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.1,
+        max_tokens: maxTokens
+      }),
+      timeout: 22000
+    },
+    proxyUrl,
+    proxyType
+  );
+
+  if (!response.ok) {
+    const errorDetails = await response.text();
+    console.error(`[OPENROUTER] API Error: ${response.status} - ${errorDetails}`);
+    throw new Error(`خطای وب‌سرویس OpenRouter با کد وضعیت ${response.status}: ${errorDetails}`);
+  }
+
+  const resJson = await response.json();
+  if (resJson.choices && resJson.choices[0] && resJson.choices[0].message) {
+    return resJson.choices[0].message.content || '';
+  }
+
+  throw new Error('پاسخ معتبری از OpenRouter دریافت نشد.');
+}
+
+// POST /api/admin/gemini-test (Test API connectivity under OpenRouter engine proxy compatibility)
 app.post('/api/admin/gemini-test', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { testApiKey, proxyMode, proxyUrl, testHttpProxy } = req.body;
+    const { testApiKey, testHttpProxy, testProxyType, testModel } = req.body;
     const db = loadDB();
 
-    const apiKey = testApiKey !== undefined ? testApiKey : (db.settings?.geminiApiKey || process.env.GEMINI_API_KEY);
-    const mode = proxyMode !== undefined ? proxyMode : (db.settings?.geminiProxyMode || 'none');
-    const customUrl = proxyUrl !== undefined ? proxyUrl : db.settings?.geminiProxyUrl;
-    const httpProxy = testHttpProxy !== undefined ? testHttpProxy : db.settings?.geminiHttpProxy;
+    const apiKey = testApiKey !== undefined ? testApiKey : (db.settings?.openRouterApiKey || db.settings?.geminiApiKey || process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY);
+    const proxyUrl = testHttpProxy !== undefined ? testHttpProxy : db.settings?.geminiHttpProxy;
+    const proxyType = testProxyType !== undefined ? testProxyType : (db.settings?.proxyType || 'none');
+    const model = testModel || db.settings?.openRouterModel || 'google/gemini-2.1-flash' || 'google/gemini-2.5-flash';
 
     if (!apiKey) {
-      res.status(400).json({ error: 'کلید وب‌سرویس هوش مصنوعی (GEMINI_API_KEY) وارد نشده است.' });
+      res.status(400).json({ error: 'کلید وب‌سرویس هوش مصنوعی (OpenRouter API Key) وارد نشده است.' });
       return;
     }
 
-    const initOptions: any = {
-      apiKey: apiKey,
-      httpOptions: {
+    console.log(`[OPENROUTER-TEST] Verifying API handshake with ${model}. Proxy: ${proxyType} (${proxyUrl || 'None'})`);
+
+    const response = await requestWithProxy(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
         headers: {
-          'User-Agent': 'aistudio-build'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://ai.studio/build',
+          'X-Title': 'AI Studio Test Connection'
         },
-        timeout: 10000 // 10 seconds timeout
-      }
-    };
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'user', content: 'فقط پاسخ کوتاه بده: OK' }
+          ],
+          temperature: 0.1,
+          max_tokens: 150
+        }),
+        timeout: 15000
+      },
+      proxyUrl,
+      proxyType
+    );
 
-    if (mode === 'manual' && customUrl) {
-      initOptions.baseUrl = customUrl.trim();
-    } else if (mode === 'auto') {
-      initOptions.baseUrl = 'https://generativelanguage.googleapis.com';
+    if (!response.ok) {
+      const errText = await response.text();
+      res.status(response.status).json({ error: `خطای وب‌سرویس OpenRouter (${response.status}): ${errText}` });
+      return;
     }
 
-    if (httpProxy && httpProxy.trim()) {
-      try {
-        const dispatcher = new ProxyAgent({ uri: httpProxy.trim() });
-        initOptions.httpOptions.fetch = (url: any, init: any) => {
-          return fetch(url, {
-            ...init,
-            dispatcher
-          });
-        };
-        console.log(`[AI-TEST-CONNECTION] Adding custom ProxyAgent for test: ${httpProxy.trim()}`);
-      } catch (e: any) {
-        console.error('[AI-TEST-CONNECTION] Failed to create test ProxyAgent:', e);
-      }
+    const resJson = await response.json();
+    let outputText = '';
+    if (resJson.choices && resJson.choices[0] && resJson.choices[0].message) {
+      outputText = resJson.choices[0].message.content || '';
     }
 
-    console.log(`[AI-TEST-CONNECTION] Verifying Gemini connection... Mode: ${mode}, URL: ${initOptions.baseUrl || 'Default'}, Proxy: ${httpProxy || 'None'}`);
-
-    const ai = new GoogleGenAI(initOptions);
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: "فقط پاسخ کوتاه بده: OK",
-    });
-
-    const outputText = response.text?.trim() || '';
     res.json({
       success: true,
-      message: 'اتصال آزمایشی با هوش مصنوعی (Gemini) با موفقیت برقرار شد!',
+      message: 'اتصال آزمایشی با هوش مصنوعی (OpenRouter) با موفقیت برقرار شد!',
       responseSample: outputText
     });
   } catch (err: any) {
-    console.error('[AI-TEST-CONNECTION] Connection error detail:', err);
+    console.error('[OPENROUTER-TEST] Connection error detail:', err);
     res.status(500).json({ 
-      error: `خطا در پیوند به گوگل جمینای: ${err.message}. لطفا کلید وب‌سرویس یا جزییات پروکسی خود را بررسی نمایید.` 
+      error: `خطا در پیوند به OpenRouter: ${err.message}. لطفا کلید وب‌سرویس یا جزییات پروکسی خود را بررسی نمایید.` 
     });
+  }
+});
+
+// POST /api/admin/proxy-test (Admin only - test direct HTTP or VLESS proxy connection to see if it works)
+app.post('/api/admin/proxy-test', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { testHttpProxy } = req.body;
+    const db = loadDB();
+    const httpProxy = testHttpProxy !== undefined ? testHttpProxy : db.settings?.geminiHttpProxy;
+
+    if (!httpProxy || !httpProxy.trim()) {
+      res.status(400).json({ error: 'آدرس واقع پروکسی جهت تست وارد نشده است.' });
+      return;
+    }
+
+    try {
+      let dispatcher: any;
+      if (httpProxy.trim().startsWith('vless://')) {
+        dispatcher = createVlessAgent(httpProxy.trim());
+        console.log(`[AI-PROXY-TEST] Testing VLESS connectivity`);
+      } else {
+        const { ProxyAgent } = customRequire('undici');
+        dispatcher = new ProxyAgent({ uri: httpProxy.trim() });
+        console.log(`[AI-PROXY-TEST] Testing HTTP proxy connectivity: ${httpProxy.trim()}`);
+      }
+      
+      const startTime = Date.now();
+      // Test by hitting standard API domain
+      const testRes = await fetch('https://generativelanguage.googleapis.com', {
+        method: 'GET',
+        dispatcher,
+        signal: AbortSignal.timeout(7000) // 7-second timeout for proxy connection test
+      } as any);
+
+      const duration = Date.now() - startTime;
+      const status = testRes.status;
+      const proxyTypeLabel = httpProxy.trim().startsWith('vless://') ? 'VLESS' : 'HTTP';
+      
+      res.json({
+        success: true,
+        message: `اتصال پروکسی ${proxyTypeLabel} با موفقیت برقرار شد! پاسخ دریافتی در ${duration} میلی‌ثانیه با کد وضعیت ${status} برقرار گردید (نشانه دسترسی موفق به دامنه خدمات کلاود گوگل).`,
+        status
+      });
+    } catch (e: any) {
+      console.error('[AI-PROXY-TEST] Proxy connection failed:', e);
+      const proxyTypeLabel = httpProxy.trim().startsWith('vless://') ? 'VLESS' : 'HTTP/Socks';
+      res.status(500).json({
+        error: `خطا در برقراری ارتباط مستقل از طریق دامنه و پروتکل ${proxyTypeLabel}: ${e.message || e} (لطفاً از صحت لینک VLESS، وضعیت پورت یا نام سرور خود اطمینان حاصل کنید).`
+      });
+    }
+  } catch (err: any) {
+    console.error('[AI-PROXY-TEST] Handler error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1844,8 +2452,8 @@ app.get('/api/teams/:id/squad', (req: Request, res: Response) => {
   }
 });
 
-// POST /api/teams/:id/squad/sync-ai - Sync specific team roster live using Search-grounded Gemini 3.5
-app.post('/api/teams/:id/squad/sync-ai', async (req: Request, res: Response) => {
+// POST /api/teams/:id/squad/sync-ai - Sync specific team roster live using OpenRouter AI
+app.post('/api/teams/:id/squad/sync-ai', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   try {
     const team = teamsSeed.find(t => t.id === id);
@@ -1854,25 +2462,31 @@ app.post('/api/teams/:id/squad/sync-ai', async (req: Request, res: Response) => 
       return;
     }
 
-    const ai = getGeminiClient();
-    if (!ai) {
-      res.status(400).json({ error: 'کلید وب‌سرویس هوش مصنوعی (GEMINI_API_KEY) در سرور پیکربندی نشده است. لطفاً ابتدا در بخش تنظیمات پنل مدیریت کلید معتبر خود را تعریف نهایی کنید.' });
+    const db = loadDB();
+    const hasAIConfig = !!(db.settings?.openRouterApiKey || db.settings?.geminiApiKey || process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY);
+    if (!hasAIConfig) {
+      res.status(400).json({ error: 'کلید وب‌سرویس هوش مصنوعی (OpenRouter API Key) در سرور پیکربندی نشده است. لطفاً ابتدا در بخش تنظیمات پنل مدیریت کلید معتبر خود را تعریف نهایی کنید.' });
       return;
     }
 
     const prompt = `You are a professional sports editor. Fetch/retrieve the actual, official real-world soccer squad, head coach, and player ratings (FIFA/FC25/real-life) for the National Football Team: "${team.name}" (${team.shortCode}).
-To find the absolute correct real-life squad and head coach, you MUST perform a Google search prioritizing official articles on fifa.com, specifically looking for squad lists or tournament previews such as: "site:fifa.com ${team.name} squad named 2026" or "site:fifa.com Men's World Cup ${team.name} squad".
-Important details:
-1. Find the REAL current manager/coach (in Persian, e.g., "امیر قلعه‌نویی", "روبرتو مارتینز", "لوئیس دلا فوئنته" etc.).
-2. Gather EXACTLY 11 starting players and EXACTLY 4 core reserve players (total of 15 REAL players representing them, e.g. for Portugal, get Ronaldo, Bruno Fernandes, Leao, Dias, Bernardo, Diogo Costa etc., and for Cape Verde, get their real team like Jovane Cabral, Bebe, Logan Costa, Ryan Mendes, Garry Rodrigues, translated to Persian). Do NOT make up names like 'الکس مولر' or 'ماتئو اسمیت'.
-3. For each player, retrieve:
-   - "name": Real name in Persian (e.g. "کریستیانو رونالدو", "رایان مندس")
-   - "number": Real lineup shirt number
-   - "position": One of 'GK', 'DF', 'MF', 'FW'
-   - "isStarting": boolean (exactly 11 must be true, 4 must be false)
-   - "club": Their current professional club in Persian (e.g. "النصر", "رئال مادرید" or local league/foreign leagues)
-   - "age": Real current age
-   - "rating": Valid realistic overall rating (70-98)
+Find the REAL current manager/coach (in Persian, e.g., "امیر قلعه‌نویی", "روبرتو مارتینز", "لوئیس دلا فوئنته" etc.).
+Gather the FULL squad consisting of EXACTLY between 23 and 26 REAL players representing the actual national team (e.g. for Portugal, get Ronaldo, Bruno Fernandes, Leao, Dias, Bernardo, Diogo Costa etc., and for Cape Verde, get their real team like Jovane Cabral, Bebe, Logan Costa, Ryan Mendes, Garry Rodrigues, translated to Persian). Do NOT make up names.
+Out of the 23 to 26 players, you must mark EXACTLY 11 starting players as "isStarting": true.
+These 11 starting players must form a standard balanced 4-3-3 formation:
+- Exactly 1 "GK" (Goalkeeper) with "isStarting": true.
+- Exactly 4 "DF" (Defenders) with "isStarting": true.
+- Exactly 3 "MF" (Midfielders) with "isStarting": true.
+- Exactly 3 "FW" (Forwards) with "isStarting": true.
+All other remaining 12 to 15 players must be marked as "isStarting": false (reserves).
+For each player, retrieve:
+- "name": Real name in Persian (e.g. "کریستیانو رونالدو", "رایان مندس")
+- "number": Real lineup shirt number (unique between 1 and 99)
+- "position": One of 'GK', 'DF', 'MF', 'FW'
+- "isStarting": boolean (exactly 11 starting players, exactly 12 to 15 reserves)
+- "club": Their current professional club in Persian (e.g. "النصر", "رئال مادرید" or local league/foreign leagues)
+- "age": Real current age
+- "rating": Valid realistic overall rating (70-98)
 
 Return ONLY a raw JSON string matching this exact structure:
 {
@@ -1889,16 +2503,8 @@ Return ONLY a raw JSON string matching this exact structure:
 }
 Do not write markdown blocks (like \`\`\`json) or conversational explanations. Just return the JSON starting with { and ending with }.`;
 
-    console.log(`[AI-SQUAD] Requesting AI updated squad for ${team.name} (${id})...`);
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-      }
-    });
-
-    const rawText = response.text || '';
+    console.log(`[AI-SQUAD] Requesting AI updated squad using OpenRouter for ${team.name} (${id})...`);
+    const rawText = await callOpenRouterAI(prompt);
     const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
 
     const parsedSquad = JSON.parse(cleanJson);
@@ -1988,6 +2594,17 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`World Cup server running on http://localhost:${PORT}`);
+    
+    // Boot up the database backup scheduler thread (checks criteria every 5 minutes)
+    try {
+      checkAndTriggerBackup();
+      setInterval(() => {
+        checkAndTriggerBackup();
+      }, 1000 * 60 * 5);
+      console.log('[BACKUP-SCHEDULER] Periodic database backup worker registered successfully.');
+    } catch (e) {
+      console.error('[BACKUP-SCHEDULER] Failed to bootstrap automatic backup scheduler:', e);
+    }
   });
 }
 

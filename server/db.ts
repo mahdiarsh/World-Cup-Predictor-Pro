@@ -21,6 +21,15 @@ export interface SystemSettings {
   geminiProxyMode?: 'none' | 'auto' | 'manual';
   geminiProxyUrl?: string;
   geminiHttpProxy?: string;
+  openRouterApiKey?: string;
+  openRouterModel?: string;
+  proxyType?: 'none' | 'http' | 'socks' | 'mix';
+  lastSimulatedSyncRealTime?: number;
+  backupEnabled?: boolean;
+  backupFrequency?: 'daily' | 'weekly' | 'custom';
+  backupDays?: string[];
+  backupTimesPerDay?: number;
+  lastBackupTime?: string;
 }
 
 export interface DatabaseSchema {
@@ -410,6 +419,28 @@ export function loadDB(): DatabaseSchema {
         settings.geminiProxyUrl = s.value;
       } else if (s.key === 'geminiHttpProxy') {
         settings.geminiHttpProxy = s.value;
+      } else if (s.key === 'openRouterApiKey') {
+        settings.openRouterApiKey = s.value;
+      } else if (s.key === 'openRouterModel') {
+        settings.openRouterModel = s.value;
+      } else if (s.key === 'proxyType') {
+        settings.proxyType = s.value as any;
+      } else if (s.key === 'lastSimulatedSyncRealTime') {
+        settings.lastSimulatedSyncRealTime = s.value ? Number(s.value) : undefined;
+      } else if (s.key === 'backupEnabled') {
+        settings.backupEnabled = s.value === 'true' || s.value === '1';
+      } else if (s.key === 'backupFrequency') {
+        settings.backupFrequency = s.value as any;
+      } else if (s.key === 'backupDays') {
+        try {
+          settings.backupDays = JSON.parse(s.value);
+        } catch {
+          settings.backupDays = [];
+        }
+      } else if (s.key === 'backupTimesPerDay') {
+        settings.backupTimesPerDay = s.value ? Number(s.value) : undefined;
+      } else if (s.key === 'lastBackupTime') {
+        settings.lastBackupTime = s.value;
       }
     }
 
@@ -819,16 +850,31 @@ export function runFifaLiveSync(): void {
   }
 
   const settings = db.settings;
-
-  // 1. Advance time if fast-forward is enabled
-  if (settings.syncMode === 'simulation' && settings.isFastForwarding) {
-    const curTime = new Date(settings.simulatedTime).getTime();
-    // Advance by 6 hours every check
-    const sixHours = 6 * 60 * 60 * 1000;
-    settings.simulatedTime = new Date(curTime + sixHours).toISOString();
-  }
-
   let hasChanges = false;
+
+  // 1. Advance time realistically
+  const nowMs = Date.now();
+  if (settings.syncMode === 'simulation') {
+    if (settings.isFastForwarding) {
+      const curTime = new Date(settings.simulatedTime).getTime();
+      // Advance by 6 hours every check
+      const sixHours = 6 * 60 * 60 * 1000;
+      settings.simulatedTime = new Date(curTime + sixHours).toISOString();
+    } else {
+      // Advance at normal real-world pace
+      if (settings.lastSimulatedSyncRealTime) {
+        const elapsedRealMs = nowMs - settings.lastSimulatedSyncRealTime;
+        if (elapsedRealMs > 0) {
+          const curTime = new Date(settings.simulatedTime).getTime();
+          settings.simulatedTime = new Date(curTime + elapsedRealMs).toISOString();
+        }
+      }
+    }
+    settings.lastSimulatedSyncRealTime = nowMs;
+    hasChanges = true;
+  } else {
+    settings.lastSimulatedSyncRealTime = nowMs;
+  }
 
   if (settings.syncMode === 'simulation') {
     const currentThreshold = new Date(settings.simulatedTime).getTime();

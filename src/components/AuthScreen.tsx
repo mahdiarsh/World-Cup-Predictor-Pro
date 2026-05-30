@@ -215,12 +215,12 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
   if (isForgotPassword) {
     return (
       <div id="auth-glass-card" className="max-w-md mx-auto my-8 bg-white/85 backdrop-blur-3xl border border-slate-200/90 rounded-[32px] p-6 sm:p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] relative overflow-hidden space-y-6">
-        <div id="auth-card-glow" className="absolute top-0 right-0 h-40 w-40 bg-amber-500/5 rounded-full blur-[60px] -z-10"></div>
+        <div id="auth-card-glow" className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-[60px] -z-10"></div>
         
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex p-3 bg-amber-55 border border-amber-100 rounded-2xl shadow-sm">
-            <Key className="h-7 w-7 text-amber-600" />
+          <div className="inline-flex p-3 bg-emerald-55 border border-emerald-100 rounded-2xl shadow-sm">
+            <Key className="h-7 w-7 text-emerald-600" />
           </div>
           <h2 className="text-xl font-black text-black tracking-tight">بازیابی کلمه عبور با پیامک</h2>
           <p className="text-slate-500 text-xs">کد یکبار مصرف OTP به شماره همراه شما ارسال خواهد شد.</p>
@@ -235,12 +235,12 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
                 type="button"
                 disabled={isSendingOtp || otpCooldown > 0 || !username.trim()}
                 onClick={() => handleSendOtp('reset')}
-                className="px-3 py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-amber-400 font-bold text-xs rounded-xl border border-slate-800 shrink-0 transition-all font-sans active:scale-95 cursor-pointer"
+                className="px-3 py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-emerald-400 font-bold text-xs rounded-xl border border-slate-800 shrink-0 transition-all font-sans active:scale-95 cursor-pointer"
               >
                 {isSendingOtp ? 'درحال ارسال...' : otpCooldown > 0 ? `${otpCooldown} ثانیه` : 'ارسال کد تأیید'}
               </button>
               <div className="relative flex-1">
-                <Smartphone className="absolute right-3.5 top-3.5 h-4 w-4 text-amber-500" />
+                <Smartphone className="absolute right-3.5 top-3.5 h-4 w-4 text-emerald-500" />
                 <input
                   type="text"
                   required
@@ -248,7 +248,7 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
                   placeholder="09112223344"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-2xl pr-10 pl-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10 font-sans text-left transition-all font-semibold"
+                  className="w-full bg-white border border-slate-200 rounded-2xl pr-10 pl-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/10 font-sans text-left transition-all font-semibold"
                 />
               </div>
             </div>
@@ -257,7 +257,7 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
           <div className="space-y-1.5 text-right font-sans">
             <label className="text-xs font-black text-slate-800">کد تایید پیامک شده</label>
             <div className="relative font-sans text-right">
-              <Lock className="absolute right-3.5 top-3.5 h-4 w-4 text-amber-500" />
+              <Lock className="absolute right-3.5 top-3.5 h-4 w-4 text-emerald-500" />
               <input
                 type="text"
                 required
@@ -265,7 +265,7 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
                 placeholder="کد ۵ رقمی"
                 value={otpCode}
                 onChange={e => setOtpCode(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-2xl pr-10 pl-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 font-sans text-center tracking-widest transition-all font-black text-lg"
+                className="w-full bg-white border border-slate-200 rounded-2xl pr-10 pl-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 font-sans text-center tracking-widest transition-all font-black text-lg"
               />
             </div>
           </div>
@@ -273,7 +273,7 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
           <div className="space-y-1.5 text-right font-sans">
             <label className="text-xs font-black text-slate-800">کلمه عبور جدید</label>
             <div className="relative font-sans text-right">
-              <Key className="absolute right-3.5 top-3.5 h-4 w-4 text-amber-500" />
+              <Key className="absolute right-3.5 top-3.5 h-4 w-4 text-emerald-500" />
               <input
                 type="password"
                 required
@@ -281,7 +281,7 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
                 placeholder="حداقل ۶ کاراکتر"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-2xl pr-10 pl-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 font-sans text-left transition-all font-semibold"
+                className="w-full bg-white border border-slate-200 rounded-2xl pr-10 pl-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 font-sans text-left transition-all font-semibold"
               />
             </div>
           </div>
@@ -310,7 +310,7 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 mt-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-2xl shadow-lg transition-all duration-300 active:scale-95 cursor-pointer"
+            className="w-full py-3.5 mt-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-black text-xs rounded-2xl shadow-lg transition-all duration-300 active:scale-95 cursor-pointer"
           >
             {isLoading ? 'در حال تایید و تغییر رمز...' : '💾 ذخیره رمز و ورود به سامانه'}
           </button>

@@ -22,8 +22,29 @@ export default function App() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('wc_token'));
-  const [settings, setSettings] = useState<{ registrationEnabled: boolean }>({ registrationEnabled: true });
+  const [settings, setSettings] = useState<any>({ registrationEnabled: true });
   const [selectedPublicUserId, setSelectedPublicUserId] = useState<string | null>(null);
+  const [displayTime, setDisplayTime] = useState<Date | null>(null);
+
+  // Sync client-side display clock with backend simulation settings
+  useEffect(() => {
+    if (settings?.simulatedTime) {
+      setDisplayTime(new Date(settings.simulatedTime));
+    } else {
+      setDisplayTime(null);
+    }
+  }, [settings?.simulatedTime]);
+
+  // Client-side 1-second interval ticker to ensure smooth second-by-second progression
+  useEffect(() => {
+    if (settings?.syncMode !== 'simulation' || !displayTime || settings?.isFastForwarding) {
+      return;
+    }
+    const tick = setInterval(() => {
+      setDisplayTime(prev => prev ? new Date(prev.getTime() + 1000) : null);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [settings?.syncMode, settings?.isFastForwarding, !displayTime]);
 
   // Global State
   const [matches, setMatches] = useState<Match[]>([]);
@@ -747,7 +768,7 @@ export default function App() {
       .sort((a, b) => new Date(a.kickoffTimeUtc).getTime() - new Date(b.kickoffTimeUtc).getTime())
       .slice(0, 5);
 
-    const recentAndUpcomingMatches = [...recentCompleted, ...upcomingOrLive];
+    const recentAndUpcomingMatches = [...upcomingOrLive, ...recentCompleted];
 
     return (
       <div className="space-y-10">
@@ -818,36 +839,40 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div id="login-gate-screen" dir="rtl" className="relative min-h-screen bg-slate-100 text-slate-900 flex flex-col items-center justify-center overflow-hidden font-sans select-none selection:bg-emerald-500 selection:text-slate-950 px-4 py-12">
+      <div id="login-gate-screen" dir="rtl" className="relative min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center overflow-hidden font-sans select-none selection:bg-emerald-500 selection:text-white px-4 py-12">
         
-        {/* Dynamic Light Background Gradients */}
+        {/* Dynamic Dark Background Gradients */}
         <div className="absolute inset-0 z-0 overflow-hidden">
           
           {/* Subtle Soccer Grid Texture Overlay */}
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
-            backgroundImage: `radial-gradient(#10b981 1.5px, transparent 1.5px), radial-gradient(#10b981 1.5px, #f1f5f9 1.5px)`,
+          <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{
+            backgroundImage: `radial-gradient(#10b981 1.5px, transparent 1.5px), radial-gradient(#10b981 1.5px, #020617 1.5px)`,
             backgroundSize: '40px 40px',
             backgroundPosition: '0 0, 20px 20px'
           }} />
 
           {/* Clean ambient light flows */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/5 rounded-full blur-[120px]" />
-          <div className="absolute bottom-0 right-10 w-[300px] h-[300px] bg-amber-500/5 rounded-full blur-[100px]" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/10 rounded-full blur-[140px]" />
+          <div className="absolute bottom-0 right-10 w-[300px] h-[300px] bg-teal-500/10 rounded-full blur-[120px]" />
+          
+          {/* Futuristic Triangles */}
+          <div className="absolute top-20 left-20 w-44 h-44 opacity-20 border border-slate-850 rotate-45 pointer-events-none" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
+          <div className="absolute bottom-20 right-20 w-72 h-72 opacity-10 border border-slate-800 -rotate-12 pointer-events-none" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
         </div>
 
-        {/* FIFA 2026 World Cup Premium Theme Banner */}
-        <div className="relative z-10 w-full max-w-md px-6 text-center space-y-4 pt-4 select-none">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-emerald-500/20 text-emerald-700 text-[11px] font-extrabold uppercase tracking-wide shadow-md">
-            🏆 سامانه پیش‌بینی مسابقات جام جهانی ۲۰۲۶
+        {/* World Cup Premium Theme Banner */}
+        <div className="relative z-10 w-full max-w-sm px-4 text-center space-y-4 pt-4 select-none">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-emerald-500/20 text-emerald-400 text-[11px] font-extrabold uppercase tracking-wide shadow-md">
+            🎮 پیش‌بینی پیشرفته و هوش مصنوعی ترکیب جام جهانی
           </div>
           
-          {/* Big United Host branding (USA • MEXICO • CANADA) */}
+          {/* Big United Host branding */}
           <div className="space-y-1">
-            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tighter uppercase font-sans">
-              جام جهانی ۲۰۲۶
+            <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tighter uppercase font-sans">
+              CUP <span className="text-emerald-400">PREDICTOR</span>
             </h1>
-            <p className="text-xs font-mono font-black tracking-widest text-emerald-600 uppercase">
-              🇺🇸 آمریکا • 🇲🇽 مکزیک • 🇨🇦 کانادا
+            <p className="text-xs font-mono font-black tracking-widest text-emerald-400/80 uppercase">
+              🏆 ULTIMATE WORLD CUP SQUAD SIMULATOR 🏆
             </p>
           </div>
         </div>
@@ -861,9 +886,9 @@ export default function App() {
           />
         </div>
 
-        {/* Informative, humble landing page footer (strictly English) */}
-        <div className="relative z-10 text-[10px] text-slate-600 font-bold tracking-wider mt-2 text-center px-4 bg-white/80 border border-slate-200/60 rounded-full py-1.5 shadow-md max-w-[90%] mx-auto">
-          دروازه امنیتی ورودی کاربران • وب‌سایت پیش‌بینی جام جهانی فیفا ۲۰۲۶ نسخه ۲.۶
+        {/* Informative, humble landing page footer */}
+        <div className="relative z-10 text-[10px] text-slate-400 font-bold tracking-wider mt-5 text-center px-4 bg-slate-900/80 border border-slate-800/60 rounded-full py-1.5 shadow-md max-w-[90%] mx-auto">
+          دروازه ورودی هواداران کلوپ آلتیمیت • شبیه‌ساز گیم‌پلی و محاسبات هوش مصنوعی OpenRouter
         </div>
 
       </div>
@@ -908,16 +933,17 @@ export default function App() {
             
             <div className="flex items-center gap-2 self-end sm:self-center bg-slate-950/40 p-1.5 sm:p-2 rounded-xl border border-slate-800/60 font-sans">
                <span className="text-[11px] text-slate-400 px-2">تقویم مسابقات:</span>
-               <span className="text-xs font-black text-white bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg select-none">
-                 {new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z').toLocaleDateString('fa-IR', {
+               <span className="text-xs font-black text-black bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg select-none">
+                 {(displayTime || new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z')).toLocaleDateString('fa-IR', {
                    weekday: 'long',
                    month: 'long',
                    day: 'numeric'
                  })}
                  {" ساعت "}
-                 {new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z').toLocaleTimeString('fa-IR', {
-                   hour: 'numeric',
-                   minute: 'numeric'
+                 {(displayTime || new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z')).toLocaleTimeString('fa-IR', {
+                   hour: '2-digit',
+                   minute: '2-digit',
+                   second: '2-digit'
                  })}
                </span>
             </div>

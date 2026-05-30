@@ -8,6 +8,92 @@ import { teamsSeed, getTeamName, getTeamFlag } from '../data/teams';
 import Avatar from './Avatar';
 import FlagIcon from './FlagIcon';
 
+const SHAMSI_MONTH_NAMES = [
+  'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+  'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+];
+
+function jalaliToGregorian(jy: number, jm: number, jd: number): [number, number, number] {
+  const g_days_in_active_months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let jy2 = jy - 979;
+  let j_day_no = 365 * jy2 + Math.floor(jy2 / 33) * 8 + Math.floor((jy2 % 33 + 3) / 4);
+  for (let i = 0; i < jm - 1; ++i) {
+    j_day_no += i < 6 ? 31 : 30;
+  }
+  j_day_no += jd - 1;
+
+  let g_day_no = j_day_no + 79;
+  let gy2 = 1600 + 400 * Math.floor(g_day_no / 146097);
+  g_day_no = g_day_no % 146097;
+
+  let leap = 1;
+  if (g_day_no >= 36525) {
+    g_day_no--;
+    gy2 += 100 * Math.floor(g_day_no / 36524);
+    g_day_no = g_day_no % 36524;
+    if (g_day_no >= 365) {
+      g_day_no++;
+    } else {
+      leap = 0;
+    }
+  }
+
+  gy2 += 4 * Math.floor(g_day_no / 1461);
+  g_day_no %= 1461;
+
+  if (g_day_no >= 366) {
+    leap = 0;
+    g_day_no--;
+    gy2 += Math.floor(g_day_no / 365);
+    g_day_no = g_day_no % 365;
+  }
+
+  let i = 0;
+  for (; i < 12; i++) {
+    const dj = (i === 1 && leap) ? 29 : g_days_in_active_months[i];
+    if (g_day_no < dj) {
+      break;
+    }
+    g_day_no -= dj;
+  }
+  return [gy2, i + 1, g_day_no + 1];
+}
+
+function gregorianToJalali(gy: number, gm: number, gd: number): [number, number, number] {
+  let gy2 = gy - 1600;
+  let gm2 = gm - 1;
+  let gd2 = gd - 1;
+
+  const g_days_in_active_months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let g_day_no = 365 * gy2 + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400);
+
+  for (let i = 0; i < gm2; ++i) {
+    g_day_no += g_days_in_active_months[i];
+  }
+  if (gm2 > 1 && ((gy2 % 4 === 0 && gy2 % 100 !== 0) || (gy2 % 400 === 0))) {
+    g_day_no++;
+  }
+  g_day_no += gd2;
+
+  let j_day_no = g_day_no - 79;
+  const j_np = Math.floor(j_day_no / 12053);
+  j_day_no %= 12053;
+
+  let jy = 979 + 33 * j_np + 4 * Math.floor(j_day_no / 1461);
+  j_day_no %= 1461;
+
+  if (j_day_no >= 366) {
+    jy += Math.floor((j_day_no - 1) / 365);
+    j_day_no = (j_day_no - 1) % 365;
+  }
+
+  let i = 0;
+  for (; i < 11 && j_day_no >= (i < 6 ? 31 : 30); ++i) {
+    j_day_no -= i < 6 ? 31 : 30;
+  }
+  return [jy, i + 1, j_day_no + 1];
+}
+
 interface AdminPanelProps {
   currentUser: User | null;
   users: User[];
@@ -54,6 +140,27 @@ export default function AdminPanel({
   onUpdateSettings
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<'users' | 'matches' | 'engine'>('matches');
+  const [displayTime, setDisplayTime] = useState<Date | null>(null);
+
+  // Sync client-side display clock with backend simulation settings in admin panel
+  useEffect(() => {
+    if (settings?.simulatedTime) {
+      setDisplayTime(new Date(settings.simulatedTime));
+    } else {
+      setDisplayTime(null);
+    }
+  }, [settings?.simulatedTime]);
+
+  // Local clock ticker for admin panel
+  useEffect(() => {
+    if (settings?.syncMode !== 'simulation' || !displayTime || settings?.isFastForwarding) {
+      return;
+    }
+    const tick = setInterval(() => {
+      setDisplayTime(prev => prev ? new Date(prev.getTime() + 1000) : null);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [settings?.syncMode, settings?.isFastForwarding, !displayTime]);
 
   // SMS Panel Settings State
   const [smsEnabled, setSmsEnabled] = useState(false);
@@ -63,13 +170,23 @@ export default function AdminPanel({
   const [smsBodyIdReset, setSmsBodyIdReset] = useState('');
   const [smsInitialized, setSmsInitialized] = useState(false);
 
-  // Gemini Settings State
+  // Gemini/OpenRouter Settings State
   const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [openRouterApiKey, setOpenRouterApiKey] = useState('');
+  const [openRouterModel, setOpenRouterModel] = useState('google/gemini-2.5-flash');
+  const [proxyType, setProxyType] = useState<'none' | 'http' | 'socks' | 'mix'>('none');
   const [geminiProxyMode, setGeminiProxyMode] = useState<'none' | 'auto' | 'manual'>('none');
   const [geminiProxyUrl, setGeminiProxyUrl] = useState('');
   const [geminiHttpProxy, setGeminiHttpProxy] = useState('');
   const [geminiInitialized, setGeminiInitialized] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+
+  // Backup Settings States
+  const [backupEnabled, setBackupEnabled] = useState(false);
+  const [backupFrequency, setBackupFrequency] = useState<'daily' | 'weekly' | 'custom'>('daily');
+  const [backupDays, setBackupDays] = useState<string[]>([]);
+  const [backupTimesPerDay, setBackupTimesPerDay] = useState(1);
+  const [backupInitialized, setBackupInitialized] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -81,15 +198,25 @@ export default function AdminPanel({
         setSmsBodyIdReset(settings.smsBodyIdReset !== undefined ? String(settings.smsBodyIdReset) : '');
         setSmsInitialized(true);
       }
-      if (!geminiInitialized && (settings.geminiApiKey !== undefined || settings.geminiProxyMode !== undefined)) {
+      if (!geminiInitialized && (settings.geminiApiKey !== undefined || settings.geminiProxyMode !== undefined || settings.openRouterApiKey !== undefined)) {
         setGeminiApiKey(settings.geminiApiKey || '');
+        setOpenRouterApiKey(settings.openRouterApiKey || settings.geminiApiKey || '');
+        setOpenRouterModel(settings.openRouterModel || 'google/gemini-2.5-flash');
+        setProxyType(settings.proxyType || 'none');
         setGeminiProxyMode(settings.geminiProxyMode || 'none');
         setGeminiProxyUrl(settings.geminiProxyUrl || '');
         setGeminiHttpProxy(settings.geminiHttpProxy || '');
         setGeminiInitialized(true);
       }
+      if (!backupInitialized && (settings.backupEnabled !== undefined || settings.backupFrequency !== undefined)) {
+        setBackupEnabled(!!settings.backupEnabled);
+        setBackupFrequency(settings.backupFrequency || 'daily');
+        setBackupDays(Array.isArray(settings.backupDays) ? settings.backupDays : []);
+        setBackupTimesPerDay(settings.backupTimesPerDay !== undefined ? Number(settings.backupTimesPerDay) : 1);
+        setBackupInitialized(true);
+      }
     }
-  }, [settings, smsInitialized, geminiInitialized]);
+  }, [settings, smsInitialized, geminiInitialized, backupInitialized]);
 
   // SMS Test states
   const [testMobile, setTestMobile] = useState('');
@@ -103,9 +230,166 @@ export default function AdminPanel({
   const [geminiTestError, setGeminiTestError] = useState('');
   const [geminiTestSampleResponse, setGeminiTestSampleResponse] = useState('');
 
+  // Proxy Test states
+  const [isTestingProxy, setIsTestingProxy] = useState(false);
+  const [proxyTestSuccess, setProxyTestSuccess] = useState('');
+  const [proxyTestError, setProxyTestError] = useState('');
+
+  const [backups, setBackups] = useState<any[]>([]);
+  const [isLoadingBackups, setIsLoadingBackups] = useState(false);
+  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [isRestoringBackup, setIsRestoringBackup] = useState<string | null>(null);
+  const [isDeletingBackup, setIsDeletingBackup] = useState<string | null>(null);
+  const [isSavingBackupConfig, setIsSavingBackupConfig] = useState(false);
+
+  const fetchBackupsList = async () => {
+    try {
+      setIsLoadingBackups(true);
+      const tokenVal = localStorage.getItem('wc_token');
+      if (!tokenVal) return;
+      const res = await fetch('/api/admin/backups', {
+        headers: {
+          'Authorization': `Bearer ${tokenVal}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBackups(data);
+      }
+    } catch (err) {
+      console.error('Failed to load database backups list:', err);
+    } finally {
+      setIsLoadingBackups(false);
+    }
+  };
+
+  const handleCreateInstantBackup = async () => {
+    try {
+      setIsCreatingBackup(true);
+      const tokenVal = localStorage.getItem('wc_token');
+      if (!tokenVal) return;
+      const res = await fetch('/api/admin/backups/create', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenVal}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatusMsg('نسخه پشتیبان دستی با موفقیت ایجاد گردید.');
+        fetchBackupsList();
+      } else {
+        setStatusErr(data.error || 'ایجاد نسخه پشتیبان با خطا مواجه شد.');
+      }
+    } catch (err) {
+      setStatusErr('خطا در برقراری ارتباط با سرور جهت ساخت بکاپ فوری.');
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  };
+
+  const handleRestoreBackup = async (filename: string) => {
+    if (!window.confirm(`⚠️ بازگردانی کل پایگاه‌داده به بکاپ انتخابی (${filename}) انجام شود؟ تمام اطلاعات تغییر یافته فعلی حذف خواهند شد.`)) {
+      return;
+    }
+    try {
+      setIsRestoringBackup(filename);
+      const tokenVal = localStorage.getItem('wc_token');
+      if (!tokenVal) return;
+      const res = await fetch('/api/admin/backups/restore', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenVal}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ filename })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('پایگاه‌داده با موفقیت بازگردانی شد. صفحه برای اعمال کامل تغییرات بارگذاری مجدد می‌شود.');
+        window.location.reload();
+      } else {
+        alert(data.error || 'خطا در بازگردانی فایل بکاپ پایگاه داده.');
+      }
+    } catch (err) {
+      alert('ارتباط با سرور جهت بازگردانی دیتابیس با شکست مواجه شد.');
+    } finally {
+      setIsRestoringBackup(null);
+    }
+  };
+
+  const handleDeleteBackup = async (filename: string) => {
+    if (!window.confirm(`آیا از حذف برگشت‌ناپذیر فایل بکاپ (${filename}) اطمینان دارید؟`)) {
+      return;
+    }
+    try {
+      setIsDeletingBackup(filename);
+      const tokenVal = localStorage.getItem('wc_token');
+      if (!tokenVal) return;
+      const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${tokenVal}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatusMsg('فایل بکاپ با موفقیت از سیستم حذف گردید.');
+        fetchBackupsList();
+      } else {
+        setStatusErr(data.error || 'خطا در حذف این فایل بکاپ.');
+      }
+    } catch (err) {
+      setStatusErr('برقراری ارتباط با سرور برای حذف فایل ناموفق بود.');
+    } finally {
+      setIsDeletingBackup(null);
+    }
+  };
+
+  const handleSaveBackupConfig = async () => {
+    try {
+      setIsSavingBackupConfig(true);
+      const tokenVal = localStorage.getItem('wc_token');
+      if (!tokenVal) return;
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${tokenVal}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          backupEnabled,
+          backupFrequency,
+          backupDays,
+          backupTimesPerDay
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatusMsg('پیکربندی زمان‌بندی بکاپ‌گیری خودکار با موفقیت بر روی سرور ثبت و اعمال شد.');
+        if (onUpdateSettings) {
+          onUpdateSettings({
+            backupEnabled,
+            backupFrequency,
+            backupDays,
+            backupTimesPerDay
+          });
+        }
+      } else {
+        setStatusErr(data.error || 'پیکربندی با خطا مواجه شد.');
+      }
+    } catch (err) {
+      setStatusErr('عدم توانایی برقراری ارتباط برای پیکربندی زمان‌بندی بکاپ‌گیری.');
+    } finally {
+      setIsSavingBackupConfig(false);
+    }
+  };
+
   // Success / Error alerts
   const [statusMsg, setStatusMsg] = useState('');
   const [statusErr, setStatusErr] = useState('');
+  const timeoutRef = React.useRef<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -137,6 +421,7 @@ export default function AdminPanel({
   useEffect(() => {
     if (activeTab === 'engine') {
       fetchDbStats();
+      fetchBackupsList();
     }
   }, [activeTab]);
 
@@ -155,6 +440,38 @@ export default function AdminPanel({
     if (!isNaN(d.getTime())) {
       onUpdateSettings?.({ simulatedTime: d.toISOString(), isFastForwarding: false });
     }
+  };
+
+  const getShamsiComponents = (isoString?: string) => {
+    const d = isoString ? new Date(isoString) : new Date('2026-06-11T00:00:00Z');
+    const gy = d.getFullYear();
+    const gm = d.getMonth() + 1;
+    const gd = d.getDate();
+    const hour = d.getHours();
+    const minute = d.getMinutes();
+    
+    const [jy, jm, jd] = gregorianToJalali(gy, gm, gd);
+    return { jy, jm, jd, hour, minute };
+  };
+
+  const handleShamsiTimeChange = (field: 'jy' | 'jm' | 'jd' | 'hour' | 'minute', val: number) => {
+    const current = getShamsiComponents(settings?.simulatedTime);
+    const updated = { ...current, [field]: val };
+    
+    // Safety check for day count in Shamsi
+    let maxDays = 30;
+    if (updated.jm >= 1 && updated.jm <= 6) maxDays = 31;
+    else if (updated.jm === 12) {
+      const isLeap = updated.jy % 33 === 1 || updated.jy % 33 === 5 || updated.jy % 33 === 9 || updated.jy % 33 === 13 || updated.jy % 33 === 17 || updated.jy % 33 === 22 || updated.jy % 33 === 26 || updated.jy % 33 === 30;
+      maxDays = isLeap ? 30 : 29;
+    }
+    if (updated.jd > maxDays) {
+      updated.jd = maxDays;
+    }
+
+    const [gy, gm, gd] = jalaliToGregorian(updated.jy, updated.jm, updated.jd);
+    const d = new Date(gy, gm - 1, gd, updated.hour, updated.minute, 0);
+    onUpdateSettings?.({ simulatedTime: d.toISOString(), isFastForwarding: false });
   };
 
   const handleResetTournament = async () => {
@@ -228,6 +545,9 @@ export default function AdminPanel({
   const [sAwayScore, setSAwayScore] = useState<number>(0);
 
   const triggerAlert = (msg: string, isErr = false) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
     if (isErr) {
       setStatusErr(msg);
       setStatusMsg('');
@@ -235,7 +555,7 @@ export default function AdminPanel({
       setStatusMsg(msg);
       setStatusErr('');
     }
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       setStatusMsg('');
       setStatusErr('');
     }, 4500);
@@ -370,7 +690,7 @@ export default function AdminPanel({
           <button
             onClick={() => setActiveTab('users')}
             className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${
-              activeTab === 'users' ? 'bg-amber-400 text-slate-950 shadow-md' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+              activeTab === 'users' ? 'bg-emerald-600 text-white shadow-md font-extrabold' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-850'
             }`}
           >
             <Users className="h-4 w-4 inline ml-1.5" /> کاربران ({users.length})
@@ -378,7 +698,7 @@ export default function AdminPanel({
           <button
             onClick={() => setActiveTab('matches')}
             className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${
-              activeTab === 'matches' ? 'bg-amber-400 text-slate-950 shadow-md' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+              activeTab === 'matches' ? 'bg-emerald-600 text-white shadow-md font-extrabold' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-850'
             }`}
           >
             <Calendar className="h-4 w-4 inline ml-1.5" /> مسابقات ({matches.length})
@@ -386,7 +706,7 @@ export default function AdminPanel({
           <button
             onClick={() => setActiveTab('engine')}
             className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${
-              activeTab === 'engine' ? 'bg-amber-400 text-slate-950 shadow-md' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+              activeTab === 'engine' ? 'bg-emerald-600 text-white shadow-md font-extrabold' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-850'
             }`}
           >
             <Zap className="h-4 w-4 inline ml-1.5" /> تنظیمات پیشرفته
@@ -394,18 +714,40 @@ export default function AdminPanel({
         </div>
       </div>
 
-      {statusMsg && (
-        <div className="p-4 bg-emerald-950/40 border border-emerald-500/20 text-emerald-400 rounded-2xl text-xs font-semibold flex items-center gap-2">
-          <Check className="h-4.5 w-4.5" />
-          <span>{statusMsg}</span>
-        </div>
-      )}
+      {/* Toast Notification Container (Floating Top-Right) */}
+      <div className="fixed top-8 right-6 z-[99999] flex flex-col gap-3 max-w-sm w-[90%] sm:w-85" dir="rtl">
+        {statusMsg && (
+          <div className="p-4 bg-slate-900/95 backdrop-blur-md border border-emerald-500/30 text-emerald-400 rounded-2xl text-xs font-bold shadow-2xl flex items-center justify-between gap-3 transition-all duration-300">
+            <div className="flex items-center gap-2 text-right">
+              <Check className="h-4.5 w-4.5 text-emerald-400 shrink-0" />
+              <span>{statusMsg}</span>
+            </div>
+            <button 
+              onClick={() => setStatusMsg('')} 
+              className="text-slate-400 hover:text-white p-1 rounded-lg text-base leading-none shrink-0 cursor-pointer"
+              title="بستن"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
-      {statusErr && (
-        <div className="p-4 bg-red-950/40 border border-red-500/20 text-red-500 rounded-2xl text-xs font-semibold flex items-center gap-2">
-          <span>⚠️ {statusErr}</span>
-        </div>
-      )}
+        {statusErr && (
+          <div className="p-4 bg-slate-900/95 backdrop-blur-md border border-rose-500/40 text-rose-450 rounded-2xl text-xs font-bold shadow-2xl flex items-center justify-between gap-3 transition-all duration-300">
+            <div className="flex items-center gap-2 text-right justify-start">
+              <span className="text-rose-450 text-sm shrink-0">⚠️</span>
+              <span className="leading-relaxed">{statusErr}</span>
+            </div>
+            <button 
+              onClick={() => setStatusErr('')} 
+              className="text-slate-400 hover:text-white p-1 rounded-lg text-lg leading-none shrink-0 cursor-pointer"
+              title="بستن"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* -------------------- USERS MANAGEMENT TAB -------------------- */}
       {activeTab === 'users' && (
@@ -459,7 +801,7 @@ export default function AdminPanel({
               <div className="sm:col-span-1 flex flex-col justify-end">
                 <button
                   type="submit"
-                  className="w-full py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs tracking-wider rounded-lg transition-colors"
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs tracking-wider rounded-lg transition-colors"
                 >
                   ایجاد حساب کاربری شرکت‌کننده
                 </button>
@@ -719,7 +1061,7 @@ export default function AdminPanel({
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs tracking-wider rounded-xl transition-colors"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs tracking-wider rounded-xl transition-colors"
                 >
                   تایید و ذخیره رسمی بازی در تقویم مسابقات
                 </button>
@@ -1108,29 +1450,29 @@ export default function AdminPanel({
                     }
                   }
                 }}
-                className="px-6 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all"
+                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all"
               >
                 💾 ذخیره تنظیمات پنل پیامکی
               </button>
             </div>
           </div>
 
-          {/* Gemini AI Settings (تنظیمات وب‌سرویس هوش مصنوعی گوگل لت) */}
+          {/* OpenRouter AI & Proxy Settings (تنظیمات وب‌سرویس هوش مصنوعی و پروکسی) */}
           <div className="bg-slate-950/60 p-5 rounded-xl border border-slate-800 space-y-4 text-right">
             <div className="border-b border-slate-800 pb-3">
-              <h4 className="text-sm font-black text-emerald-400">🤖 تنظیمات وب‌سرویس هوش مصنوعی (Google Gemini)</h4>
-              <p className="text-[11px] text-slate-400 mt-1">پیکربندی کلید و پروکسی جهت استخراج هوشمند و برخط بازیکنان واقعی، باشگاه‌ها و همگام‌ساز زنده رکوردهای فیفا</p>
+              <h4 className="text-sm font-black text-emerald-400">🤖 تنظیمات وب‌سرویس هوش مصنوعی (OpenRouter) & پروکسی</h4>
+              <p className="text-[11px] text-slate-400 mt-1">پیکربندی کلید اتصالی OpenRouter و نوع کانکشن پروکسی جهت استخراج هوشمند و برخط بازیکنان واقعی، باشگاه‌ها و همگام‌ساز زنده رکوردهای فیفا</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[11px] text-slate-400 block font-bold">کلید معتبر وب‌سرویس (Gemini API Key):</label>
+                <label className="text-[11px] text-slate-400 block font-bold">کلید معتبر وب‌سرویس (OpenRouter API Key):</label>
                 <div className="relative">
                   <input
                     type={showApiKey ? 'text' : 'password'}
-                    placeholder="AIzaSy..."
-                    value={geminiApiKey}
-                    onChange={e => setGeminiApiKey(e.target.value)}
+                    placeholder="sk-or-v1-..."
+                    value={openRouterApiKey}
+                    onChange={e => setOpenRouterApiKey(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 pl-14 pr-3 py-2 rounded-lg text-xs text-white placeholder-slate-700 focus:outline-none focus:border-emerald-400 text-left font-sans"
                     dir="ltr"
                   />
@@ -1142,121 +1484,185 @@ export default function AdminPanel({
                     {showApiKey ? 'مخفی' : 'نمایش'}
                   </button>
                 </div>
-                <span className="text-[9px] text-slate-500 block leading-tight">شما می‌توانید کلید را در کنسول هوش مصنوعی گوگل (AI Studio) بسازید.</span>
+                <span className="text-[9px] text-slate-500 block leading-tight">شما می‌توانید کلید را در وبسایت رسمی (OpenRouter.ai) بسازید.</span>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] text-slate-400 block font-bold">حالت اتصال پروکسی (Proxy Connection Mode):</label>
-                <select
-                  value={geminiProxyMode}
-                  onChange={e => setGeminiProxyMode(e.target.value as any)}
-                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-400 font-sans"
-                >
-                  <option value="none">اتصال مستقیم (توصیه شده - سرور اروپا بدون فیلتر)</option>
-                  <option value="auto">پروکسی هوشمند ملی پیش‌فرض (Auto Routing)</option>
-                  <option value="manual">تعریف پروکسی دستی و آدرس دلخواه (Manual URL)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[11px] text-slate-400 block font-bold">آدرس سفارشی پروکسی (Base URL Proxy):</label>
+              <div className="space-y-1.5 md:col-span-1">
+                <label className="text-[11px] text-slate-400 block font-bold">مدل پیام‌رسانی هوش مصنوعی (OpenRouter Model):</label>
                 <input
                   type="text"
-                  placeholder="https://generativelanguage.googleapis.com"
-                  value={geminiProxyUrl}
-                  disabled={geminiProxyMode !== 'manual'}
-                  onChange={e => setGeminiProxyUrl(e.target.value)}
-                  className={`w-full bg-slate-900 border px-3 py-2 rounded-lg text-xs text-white placeholder-slate-650 focus:outline-none focus:border-emerald-400 text-left font-sans ${
-                    geminiProxyMode === 'manual' ? 'border-slate-800' : 'border-slate-850/60 opacity-40 cursor-not-allowed'
-                  }`}
+                  placeholder="google/gemini-2.5-flash"
+                  value={openRouterModel}
+                  onChange={e => setOpenRouterModel(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white placeholder-slate-650 focus:outline-none focus:border-emerald-400 text-left font-mono"
                   dir="ltr"
                 />
+                <span className="text-[9px] text-slate-500 block leading-tight">پیش‌فرض: google/gemini-2.5-flash</span>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] text-slate-400 block font-bold">شبکه پروکسی تونلی HTTP با پشتیبانی از یوزر پسورد 🔒:</label>
+              <div className="space-y-1.5 md:col-span-1">
+                <label className="text-[11px] text-slate-400 block font-bold">نوع پروتکل ارتباطی پروکسی (Proxy Type):</label>
+                <select
+                  value={proxyType}
+                  onChange={e => setProxyType(e.target.value as any)}
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-400 text-right font-sans"
+                >
+                  <option value="none">بدون پروکسی (اتصال مستقیم از کلاود)</option>
+                  <option value="http">پروکسی تونلی HTTP Proxy</option>
+                  <option value="socks">پروکسی SOCKS Proxy (SOCKS4 / SOCKS5)</option>
+                  <option value="mix">پروکسی ترکیبی (Mixed Protocol / MIX)</option>
+                </select>
+                <span className="text-[9px] text-slate-500 block leading-tight">انتخاب بستر مناسب متغیر با پروتکل سرور واسط شما</span>
+              </div>
+
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[11px] text-slate-400 block font-bold">آدرس مستقیم سرور یا جزییات پروکسی 🔒:</label>
                 <input
                   type="text"
-                  placeholder="http://username:password@ip:port"
+                  placeholder="e.g. 127.0.0.1:1080 or username:password@ip:port"
                   value={geminiHttpProxy}
                   onChange={e => setGeminiHttpProxy(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-emerald-400 placeholder-slate-650 focus:outline-none focus:border-emerald-400 text-left font-mono"
                   dir="ltr"
                 />
-                <span className="text-[9px] text-slate-500 block leading-normal text-right">اگر برای خروجی‌های خود نیاز به پروکسی شبکه مستقل دارید، آدرس کامل آن را با الگو فوق درج کنید. خالی گذاشتن به معنی استفاده از شبکه مستقیم است.</span>
+                <span className="text-[9px] text-slate-500 block leading-normal text-right">آدرس لوکال یا راه دور پروکسی را در کادر فوق وارد نمایید. بر اساس نوع پروکسی بالا، پروتکل نهایی روی کانکشن اعمال خواهد شد.</span>
               </div>
             </div>
 
-            {/* Live Gemini Connection Tester */}
-            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 space-y-3 text-right">
-              <div className="flex items-center justify-between border-b border-emerald-950/25 pb-2">
-                <span className="text-xs font-black text-emerald-400">🔌 تست فوری پیوند و صحت کارکرد کلید</span>
-                <span className="text-[10px] text-slate-500">ارسال یک کوئری سریع به مدل gemini-3.5-flash برای بررسی اتصال</span>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-                <div className="text-right flex-1">
-                  <p className="text-[9px] text-slate-440 leading-relaxed font-sans mt-1">با کلیک روی دکمه مقابل، کلید آزمایشی موقت شما پیش از ذخیره روی سرور فراخوانی شده و یک چت لایو با هوش مصنوعی برای تایپ سلامت برقرار می‌شود.</p>
+            {/* Live Proxy & OpenRouter Connection Tester */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Box 1: Proxy Only Connection Test */}
+              <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 space-y-3 text-right flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between border-b border-sky-950/25 pb-2">
+                    <span className="text-xs font-black text-sky-450">🔗 ۱. تست اتصال خود پروکسی</span>
+                    <span className="text-[9px] text-slate-500 font-sans">بررسی مستقل سرور پروکسی</span>
+                  </div>
+                  <p className="text-[9px] text-slate-400 leading-relaxed font-sans mt-2">جهت ارزیابی صحت آدرس پروکسی، سیگنال همگام‌ساز سرور مستقیماً تلاش می‌کند از این تونل عبور کرده و اتصال به بازه شبکه‌های گوگل کلود را بررسی کند.</p>
                 </div>
-                
-                <button
-                  type="button"
-                  disabled={isTestingGemini || !geminiApiKey.trim()}
-                  onClick={async () => {
-                    setGeminiTestSuccess('');
-                    setGeminiTestError('');
-                    setGeminiTestSampleResponse('');
-                    setIsTestingGemini(true);
-                    try {
-                      const token = localStorage.getItem('wc_token');
-                      const res = await fetch('/api/admin/gemini-test', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': token ? `Bearer ${token}` : ''
-                        },
-                        body: JSON.stringify({
-                          testApiKey: geminiApiKey.trim(),
-                          proxyMode: geminiProxyMode,
-                          proxyUrl: geminiProxyUrl.trim(),
-                          testHttpProxy: geminiHttpProxy.trim()
-                        })
-                      });
-                      const data = await res.json();
-                      if (!res.ok) {
-                        setGeminiTestError(data.error || 'خطا در برقراری ارتباط با وب‌سرویس گوگل جمینای.');
-                      } else {
-                        setGeminiTestSuccess(data.message || 'ارتباط با موفقیت تأیید شد!');
-                        setGeminiTestSampleResponse(data.responseSample || '');
-                      }
-                    } catch (e) {
-                      setGeminiTestError('خطای غیرمنتظره در ارسال کوئری به سرور تست.');
-                    } finally {
-                      setIsTestingGemini(false);
-                    }
-                  }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-slate-950 font-black text-xs rounded-lg active:scale-95 transition-all text-center whitespace-nowrap cursor-pointer font-sans"
-                >
-                  {isTestingGemini ? 'در حال پینگ هوش مصنوعی...' : '⚡ ارسل تست اتصال جمینای'}
-                </button>
-              </div>
 
-              {geminiTestSuccess && (
-                <div className="space-y-2 p-2.5 bg-emerald-950/40 text-emerald-400 text-xs rounded-lg border border-emerald-500/10 text-right leading-relaxed">
-                  <p className="font-bold">✅ {geminiTestSuccess}</p>
-                  {geminiTestSampleResponse && (
-                    <p className="text-[10px] text-emerald-300 font-mono bg-slate-950/60 p-2 rounded border border-emerald-950/50 block text-left" dir="ltr">
-                      Response Sample: {geminiTestSampleResponse}
-                    </p>
+                <div className="space-y-2 mt-2">
+                  <button
+                    type="button"
+                    disabled={isTestingProxy || !geminiHttpProxy.trim()}
+                    onClick={async () => {
+                      setProxyTestSuccess('');
+                      setProxyTestError('');
+                      setIsTestingProxy(true);
+                      try {
+                        const token = localStorage.getItem('wc_token');
+                        const res = await fetch('/api/admin/proxy-test', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': token ? `Bearer ${token}` : ''
+                          },
+                          body: JSON.stringify({
+                            testHttpProxy: geminiHttpProxy.trim(),
+                            testProxyType: proxyType
+                          })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                          setProxyTestError(data.error || 'خطا در ارزیابی مستقل سلامت پروکسی از روی سرور.');
+                        } else {
+                          setProxyTestSuccess(data.message || 'تونل ارتباط پروکسی با موفقیت فعال و تایید شد!');
+                        }
+                      } catch (e) {
+                        setProxyTestError('خطای سیستمی در آغاز گام پینگ پروکسی.');
+                      } finally {
+                        setIsTestingProxy(false);
+                      }
+                    }}
+                    className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-750 disabled:opacity-50 disabled:hover:bg-slate-800 text-sky-400 hover:text-sky-300 font-extrabold text-[11px] rounded-lg active:scale-95 transition-all text-center whitespace-nowrap cursor-pointer font-sans"
+                  >
+                    {isTestingProxy ? 'در حال پینگ مستقل پروکسی...' : '🔌 تست کیفیت اتصال مستقل پروکسی'}
+                  </button>
+
+                  {proxyTestSuccess && (
+                    <div className="p-2.5 bg-emerald-950/40 text-emerald-400 text-[10px] rounded border border-emerald-500/10 text-right leading-relaxed font-medium font-sans">
+                      ✅ {proxyTestSuccess}
+                    </div>
+                  )}
+
+                  {proxyTestError && (
+                    <div className="p-2.5 bg-rose-950/40 text-rose-400 text-[10px] rounded border border-rose-500/10 text-right leading-relaxed font-semibold font-sans">
+                      ❌ {proxyTestError}
+                    </div>
                   )}
                 </div>
-              )}
+              </div>
 
-              {geminiTestError && (
-                <div className="p-2.5 bg-rose-950/40 text-rose-450 text-xs rounded-lg border border-rose-500/10 text-right font-semibold leading-relaxed">
-                  ❌ {geminiTestError}
+              {/* Box 2: OpenRouter Connection Test */}
+              <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 space-y-3 text-right flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between border-b border-emerald-950/25 pb-2">
+                    <span className="text-xs font-black text-emerald-400">⚡ ۲. تست کلید ثبتی OpenRouter</span>
+                    <span className="text-[9px] text-slate-500 font-sans">بررسی نهایی پورت رفت‌و‌برگشتی</span>
+                  </div>
+                  <p className="text-[9px] text-slate-400 leading-relaxed font-sans mt-2">درخواست چت آزمایشی کوتاهی به هوش مصنوعی OpenRouter ارسال می‌کند تا تایید نهایی صحت کارکرد API Key را بدست آورید.</p>
                 </div>
-              )}
+
+                <div className="space-y-2 mt-2">
+                  <button
+                    type="button"
+                    disabled={isTestingGemini || !openRouterApiKey.trim()}
+                    onClick={async () => {
+                      setGeminiTestSuccess('');
+                      setGeminiTestError('');
+                      setGeminiTestSampleResponse('');
+                      setIsTestingGemini(true);
+                      try {
+                        const token = localStorage.getItem('wc_token');
+                        const res = await fetch('/api/admin/gemini-test', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': token ? `Bearer ${token}` : ''
+                          },
+                          body: JSON.stringify({
+                            testApiKey: openRouterApiKey.trim(),
+                            testHttpProxy: geminiHttpProxy.trim(),
+                            testProxyType: proxyType,
+                            testModel: openRouterModel.trim()
+                          })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                          setGeminiTestError(data.error || 'خطا در برقراری ارتباط نهایی هندشیک باز با OpenRouter.');
+                        } else {
+                          setGeminiTestSuccess(data.message || 'اتصال زنده مدل با موفقیت برقرار شد!');
+                          setGeminiTestSampleResponse(data.responseSample || '');
+                        }
+                      } catch (e) {
+                        setGeminiTestError('خطای ناخواسته در ارسال پینگ پایانی وب‌سرویس.');
+                      } finally {
+                        setIsTestingGemini(false);
+                      }
+                    }}
+                    className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold text-[11px] rounded-lg active:scale-95 transition-all text-center whitespace-nowrap cursor-pointer font-sans"
+                  >
+                    {isTestingGemini ? 'در حال ارسال کوئری به OpenRouter...' : '⚡ اجرای تست مدل هوش مصنوعی (OpenRouter)'}
+                  </button>
+                  
+                  {geminiTestSuccess && (
+                    <div className="space-y-1.5 p-2.5 bg-emerald-950/40 text-emerald-400 text-[10px] rounded border border-emerald-500/10 text-right leading-relaxed font-medium">
+                      <p className="font-bold">✅ {geminiTestSuccess}</p>
+                      {geminiTestSampleResponse && (
+                        <p className="text-[9px] text-emerald-300 font-mono bg-slate-950/60 p-1.5 rounded border border-emerald-950/50 block text-left" dir="ltr">
+                          Response Sample: {geminiTestSampleResponse}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {geminiTestError && (
+                    <div className="p-2.5 bg-rose-950/40 text-rose-450 text-[10px] rounded border border-rose-500/10 text-right font-semibold leading-relaxed">
+                      ❌ {geminiTestError}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end pt-2 border-t border-slate-950">
@@ -1265,21 +1671,21 @@ export default function AdminPanel({
                 onClick={async () => {
                   if (onUpdateSettings) {
                     const success = await onUpdateSettings({
-                      geminiApiKey: geminiApiKey.trim(),
-                      geminiProxyMode,
-                      geminiProxyUrl: geminiProxyUrl.trim(),
+                      openRouterApiKey: openRouterApiKey.trim(),
+                      openRouterModel: openRouterModel.trim(),
+                      proxyType: proxyType,
                       geminiHttpProxy: geminiHttpProxy.trim()
                     });
                     if (success) {
-                      triggerAlert('تنظیمات وب‌سرویس هوش مصنوعی (Gemini) با موفقیت روی سرور ذخیره شد!');
+                      triggerAlert('تنظیمات جدید وب‌سرویس هوش مصنوعی (OpenRouter) و پروکسی با موفقیت روی سرور ذخیره شد!');
                     } else {
                       triggerAlert('خطا در ذخیره‌سازی پیکربندی وب‌سرویس.', true);
                     }
                   }
                 }}
-                className="px-6 py-2 bg-emerald-400 hover:bg-emerald-350 active:scale-95 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all"
+                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all"
               >
-                💾 ذخیره تنظیمات جمینای
+                💾 ذخیره تنظیمات OpenRouter
               </button>
             </div>
           </div>
@@ -1348,7 +1754,7 @@ export default function AdminPanel({
                     <p className="text-[11px] text-slate-500">تقویم زمانی جاری تورنمنت (Virtual Tournament Time)</p>
                     <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
                       <span className="text-sm sm:text-lg font-black font-sans text-white tracking-wide">
-                        {new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z').toLocaleDateString('fa-IR', {
+                        {(displayTime || new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z')).toLocaleDateString('fa-IR', {
                           weekday: 'long',
                           year: 'numeric',
                           month: 'long',
@@ -1356,9 +1762,10 @@ export default function AdminPanel({
                         })}
                       </span>
                       <span className="text-xs font-bold font-mono text-slate-400 bg-slate-850 px-2 py-0.5 rounded border border-slate-700/30">
-                        {new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z').toLocaleTimeString('fa-IR', {
-                          hour: 'numeric',
-                          minute: 'numeric',
+                        {(displayTime || new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z')).toLocaleTimeString('fa-IR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
                         })}
                       </span>
                     </div>
@@ -1370,7 +1777,7 @@ export default function AdminPanel({
                       onClick={() => onUpdateSettings?.({ isFastForwarding: !settings?.isFastForwarding })}
                       className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
                         settings?.isFastForwarding
-                          ? 'bg-amber-500 text-slate-950 font-black animate-pulse shadow-amber-500/20 shadow-lg'
+                          ? 'bg-emerald-600 text-white font-black animate-pulse shadow-emerald-500/20 shadow-lg'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                       }`}
                     >
@@ -1384,21 +1791,91 @@ export default function AdminPanel({
                   </div>
                 </div>
 
-                {/* Custom Date & Time Picker input */}
-                <div className="bg-slate-900/40 p-3.5 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3" dir="rtl">
-                  <div className="space-y-1 text-right">
-                    <p className="text-xs font-bold text-slate-200">تنظیم دستی تاریخ و ساعت فرضی شبیه‌ساز 📅</p>
-                    <p className="text-[10px] text-slate-500">تاریخ و ساعت دقیق مورد نظر خود را جهت شبیه‌سازی وارد کنید:</p>
-                  </div>
-                  <div>
-                    <input
-                      type="datetime-local"
-                      value={getLocalDateTimeString(settings?.simulatedTime)}
-                      onChange={(e) => handleChangeSimulatedTime(e.target.value)}
-                      className="w-full sm:w-auto bg-slate-950 text-emerald-400 border border-slate-800 hover:border-slate-700 p-2 px-3 rounded-lg text-xs font-bold font-mono text-center focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer"
-                    />
-                  </div>
-                </div>
+                {/* Custom Date & Time Picker input (Custom Shamsi) */}
+                {(() => {
+                  const shComponent = getShamsiComponents(settings?.simulatedTime);
+                  return (
+                    <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 flex flex-col xl:flex-row xl:items-center justify-between gap-4" dir="rtl">
+                      <div className="space-y-1 text-right">
+                        <p className="text-xs font-bold text-slate-200">تنظیم دستی تاریخ و ساعت فرضی شبیه‌ساز (شمسی) 📅</p>
+                        <p className="text-[10px] text-slate-500">تاریخ و زمان فرضی مسابقات جام جهانی را بر اساس تقویم خورشیدی وارد کنید:</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 justify-start xl:justify-end">
+                        {/* Day selector */}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[9px] text-slate-500 text-center select-none font-bold">روز</span>
+                          <select
+                            value={shComponent.jd}
+                            onChange={(e) => handleShamsiTimeChange('jd', Number(e.target.value))}
+                            className="bg-slate-950 text-emerald-400 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-xs font-black focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer font-mono"
+                          >
+                            {Array.from({ length: shComponent.jm <= 6 ? 31 : (shComponent.jm === 12 ? 29 : 30) }, (_, i) => i + 1).map(day => (
+                              <option key={day} value={day} className="bg-slate-950 text-slate-350">{day}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Month selector */}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[9px] text-slate-500 text-center select-none font-bold">ماه</span>
+                          <select
+                            value={shComponent.jm}
+                            onChange={(e) => handleShamsiTimeChange('jm', Number(e.target.value))}
+                            className="bg-slate-950 text-emerald-400 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer"
+                          >
+                            {SHAMSI_MONTH_NAMES.map((name, idx) => (
+                              <option key={idx + 1} value={idx + 1} className="bg-slate-950 text-slate-350">{name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Year selector */}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[9px] text-slate-500 text-center select-none font-bold">سال</span>
+                          <select
+                            value={shComponent.jy}
+                            onChange={(e) => handleShamsiTimeChange('jy', Number(e.target.value))}
+                            className="bg-slate-950 text-emerald-400 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-xs font-black focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer font-mono"
+                          >
+                            {[1405, 1406].map(year => (
+                              <option key={year} value={year} className="bg-slate-950 text-slate-350">{year}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <span className="text-slate-600 font-bold self-end mb-2 px-0.5">:</span>
+
+                        {/* Hour selector */}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[9px] text-slate-500 text-center select-none font-bold">ساعت</span>
+                          <select
+                            value={shComponent.hour}
+                            onChange={(e) => handleShamsiTimeChange('hour', Number(e.target.value))}
+                            className="bg-slate-950 text-emerald-400 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-xs font-black focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer font-mono"
+                          >
+                            {Array.from({ length: 24 }, (_, i) => i).map(hour => (
+                              <option key={hour} value={hour} className="bg-slate-950 text-slate-350">{hour.toString().padStart(2, '0')}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Minute selector */}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[9px] text-slate-500 text-center select-none font-bold">دقیقه</span>
+                          <select
+                            value={shComponent.minute}
+                            onChange={(e) => handleShamsiTimeChange('minute', Number(e.target.value))}
+                            className="bg-slate-950 text-emerald-400 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-xs font-black focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer font-mono"
+                          >
+                            {Array.from({ length: 60 }, (_, i) => i).map(minute => (
+                              <option key={minute} value={minute} className="bg-slate-950 text-slate-350">{minute.toString().padStart(2, '0')}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Quick Jumps */}
                 <div className="space-y-1">
@@ -1448,6 +1925,216 @@ export default function AdminPanel({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Automatic Backup Scheduler Settings Card */}
+          <div className="bg-slate-950/60 p-5 rounded-xl border border-slate-800 space-y-6 text-right">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-slate-800/80 pb-4">
+              <div className="text-right space-y-1">
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-amber-950/40 text-amber-400 rounded-md font-sans border border-amber-500/10">هسته هوشمند شبیه‌ساز بکاپ</span>
+                <h4 className="text-md font-extrabold text-slate-100 flex items-center gap-2">
+                  <span>📅 زمان‌بندی و مدیریت فایل‌های پشتیبان پایگاه‌داده</span>
+                </h4>
+                <p className="text-slate-400 text-xs text-right">
+                  زمان‌بندی تهیه نسخه پشتیبان مکانیزه (روزانه، هفتگی یا روزهای منتخب) با تکرار ۲ الی ۳ بار، بازگردانی و حذف فایل‌های ذخیره شده.
+                </p>
+              </div>
+              
+              <div className="mt-3 md:mt-0 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleCreateInstantBackup}
+                  disabled={isCreatingBackup}
+                  className="px-4 py-2 bg-[#359ab6] text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer select-none"
+                >
+                  <Zap className={`h-3.5 w-3.5 ${isCreatingBackup ? 'animate-pulse' : ''}`} />
+                  <span>{isCreatingBackup ? 'در حال تهیه...' : 'ایجاد بکاپ فوری سرور ⚡'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Config Panels Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+              
+              {/* Left Column (Lg: 5): Backup Schedule Settings */}
+              <div className="lg:col-span-5 space-y-4 bg-slate-900/65 p-4 rounded-xl border border-slate-850 text-right">
+                <h5 className="text-xs font-black text-amber-400 border-b border-slate-800/60 pb-2">⚙️ تنظیمات اتوماسیون بکاپ خودکار</h5>
+                
+                {/* Switch to enable backup */}
+                <div className="flex items-center justify-between bg-slate-950/45 p-3 rounded-lg border border-slate-800">
+                  <span className="text-xs text-slate-400 font-bold">فعال‌سازی سیستم زمان‌بندی</span>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={backupEnabled}
+                      onChange={(e) => setBackupEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#359ab6] peer-checked:after:bg-slate-950 peer-checked:after:border-slate-950"></div>
+                  </label>
+                </div>
+
+                {/* Backup Frequency */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 block pb-1">دوره‌های پشتیبان‌گیری</label>
+                  <select
+                    value={backupFrequency}
+                    onChange={(e: any) => setBackupFrequency(e.target.value)}
+                    disabled={!backupEnabled}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs font-bold text-slate-205 focus:border-amber-400 focus:outline-none disabled:opacity-40"
+                  >
+                    <option value="daily">روزانه (Daily)</option>
+                    <option value="weekly">هفتگی (Weekly)</option>
+                    <option value="custom">روزهای سفارشی هفته (Custom Days)</option>
+                  </select>
+                </div>
+
+                {/* Custom Days selection (Only shown if Custom Days) */}
+                {backupFrequency === 'custom' && (
+                  <div className="p-3 bg-slate-950/40 rounded-lg border border-slate-800/80 space-y-2.5">
+                    <span className="text-[10px] text-slate-500 font-bold block mb-1">روزهایی که مایل به بکاپ در آن‌ها هستید را مشخص نمایید:</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { en: 'Saturday', fa: 'شنبه' },
+                        { en: 'Sunday', fa: 'یکشنبه' },
+                        { en: 'Monday', fa: 'دوشنبه' },
+                        { en: 'Tuesday', fa: 'سه‌شنبه' },
+                        { en: 'Wednesday', fa: 'چهارشنبه' },
+                        { en: 'Thursday', fa: 'پنج‌شنبه' },
+                        { en: 'Friday', fa: 'جمعه' }
+                      ].map((day) => {
+                        const isChecked = backupDays.includes(day.en) || backupDays.includes(day.fa);
+                        return (
+                          <label key={day.en} className="flex items-center gap-1.5 text-[11px] font-bold cursor-pointer text-slate-300 select-none hover:text-white">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={!backupEnabled}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setBackupDays([...backupDays, day.en]);
+                                } else {
+                                  setBackupDays(backupDays.filter(d => d !== day.en && d !== day.fa));
+                                }
+                              }}
+                              className="accent-amber-400 rounded"
+                            />
+                            <span>{day.fa}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Times Per Day Frequency Selector (e.g. 2 times or 3 times) */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 block pb-1 font-sans">تعداد دفعات بکاپ‌گیری در دوره مشخص شده</label>
+                  <select
+                    value={backupTimesPerDay}
+                    onChange={(e) => setBackupTimesPerDay(Number(e.target.value))}
+                    disabled={!backupEnabled}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs font-bold text-slate-205 focus:border-amber-400 focus:outline-none disabled:opacity-40"
+                  >
+                    <option value={1}>۱ بار در دوره (هر ۲۴ ساعت / هفته)</option>
+                    <option value={2}>۲ بار در دوره (هر ۱۲ ساعت / هفته)</option>
+                    <option value={3}>۳ بار در دوره (هر ۸ ساعت / هفته)</option>
+                  </select>
+                  <p className="text-[10px] text-slate-500 leading-relaxed pt-0.5">
+                    💡 سیستم با تقسیم بازه دوره به تعداد دفعات مشخص شده، به طور خودکار فواصل بکاپ‌گیری را شبیه‌ساز کرده و اجرا می‌نماید.
+                  </p>
+                </div>
+
+                {/* Save button */}
+                <button
+                  type="button"
+                  onClick={handleSaveBackupConfig}
+                  disabled={isSavingBackupConfig}
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 select-none mt-3"
+                >
+                  {isSavingBackupConfig ? (
+                    <RefreshCw className="h-4 w-4 animate-spin text-white" />
+                  ) : (
+                    <Check className="h-4 w-4 text-white font-black" />
+                  )}
+                  <span>ثبت و ذخیره پیکربندی زمان‌بندی</span>
+                </button>
+              </div>
+
+              {/* Right Column (Lg: 7): Existing snapshots listing */}
+              <div className="lg:col-span-7 space-y-4 text-right flex flex-col">
+                <h5 className="text-xs font-black text-[#359ab6] border-b border-slate-800/60 pb-2 flex items-center justify-between">
+                  <span>📋 نسخه‌های پشتیبان دیتابیس روی سرور</span>
+                  <span className="text-[10px] text-slate-500 font-sans">{backups.length} فایل ثبت شده</span>
+                </h5>
+
+                {isLoadingBackups ? (
+                  <div className="flex-1 flex flex-col justify-center items-center py-12 text-slate-500 text-xs gap-2">
+                    <RefreshCw className="h-5 w-5 animate-spin text-[#359ab6]" />
+                    <span>در حال بارگذاری لیست بکاپ‌ها...</span>
+                  </div>
+                ) : backups.length === 0 ? (
+                  <div className="flex-1 border-2 border-dashed border-slate-800/80 rounded-xl p-8 flex flex-col justify-center items-center text-center space-y-2">
+                    <span className="text-4xl">🗂️</span>
+                    <p className="text-xs text-slate-400 font-extrabold">هیچ فایل پشتیبان منسجمی روی سرور یافت نشد.</p>
+                    <p className="text-[10px] text-slate-500 max-w-sm">
+                      برای شروع، می‌توانید با کلیک بر روی دکمه <span className="text-emerald-400 font-bold">ایجاد بکاپ فوری</span> در بالا، اولین نقطه بازگردانی مستقل خود را ذخیره نمایید.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1 bg-slate-950/45 rounded-xl border border-slate-800/60 overflow-hidden max-h-[340px] overflow-y-auto">
+                    <div className="divide-y divide-slate-850/60 font-sans">
+                      {backups.map((bak) => {
+                        const sizeKb = (bak.size / 1024).toFixed(1);
+                        const cleanDate = new Date(bak.createdAt).toLocaleString('fa-IR');
+                        return (
+                          <div key={bak.filename} className="p-3 hover:bg-slate-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold text-slate-200 select-all truncate max-w-[280px] text-left font-mono shrink-0" dir="ltr">
+                                📄 {bak.filename}
+                              </p>
+                              <p className="text-[9.5px] text-slate-400 font-medium">
+                                ایجاد شده در: <span className="font-bold text-slate-300">{cleanDate}</span> | حجم: <span className="font-bold text-amber-500">{sizeKb} KB</span>
+                              </p>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 shrink-0 justify-end">
+                              <button
+                                type="button"
+                                disabled={isRestoringBackup !== null || isDeletingBackup !== null}
+                                onClick={() => handleRestoreBackup(bak.filename)}
+                                className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-emerald-950/40 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-950/80 transition-all cursor-pointer flex items-center gap-1 active:scale-95 select-none"
+                              >
+                                {isRestoringBackup === bak.filename ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin text-emerald-400" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3 text-emerald-400" />
+                                )}
+                                <span>بازگردانی</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isRestoringBackup !== null || isDeletingBackup !== null}
+                                onClick={() => handleDeleteBackup(bak.filename)}
+                                className="p-1 px-1.5 text-[11px] font-black rounded-lg bg-red-950/30 text-red-400 border border-red-500/15 hover:bg-red-950/85 hover:border-red-500/35 transition-all cursor-pointer flex items-center gap-1 active:scale-95 select-none"
+                              >
+                                {isDeletingBackup === bak.filename ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin text-red-400" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3 text-red-400" />
+                                )}
+                                <span>حذف</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
           </div>
 
           {/* Database Backup Download Card */}

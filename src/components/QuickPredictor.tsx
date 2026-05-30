@@ -473,7 +473,7 @@ export default function QuickPredictor({
                             )}
                             {!isFinished && (
                               <p className="text-[9px] text-slate-500 font-mono">
-                                {locked ? '🔒 قفل شده' : '✏️ قابل تغییر در لیست بازی‌ها'}
+                                {locked ? '🔒 قفل شده' : '✏️ قابل تغییر در زبانه مسابقات'}
                               </p>
                             )}
                           </div>
