@@ -51,6 +51,7 @@ export interface Match {
   homeScore: number | null;
   awayScore: number | null;
   status: MatchStatus;
+  isSimulated?: boolean;
 }
 
 export interface Prediction {

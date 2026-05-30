@@ -14,21 +14,78 @@ import { teamsSeed } from './src/data/teams';
 import { matchesSeed } from './src/data/matches';
 import { getSquadForTeam } from './src/data/squads';
 import { GoogleGenAI } from '@google/genai';
+import { ProxyAgent } from 'undici';
 
 const app = express();
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'worldcup_secret_key_2026_dev_prod_643c';
 
-// Create local flags directory if not exists
-const FLAGS_DIR = path.join(process.cwd(), 'flags');
-if (!fs.existsSync(FLAGS_DIR)) {
-  fs.mkdirSync(FLAGS_DIR, { recursive: true });
+// Create local flags directory if not exists, supporting both development and production paths
+const getDirname = () => {
+  try {
+    return __dirname;
+  } catch (e) {
+    return path.dirname(new URL(import.meta.url).pathname);
+  }
+};
+const dirName = getDirname();
+
+const POSSIBLE_FLAGS_DIRS = [
+  path.join(process.cwd(), 'flags'),
+  path.join(process.cwd(), 'dist', 'flags'),
+  path.join(dirName, 'flags'),
+  path.join(dirName, '..', 'flags'),
+];
+
+let FLAGS_DIR = POSSIBLE_FLAGS_DIRS[0];
+for (const dir of POSSIBLE_FLAGS_DIRS) {
+  if (fs.existsSync(dir)) {
+    FLAGS_DIR = dir;
+    break;
+  }
 }
 
-// Serve flags statically from the local directory
+if (!fs.existsSync(FLAGS_DIR)) {
+  try {
+    fs.mkdirSync(FLAGS_DIR, { recursive: true });
+  } catch (err) {
+    console.error('Failed to create flags dir:', FLAGS_DIR, err);
+  }
+}
+
+// Serve flags statically from the active local directory
 app.use('/flags', express.static(FLAGS_DIR));
 
-// Dynamic proxy endpoint to download flags on contrast / network failure and cache locally
+// Helper function to fetch from redundant public CDNs sequentially to bypass blocking and network errors
+function fetchFlagWithFallback(code: string, urls: string[], index: number, callback: (err: Error | null, buffer?: Buffer, contentType?: string) => void) {
+  if (index >= urls.length) {
+    callback(new Error('All CDN flag sources failed'));
+    return;
+  }
+
+  const currentUrl = urls[index];
+  console.log(`[FLAG-PROXY] Trying to fetch flag for ${code} from source ${index + 1}: ${currentUrl}`);
+
+  https.get(currentUrl, (apiRes) => {
+    if (apiRes.statusCode !== 200) {
+      fetchFlagWithFallback(code, urls, index + 1, callback);
+      return;
+    }
+
+    const data: Buffer[] = [];
+    apiRes.on('data', (chunk) => data.push(chunk));
+    apiRes.on('end', () => {
+      const buffer = Buffer.concat(data);
+      const contentType = apiRes.headers['content-type'] || (currentUrl.endsWith('.svg') ? 'image/svg+xml' : 'image/png');
+      callback(null, buffer, contentType);
+    });
+  }).on('error', (err) => {
+    console.error(`[FLAG-PROXY] Error fetching from ${currentUrl}:`, err.message);
+    fetchFlagWithFallback(code, urls, index + 1, callback);
+  });
+}
+
+// Dynamic proxy endpoint to download flags on network/firewall failure and cache locally
 app.get('/flags/:code.png', (req: Request, res: Response) => {
   try {
     const code = req.params.code.toLowerCase().replace(/[^a-z0-9-]/g, '');
@@ -45,29 +102,32 @@ app.get('/flags/:code.png', (req: Request, res: Response) => {
       return;
     }
 
-    // Otherwise, fetch from secure FlagCDN and write locally
-    const flagUrl = `https://flagcdn.com/w80/${code}.png`;
-    https.get(flagUrl, (apiRes) => {
-      if (apiRes.statusCode !== 200) {
-        res.status(404).send('Flag not found on remote CDN');
+    // List of redundant CDNs to ensure it downloads even in restricted server networks (like Iran)
+    const urls = [
+      `https://flagcdn.com/w80/${code}.png`,
+      `https://cdn.jsdelivr.net/gh/hampusborgos/country-flags@main/png250px/${code}.png`,
+      `https://raw.githubusercontent.com/hampusborgos/country-flags/main/png250px/${code}.png`,
+      `https://cdn.jsdelivr.net/npm/flag-icons/flags/4x3/${code}.svg`,
+      `https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.5.0/flags/4x3/${code}.svg`
+    ];
+
+    fetchFlagWithFallback(code, urls, 0, (err, buffer, contentType) => {
+      if (err || !buffer) {
+        console.error('[FLAG-PROXY] Absolutely all flag CDNs failed:', err);
+        res.status(502).send('Error proxying flag from source');
         return;
       }
 
-      const data: Buffer[] = [];
-      apiRes.on('data', (chunk) => data.push(chunk));
-      apiRes.on('end', () => {
-        const buffer = Buffer.concat(data);
-        try {
-          fs.writeFileSync(filePath, buffer);
-        } catch (e) {
-          console.error('Failed to write flag to disk:', e);
-        }
-        res.setHeader('Content-Type', 'image/png');
-        res.send(buffer);
-      });
-    }).on('error', (err) => {
-      console.error('Error fetching flag from CDN:', err);
-      res.status(502).send('Error proxying flag from source');
+      // Save to cache so next requests are served instant static
+      try {
+        fs.writeFileSync(filePath, buffer);
+        console.log(`[FLAG-PROXY] Successfully cached flag for ${code} locally!`);
+      } catch (e) {
+        console.error('Failed to write flag to disk:', e);
+      }
+
+      res.setHeader('Content-Type', contentType || 'image/png');
+      res.send(buffer);
     });
   } catch (error) {
     console.error('Flag proxy error:', error);
@@ -269,14 +329,14 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
   try {
     const { username, fullName, password, otpCode } = req.body;
     if (!username || !fullName || !password) {
-      res.status(400).json({ error: 'All fields (username, full name, password) are required.' });
+      res.status(400).json({ error: 'تمامی فیلدها (نام کاربری، نام کامل و رمز عبور) الزامی هستند.' });
       return;
     }
 
     // Ensure username is a valid mobile/phone number (8 to 15 digits, with optional + or starting with 09 for Iran)
     const phoneRegex = /^(09\d{8,11}|\+?[0-9]{8,15})$/;
     if (!phoneRegex.test(username.trim())) {
-      res.status(400).json({ error: 'Username must be a valid Mobile Number (e.g. 09123456789 or +989123456789).' });
+      res.status(400).json({ error: 'نام کاربری باید یک شماره همراه معتبر باشد (مثال: 09123456789 یا +989123456789).' });
       return;
     }
 
@@ -284,7 +344,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
 
     // Check if registration is allowed
     if (db.settings && !db.settings.registrationEnabled) {
-      res.status(403).json({ error: 'New user registrations are currently disabled by the administrator.' });
+      res.status(403).json({ error: 'ثبت‌نام کاربران جدید در حال حاضر توسط مدیریت غیرفعال شده است.' });
       return;
     }
 
@@ -293,7 +353,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     // Check unique username
     const exists = db.users.find(u => u.username.toLowerCase() === cleanUsername);
     if (exists) {
-      res.status(400).json({ error: 'Username (Mobile Number) already exists.' });
+      res.status(400).json({ error: 'این شماره همراه قبلاً در سیستم ثبت‌نام شده است.' });
       return;
     }
 
@@ -352,7 +412,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
 
     res.status(201).json({ token, user: newUser });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Internal registration error.' });
+    res.status(500).json({ error: error.message || 'خطای داخلی در سیستم ثبت‌نام.' });
   }
 });
 
@@ -361,7 +421,7 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
-      res.status(400).json({ error: 'Username and password are required.' });
+      res.status(400).json({ error: 'نام کاربری و کلمه عبور الزامی هستند.' });
       return;
     }
 
@@ -370,18 +430,18 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
     const user = db.users.find(u => u.username.toLowerCase() === cleanUsername);
 
     if (!user) {
-      res.status(401).json({ error: 'Invalid username or password.' });
+      res.status(401).json({ error: 'نام کاربری یا کلمه عبور اشتباه است.' });
       return;
     }
 
     if (user.isDisabled) {
-      res.status(403).json({ error: 'This account has been disabled. Please contact the administrator.' });
+      res.status(403).json({ error: 'این حساب کاربری غیرفعال شده است. لطفاً با مدیر سیستم تماس بگیرید.' });
       return;
     }
 
     const passwordHash = db.passwords[user.id];
     if (!passwordHash || !bcrypt.compareSync(password, passwordHash)) {
-      res.status(401).json({ error: 'Invalid username or password.' });
+      res.status(401).json({ error: 'نام کاربری یا کلمه عبور اشتباه است.' });
       return;
     }
 
@@ -393,7 +453,7 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
 
     res.json({ token, user });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Internal login error.' });
+    res.status(500).json({ error: error.message || 'خطا در ورود به حساب کاربری.' });
   }
 });
 
@@ -402,11 +462,11 @@ app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res: Resp
   const db = loadDB();
   const user = db.users.find(u => u.id === req.user?.id);
   if (!user) {
-    res.status(404).json({ error: 'User not found.' });
+    res.status(404).json({ error: 'کاربر یافت نشد.' });
     return;
   }
   if (user.isDisabled) {
-    res.status(403).json({ error: 'This account is disabled.' });
+    res.status(403).json({ error: 'این حساب کاربری غیرفعال می‌باشد.' });
     return;
   }
   res.json(user);
@@ -417,14 +477,14 @@ app.put('/api/users/me/avatar', authenticateToken, (req: AuthenticatedRequest, r
   try {
     const { avatar } = req.body;
     if (!avatar || typeof avatar !== 'string') {
-      res.status(400).json({ error: 'Avatar parameter is required and must be a string url or base64.' });
+      res.status(400).json({ error: 'تصویر آواتار الزامی است و باید قالب رشته‌ای یا آدرس معتبر داشته باشد.' });
       return;
     }
 
     const db = loadDB();
     const userIndex = db.users.findIndex(u => u.id === req.user?.id);
     if (userIndex === -1) {
-      res.status(404).json({ error: 'User not found.' });
+      res.status(404).json({ error: 'کاربر یافت نشد.' });
       return;
     }
 
@@ -433,7 +493,7 @@ app.put('/api/users/me/avatar', authenticateToken, (req: AuthenticatedRequest, r
 
     res.json(db.users[userIndex]);
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Internal server error' });
+    res.status(500).json({ error: err.message || 'خطای داخلی سرور' });
   }
 });
 
@@ -444,13 +504,13 @@ app.put('/api/users/me/profile', authenticateToken, (req: AuthenticatedRequest, 
     const db = loadDB();
     const userIndex = db.users.findIndex(u => u.id === req.user?.id);
     if (userIndex === -1) {
-      res.status(404).json({ error: 'User not found.' });
+      res.status(404).json({ error: 'کاربر یافت نشد.' });
       return;
     }
 
     if (fullName !== undefined) {
       if (typeof fullName !== 'string' || !fullName.trim()) {
-        res.status(400).json({ error: 'Full name must be a valid non-empty string.' });
+        res.status(400).json({ error: 'نام کامل باید یک رشته متنی معتبر و غیرخالی باشد.' });
         return;
       }
       db.users[userIndex].fullName = fullName.trim();
@@ -458,7 +518,7 @@ app.put('/api/users/me/profile', authenticateToken, (req: AuthenticatedRequest, 
 
     if (password !== undefined && password !== '') {
       if (typeof password !== 'string' || password.length < 4) {
-        res.status(400).json({ error: 'Password must be at least 4 characters long.' });
+        res.status(400).json({ error: 'رمز عبور باید حداقل ۴ کاراکتر باشد.' });
         return;
       }
       const salt = bcrypt.genSaltSync(10);
@@ -468,7 +528,7 @@ app.put('/api/users/me/profile', authenticateToken, (req: AuthenticatedRequest, 
     saveDB(db);
     res.json(db.users[userIndex]);
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Internal server error' });
+    res.status(500).json({ error: err.message || 'خطای داخلی سرور.' });
   }
 });
 
@@ -487,7 +547,7 @@ app.get('/api/matches/:id', (req: Request, res: Response) => {
   const resolved = resolveMatchesWithStandings(db.matches);
   const match = resolved.find(m => m.id === req.params.id);
   if (!match) {
-    res.status(404).json({ error: 'Match not found.' });
+    res.status(404).json({ error: 'مسابقه یافت نشد.' });
     return;
   }
   res.json(match);
@@ -498,7 +558,7 @@ app.post('/api/matches', authenticateToken, requireAdmin, (req: AuthenticatedReq
   try {
     const { homeTeamId, awayTeamId, stage, stadium, kickoffTimeUtc } = req.body;
     if (!homeTeamId || !awayTeamId || !stage || !stadium || !kickoffTimeUtc) {
-      res.status(400).json({ error: 'All fields are required.' });
+      res.status(400).json({ error: 'تمامی فیلدها الزامی هستند.' });
       return;
     }
 
@@ -529,7 +589,7 @@ app.put('/api/matches/:id', authenticateToken, requireAdmin, (req: Authenticated
     const db = loadDB();
     const matchIdx = db.matches.findIndex(m => m.id === req.params.id);
     if (matchIdx === -1) {
-      res.status(404).json({ error: 'Match not found.' });
+      res.status(404).json({ error: 'مسابقه یافت نشد.' });
       return;
     }
 
@@ -555,14 +615,14 @@ app.put('/api/matches/:id/result', authenticateToken, requireAdmin, (req: Authen
   try {
     const { homeScore, awayScore, status } = req.body;
     if (homeScore === undefined || awayScore === undefined || homeScore === null || awayScore === null) {
-      res.status(400).json({ error: 'Home and Away scores are required.' });
+      res.status(400).json({ error: 'ثبت تعداد گل‌های تیم‌های میزبان و میهمان الزامی است.' });
       return;
     }
 
     const db = loadDB();
     const matchIdx = db.matches.findIndex(m => m.id === req.params.id);
     if (matchIdx === -1) {
-      res.status(404).json({ error: 'Match not found.' });
+      res.status(404).json({ error: 'مسابقه یافت نشد.' });
       return;
     }
 
@@ -592,13 +652,13 @@ app.delete('/api/matches/:id', authenticateToken, requireAdmin, (req: Authentica
     db.predictions = db.predictions.filter(p => p.matchId !== req.params.id);
 
     if (db.matches.length === initialLen) {
-      res.status(404).json({ error: 'Match not found.' });
+      res.status(404).json({ error: 'مسابقه یافت نشد.' });
       return;
     }
 
     saveDB(db);
     recalculateAllScores();
-    res.json({ message: 'Match and its predictions successfully deleted.' });
+    res.json({ message: 'مسابقه و پیش‌بینی‌های همبسته با موفقیت حذف شدند.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -632,7 +692,7 @@ app.get('/api/predictions/user/:userId', authenticateToken, (req: AuthenticatedR
     const isSelf = currentUserId === requestedUserId;
     const user = db.users.find(u => u.id === requestedUserId);
     if (!user) {
-      res.status(404).json({ error: 'User not found.' });
+      res.status(404).json({ error: 'کاربر یافت نشد.' });
       return;
     }
 
@@ -676,7 +736,7 @@ app.post('/api/predictions', authenticateToken, (req: AuthenticatedRequest, res:
     const userId = req.user?.id;
     const userRole = req.user?.role;
     if (!userId) {
-      res.status(401).json({ error: 'Authentication required' });
+      res.status(401).json({ error: 'احراز هویت غیرمعتبر است. لطفاً وارد سیستم شوید.' });
       return;
     }
 
@@ -687,14 +747,14 @@ app.post('/api/predictions', authenticateToken, (req: AuthenticatedRequest, res:
 
     const { matchId, predictedHome, predictedAway } = req.body;
     if (!matchId || predictedHome === undefined || predictedAway === undefined) {
-      res.status(400).json({ error: 'matchId, predictedHome and predictedAway are required.' });
+      res.status(400).json({ error: 'تعداد گل‌های پیش‌بینی‌شده برای میزبان و میهمان الزامی است.' });
       return;
     }
 
     const db = loadDB();
     const match = db.matches.find(m => m.id === matchId);
     if (!match) {
-      res.status(404).json({ error: 'Match not found.' });
+      res.status(404).json({ error: 'مسابقه یافت نشد.' });
       return;
     }
 
@@ -702,12 +762,12 @@ app.post('/api/predictions', authenticateToken, (req: AuthenticatedRequest, res:
     const kickoffTime = new Date(match.kickoffTimeUtc).getTime();
     const thirtyMinutesInMs = 30 * 60 * 1000;
     if (kickoffTime - Date.now() < thirtyMinutesInMs) {
-      res.status(400).json({ error: 'Prediction locks 30 minutes before kickoff time.' });
+      res.status(400).json({ error: 'امکان ثبت پیش‌بینی فراتر از ۳۰ دقیقه مانده به شروع مسابقه مقدور نیست.' });
       return;
     }
 
     if (match.status === MatchStatus.FINISHED) {
-      res.status(400).json({ error: 'This match is already finished. Predictions are closed.' });
+      res.status(400).json({ error: 'این مسابقه پایان یافته است و امکان ثبت پیش‌بینی برای آن وجود ندارد.' });
       return;
     }
 
@@ -747,7 +807,7 @@ app.post('/api/predictions/batch', authenticateToken, (req: AuthenticatedRequest
     const userId = req.user?.id;
     const userRole = req.user?.role;
     if (!userId) {
-      res.status(401).json({ error: 'Authentication required' });
+      res.status(401).json({ error: 'احراز هویت الزامی است. لطفاً مجدداً وارد شوید.' });
       return;
     }
 
@@ -758,7 +818,7 @@ app.post('/api/predictions/batch', authenticateToken, (req: AuthenticatedRequest
 
     const { predictions } = req.body;
     if (!predictions || !Array.isArray(predictions)) {
-      res.status(400).json({ error: 'predictions array is required.' });
+      res.status(400).json({ error: 'آرایه پیش‌بینی‌ها الزامی است.' });
       return;
     }
 
@@ -769,13 +829,13 @@ app.post('/api/predictions/batch', authenticateToken, (req: AuthenticatedRequest
     for (const item of predictions) {
       const { matchId, predictedHome, predictedAway } = item;
       if (!matchId || predictedHome === undefined || predictedAway === undefined) {
-        errors.push(`Invalid items for match ${matchId}`);
+        errors.push(`اطلاعات پیش‌بینی برای بازی ${matchId} نامعتبر است.`);
         continue;
       }
 
       const match = db.matches.find(m => m.id === matchId);
       if (!match) {
-        errors.push(`Match ${matchId} not found.`);
+        errors.push(`بازی با شناسه ${matchId} یافت نشد.`);
         continue;
       }
 
@@ -783,7 +843,7 @@ app.post('/api/predictions/batch', authenticateToken, (req: AuthenticatedRequest
       const kickoffTime = new Date(match.kickoffTimeUtc).getTime();
       const thirtyMinutesInMs = 30 * 60 * 1000;
       if (kickoffTime - Date.now() < thirtyMinutesInMs || match.status === MatchStatus.FINISHED) {
-        errors.push(`Match ${matchId} is locked.`);
+        errors.push(`پیش‌بینی بازی ${matchId} قفل شده است.`);
         continue;
       }
 
@@ -972,7 +1032,7 @@ app.post('/api/users', authenticateToken, requireAdmin, (req: AuthenticatedReque
   try {
     const { username, fullName, password, role } = req.body;
     if (!username || !fullName || !password) {
-      res.status(400).json({ error: 'Username, Full Name, and Password are required.' });
+      res.status(400).json({ error: 'وارد کردن نام کاربری، نام کامل و رمز عبور الزامی است.' });
       return;
     }
 
@@ -980,7 +1040,7 @@ app.post('/api/users', authenticateToken, requireAdmin, (req: AuthenticatedReque
     const cleanUsername = username.trim().toLowerCase();
     
     if (db.users.some(u => u.username.toLowerCase() === cleanUsername)) {
-      res.status(400).json({ error: 'Username already taken.' });
+      res.status(400).json({ error: 'این نام کاربری (شماره همراه) تکراری است.' });
       return;
     }
 
@@ -1017,7 +1077,7 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, (req: AuthenticatedRe
     const db = loadDB();
     const userIdx = db.users.findIndex(u => u.id === req.params.id);
     if (userIdx === -1) {
-      res.status(404).json({ error: 'User not found.' });
+      res.status(404).json({ error: 'کاربر یافت نشد.' });
       return;
     }
 
@@ -1060,13 +1120,13 @@ app.put('/api/users/:id/disable', authenticateToken, requireAdmin, (req: Authent
     const db = loadDB();
     const userIdx = db.users.findIndex(u => u.id === req.params.id);
     if (userIdx === -1) {
-      res.status(404).json({ error: 'User not found.' });
+      res.status(404).json({ error: 'کاربر مورد نظر یافت نشد.' });
       return;
     }
 
     const user = db.users[userIdx];
     if (user.role === UserRole.ADMIN) {
-      res.status(400).json({ error: 'Administrator accounts cannot be disabled.' });
+      res.status(400).json({ error: 'حساب‌های کاربری مربوط به ادمین یا مدیران سیستم را نمی‌توان غیرفعال کرد.' });
       return;
     }
 
@@ -1083,14 +1143,14 @@ app.put('/api/users/:id/reset-password', authenticateToken, requireAdmin, (req: 
   try {
     const { newPassword } = req.body;
     if (!newPassword || newPassword.trim() === '') {
-      res.status(400).json({ error: 'New password is required.' });
+      res.status(400).json({ error: 'وارد کردن رمز عبور جدید الزامی است.' });
       return;
     }
 
     const db = loadDB();
     const user = db.users.find(u => u.id === req.params.id);
     if (!user) {
-      res.status(404).json({ error: 'User not found.' });
+      res.status(404).json({ error: 'کاربر یافت نشد.' });
       return;
     }
 
@@ -1099,7 +1159,7 @@ app.put('/api/users/:id/reset-password', authenticateToken, requireAdmin, (req: 
     db.passwords[user.id] = passwordHash;
     
     saveDB(db);
-    res.json({ message: 'Password successfully updated.' });
+    res.json({ message: 'گذرواژه با موفقیت تغییر یافت.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1111,13 +1171,13 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, (req: Authenticate
     const db = loadDB();
     const userIdx = db.users.findIndex(u => u.id === req.params.id);
     if (userIdx === -1) {
-      res.status(404).json({ error: 'User not found.' });
+      res.status(404).json({ error: 'کاربر یافت نشد.' });
       return;
     }
 
     const user = db.users[userIdx];
     if (user.role === UserRole.ADMIN) {
-      res.status(400).json({ error: 'Administrator accounts cannot be deleted.' });
+      res.status(400).json({ error: 'حذف حساب‌های ادمین و مدیر سیستم مقدور نیست.' });
       return;
     }
 
@@ -1128,7 +1188,7 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, (req: Authenticate
 
     saveDB(db);
     recalculateAllScores();
-    res.json({ message: 'User and all their predictions successfully removed.' });
+    res.json({ message: 'حساب کاربر و کلیه پیش‌بینی‌های وی با موفقیت از سیستم حذف گردید.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1138,7 +1198,7 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, (req: Authenticate
 app.post('/api/admin/recalculate', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
   try {
     recalculateAllScores();
-    res.json({ message: 'Score calculation engine successfully ran across all matches.' });
+    res.json({ message: 'عملگر محاسبه امتیاز کاربری با موفقیت برای کل بازی‌ها اجرا شد.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1195,7 +1255,7 @@ app.get('/api/admin/download-db', authenticateToken, requireAdmin, (req: Authent
       } catch (e) {}
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to download database.' });
+    res.status(500).json({ error: err.message || 'خطا در بارگیری و دانلود فایل بکاپ دیتابیس.' });
   }
 });
 
@@ -1465,7 +1525,7 @@ app.get('/api/predictions/export-excel', authenticateToken, (req: AuthenticatedR
     res.write('\uFEFF'); // UTF-8 BOM
     res.end(csvContent);
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Error exporting report.' });
+    res.status(500).json({ error: err.message || 'خطا در خروجی گرفتن از گزارش پیش‌بینی کاربران.' });
   }
 });
 
@@ -1494,7 +1554,8 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
       smsBodyIdReset,
       geminiApiKey,
       geminiProxyMode,
-      geminiProxyUrl
+      geminiProxyUrl,
+      geminiHttpProxy
     } = req.body;
     
     const db = loadDB();
@@ -1542,6 +1603,9 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
     if (geminiProxyUrl !== undefined) {
       db.settings.geminiProxyUrl = geminiProxyUrl;
     }
+    if (geminiHttpProxy !== undefined) {
+      db.settings.geminiHttpProxy = geminiHttpProxy;
+    }
     
     saveDB(db);
     
@@ -1564,6 +1628,7 @@ export function getGeminiClient(): GoogleGenAI | null {
 
   const mode = db.settings?.geminiProxyMode || 'none';
   const customUrl = db.settings?.geminiProxyUrl;
+  const httpProxy = db.settings?.geminiHttpProxy;
 
   const initOptions: any = {
     apiKey: apiKey,
@@ -1581,18 +1646,34 @@ export function getGeminiClient(): GoogleGenAI | null {
     initOptions.baseUrl = 'https://generativelanguage.googleapis.com';
   }
 
+  if (httpProxy && httpProxy.trim()) {
+    try {
+      const dispatcher = new ProxyAgent({ uri: httpProxy.trim() });
+      initOptions.httpOptions.fetch = (url: any, init: any) => {
+        return fetch(url, {
+          ...init,
+          dispatcher
+        });
+      };
+      console.log(`[AI-PROXY-INIT] Configured HTTP Proxy routing for Gemini client: ${httpProxy.trim()}`);
+    } catch (e: any) {
+      console.error('[AI-PROXY-INIT] Failed to create ProxyAgent for Gemini:', e);
+    }
+  }
+
   return new GoogleGenAI(initOptions);
 }
 
 // POST /api/admin/gemini-test (Admin only - test Gemini API connectivity with custom key & proxy)
 app.post('/api/admin/gemini-test', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { testApiKey, proxyMode, proxyUrl } = req.body;
+    const { testApiKey, proxyMode, proxyUrl, testHttpProxy } = req.body;
     const db = loadDB();
 
     const apiKey = testApiKey !== undefined ? testApiKey : (db.settings?.geminiApiKey || process.env.GEMINI_API_KEY);
     const mode = proxyMode !== undefined ? proxyMode : (db.settings?.geminiProxyMode || 'none');
     const customUrl = proxyUrl !== undefined ? proxyUrl : db.settings?.geminiProxyUrl;
+    const httpProxy = testHttpProxy !== undefined ? testHttpProxy : db.settings?.geminiHttpProxy;
 
     if (!apiKey) {
       res.status(400).json({ error: 'کلید وب‌سرویس هوش مصنوعی (GEMINI_API_KEY) وارد نشده است.' });
@@ -1615,7 +1696,22 @@ app.post('/api/admin/gemini-test', authenticateToken, requireAdmin, async (req: 
       initOptions.baseUrl = 'https://generativelanguage.googleapis.com';
     }
 
-    console.log(`[AI-TEST-CONNECTION] Verifying Gemini connection... Mode: ${mode}, URL: ${initOptions.baseUrl || 'Default'}`);
+    if (httpProxy && httpProxy.trim()) {
+      try {
+        const dispatcher = new ProxyAgent({ uri: httpProxy.trim() });
+        initOptions.httpOptions.fetch = (url: any, init: any) => {
+          return fetch(url, {
+            ...init,
+            dispatcher
+          });
+        };
+        console.log(`[AI-TEST-CONNECTION] Adding custom ProxyAgent for test: ${httpProxy.trim()}`);
+      } catch (e: any) {
+        console.error('[AI-TEST-CONNECTION] Failed to create test ProxyAgent:', e);
+      }
+    }
+
+    console.log(`[AI-TEST-CONNECTION] Verifying Gemini connection... Mode: ${mode}, URL: ${initOptions.baseUrl || 'Default'}, Proxy: ${httpProxy || 'None'}`);
 
     const ai = new GoogleGenAI(initOptions);
     const response = await ai.models.generateContent({
@@ -1631,7 +1727,7 @@ app.post('/api/admin/gemini-test', authenticateToken, requireAdmin, async (req: 
     });
   } catch (err: any) {
     console.error('[AI-TEST-CONNECTION] Connection error detail:', err);
-    res.status(550).json({ 
+    res.status(500).json({ 
       error: `خطا در پیوند به گوگل جمینای: ${err.message}. لطفا کلید وب‌سرویس یا جزییات پروکسی خود را بررسی نمایید.` 
     });
   }

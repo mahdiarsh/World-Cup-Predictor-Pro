@@ -20,6 +20,7 @@ export interface SystemSettings {
   geminiApiKey?: string;
   geminiProxyMode?: 'none' | 'auto' | 'manual';
   geminiProxyUrl?: string;
+  geminiHttpProxy?: string;
 }
 
 export interface DatabaseSchema {
@@ -407,6 +408,8 @@ export function loadDB(): DatabaseSchema {
         settings.geminiProxyMode = s.value as any;
       } else if (s.key === 'geminiProxyUrl') {
         settings.geminiProxyUrl = s.value;
+      } else if (s.key === 'geminiHttpProxy') {
+        settings.geminiHttpProxy = s.value;
       }
     }
 
@@ -763,6 +766,40 @@ export function resolveMatchesWithStandings(matches: Match[]): Match[] {
   return resolved;
 }
 
+function getDeterministicHash(matchId: string, homeTeam: string, awayTeam: string): number {
+  let hash = 0;
+  const str = `${matchId}-${homeTeam}-${awayTeam}`;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function getDeterministicFinalScore(matchId: string, homeTeam: string, awayTeam: string): { home: number; away: number } {
+  const absHash = getDeterministicHash(matchId, homeTeam, awayTeam);
+  const key = absHash % 100;
+  let home = 0;
+  let away = 0;
+  if (key < 25) {
+    home = 1; away = 0; // 1-0
+  } else if (key < 45) {
+    home = 1; away = 1; // 1-1
+  } else if (key < 60) {
+    home = 2; away = 1; // 2-1
+  } else if (key < 75) {
+    home = 2; away = 0; // 2-0
+  } else if (key < 85) {
+    home = 0; away = 1; // 0-1
+  } else if (key < 92) {
+    home = 2; away = 2; // 2-2
+  } else {
+    home = absHash % 4;
+    away = (absHash >> 2) % 3;
+  }
+  return { home, away };
+}
+
 // Background scheduler that simulates matches dynamically that qualify by simulatedTime / real time
 export function runFifaLiveSync(): void {
   const db = loadDB();
@@ -791,63 +828,146 @@ export function runFifaLiveSync(): void {
     settings.simulatedTime = new Date(curTime + sixHours).toISOString();
   }
 
-  // Look for scheduled matches that kickoff before simulatedTime (or before Date.now() if manual/disabled)
-  const currentThreshold = settings.syncMode === 'simulation' 
-    ? new Date(settings.simulatedTime).getTime()
-    : Date.now();
-
   let hasChanges = false;
 
-  // Let's resolve the actual team IDs in matches before simulating them
-  db.matches = resolveMatchesWithStandings(db.matches);
+  if (settings.syncMode === 'simulation') {
+    const currentThreshold = new Date(settings.simulatedTime).getTime();
 
-  for (const match of db.matches) {
-    if (match.status === MatchStatus.SCHEDULED) {
+    // Revert/Ready any simulation-eligible matches so we can recalculate chronologically
+    for (const match of db.matches) {
       const kickoffTime = new Date(match.kickoffTimeUtc).getTime();
-      
-      // If kickoff is past threshold
-      if (kickoffTime <= currentThreshold) {
-        // Can only simulate if home and away teams are resolved (i.e. do not start with TBD_)
-        if (match.homeTeamId.startsWith('TBD_') || match.awayTeamId.startsWith('TBD_')) {
-          continue;
-        }
+      const seedMatch = matchesSeed.find(sm => sm.id === match.id);
 
-        // Generate a fun and realistic score
-        const r = Math.random();
-        let home = 0;
-        let away = 0;
-        if (r < 0.25) {
-          home = 1; away = 0; // 1-0
-        } else if (r < 0.45) {
-          home = 1; away = 1; // 1-1
-        } else if (r < 0.60) {
-          home = 2; away = 1; // 2-1
-        } else if (r < 0.75) {
-          home = 2; away = 0; // 2-0
-        } else if (r < 0.85) {
-          home = 0; away = 1; // 0-1
-        } else if (r < 0.92) {
-          home = 2; away = 2; // 2-2
-        } else {
-          // completely randomized small score
-          home = Math.floor(Math.random() * 4);
-          away = Math.floor(Math.random() * 4);
+      if (match.isSimulated || kickoffTime <= currentThreshold) {
+        if (match.status !== MatchStatus.SCHEDULED || match.homeScore !== null || match.awayScore !== null) {
+          match.status = MatchStatus.SCHEDULED;
+          match.homeScore = null;
+          match.awayScore = null;
+          match.isSimulated = true;
+          hasChanges = true;
         }
-
-        // Apply results and finish the game!
-        match.homeScore = home;
-        match.awayScore = away;
-        match.status = MatchStatus.FINISHED;
-        hasChanges = true;
+        // Restore team names to seed placeholders to allow full dynamic propagation
+        if (seedMatch) {
+          if (match.homeTeamId !== seedMatch.homeTeamId || match.awayTeamId !== seedMatch.awayTeamId) {
+            match.homeTeamId = seedMatch.homeTeamId;
+            match.awayTeamId = seedMatch.awayTeamId;
+            hasChanges = true;
+          }
+        }
+      } else {
+        // Under simulated timeline, this is a future match and not simulation-controlled anymore
+        if (match.isSimulated) {
+          match.status = MatchStatus.SCHEDULED;
+          match.homeScore = null;
+          match.awayScore = null;
+          match.isSimulated = false;
+          if (seedMatch) {
+            match.homeTeamId = seedMatch.homeTeamId;
+            match.awayTeamId = seedMatch.awayTeamId;
+          }
+          hasChanges = true;
+        }
       }
     }
+
+    // Resolve matching bracket dynamically
+    db.matches = resolveMatchesWithStandings(db.matches);
+
+    // Simulate match by match in sequential passes so knockout winners propagate downstream
+    let passChanged = true;
+    while (passChanged) {
+      passChanged = false;
+      // Re-resolve standings in case a simulation completed
+      db.matches = resolveMatchesWithStandings(db.matches);
+
+      for (const match of db.matches) {
+        if (match.status === MatchStatus.SCHEDULED && match.isSimulated) {
+          const kickoffTime = new Date(match.kickoffTimeUtc).getTime();
+          if (kickoffTime <= currentThreshold) {
+            // Cannot simulate yet if teams are not resolved
+            if (match.homeTeamId.startsWith('TBD_') || match.awayTeamId.startsWith('TBD_')) {
+              continue;
+            }
+
+            const minutesPassed = Math.floor((currentThreshold - kickoffTime) / 60 / 1000);
+
+            if (minutesPassed >= 115) {
+              // GAME IS FINISHED
+              const finalScore = getDeterministicFinalScore(match.id, match.homeTeamId, match.awayTeamId);
+              match.homeScore = finalScore.home;
+              match.awayScore = finalScore.away;
+              match.status = MatchStatus.FINISHED;
+              passChanged = true;
+              hasChanges = true;
+            } else if (minutesPassed >= 0) {
+              // GAME IS LIVE / IN PROGRESS
+              let activePlayMinute = 1;
+              if (minutesPassed <= 45) {
+                activePlayMinute = Math.max(1, minutesPassed);
+              } else if (minutesPassed <= 60) {
+                activePlayMinute = 45; // Halftime
+              } else if (minutesPassed <= 105) {
+                activePlayMinute = minutesPassed - 15;
+              } else {
+                activePlayMinute = 90;
+              }
+
+              const finalScore = getDeterministicFinalScore(match.id, match.homeTeamId, match.awayTeamId);
+              const absHash = getDeterministicHash(match.id, match.homeTeamId, match.awayTeamId);
+
+              // Allocate goals to deterministic minutes
+              const homeGoalMinutes = [14, 38, 59, 74, 88].slice(0, finalScore.home).map(m => (m + absHash) % 90 + 1);
+              const awayGoalMinutes = [22, 44, 61, 81, 89].slice(0, finalScore.away).map(m => (m + (absHash >> 3)) % 90 + 1);
+
+              const liveHome = homeGoalMinutes.filter(m => m <= activePlayMinute).length;
+              const liveAway = awayGoalMinutes.filter(m => m <= activePlayMinute).length;
+
+              match.homeScore = liveHome;
+              match.awayScore = liveAway;
+              match.status = MatchStatus.LIVE;
+              
+              // Note: LIVE games don't propagate downstream inside resolveMatchesWithStandings, 
+              // which is correct because the match is still active!
+              passChanged = true;
+              hasChanges = true;
+            }
+          }
+        }
+      }
+    }
+
+  } else {
+    // If syncMode is NOT simulation (i.e. turned back to 'manual' or 'none'),
+    // we want to cleanly revert ALL simulated matches back to scheduled/unplayed
+    for (const match of db.matches) {
+      const seedMatch = matchesSeed.find(sm => sm.id === match.id);
+
+      if (match.isSimulated) {
+        match.status = MatchStatus.SCHEDULED;
+        match.homeScore = null;
+        match.awayScore = null;
+        match.isSimulated = false;
+        hasChanges = true;
+      }
+
+      // Revert placeholder teams for any scheduled match to keep bracket dynamic
+      if (match.status === MatchStatus.SCHEDULED && seedMatch) {
+         if (match.homeTeamId !== seedMatch.homeTeamId || match.awayTeamId !== seedMatch.awayTeamId) {
+          match.homeTeamId = seedMatch.homeTeamId;
+          match.awayTeamId = seedMatch.awayTeamId;
+          hasChanges = true;
+         }
+      }
+    }
+
+    // Resolve normal bracket standings for any manual games played
+    db.matches = resolveMatchesWithStandings(db.matches);
   }
 
+  // Save changes if anything changed
   if (hasChanges) {
-    // Resolve matches recursive to propagate
     db.matches = resolveMatchesWithStandings(db.matches);
     saveDB(db);
-    // Recalculate
     recalculateAllScores();
   } else if (settings.isFastForwarding) {
     saveDB(db);

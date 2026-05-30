@@ -182,7 +182,7 @@ export default function GroupStandings({ matches, onTeamClick }: GroupStandingsP
         <KnockoutBracket matches={matches} />
       ) : (
         /* Grid displaying 8 pools A to H */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {groupsList
             .filter(groupName => {
               if (!searchTerm.trim()) return true;

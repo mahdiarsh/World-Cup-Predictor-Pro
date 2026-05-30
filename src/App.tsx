@@ -183,7 +183,7 @@ export default function App() {
       if (res.ok) {
         const s = await res.json();
         setSettings(s);
-        triggerSuccess(`Registration is now ${enabled ? 'ENABLED (Allowed)' : 'DISABLED (Blocked)'}.`);
+        triggerSuccess(`ثبت‌نام کاربران جدید با موفقیت ${enabled ? 'فعال (آزاد)' : 'غیرفعال (مسدود)'} شد.`);
         return true;
       }
     } catch (err) {
@@ -228,16 +228,16 @@ export default function App() {
       if (res.ok) {
         const updatedUser = await res.json();
         setCurrentUser(updatedUser);
-        triggerSuccess('Profile avatar updated successfully!');
+        triggerSuccess('تصویر آواتار پروفایل شما با موفقیت به‌روزرسانی شد!');
         fetchLeaderboard();
         return true;
       } else {
         const errData = await res.json();
-        triggerError(errData.error || 'Failed to update avatar.');
+        triggerError(errData.error || 'خطا در به‌روزرسانی تصویر پروفایل.');
       }
     } catch (err) {
       console.error('Update avatar failed', err);
-      triggerError('Network error updating avatar.');
+      triggerError('خطای شبکه در به‌روزرسانی تصویر پروفایل.');
     }
     return false;
   };
@@ -252,16 +252,16 @@ export default function App() {
       if (res.ok) {
         const updatedUser = await res.json();
         setCurrentUser(updatedUser);
-        triggerSuccess('Profile information updated successfully!');
+        triggerSuccess('اطلاعات حساب کاربری شما با موفقیت به‌روزرسانی شد!');
         fetchLeaderboard();
         return true;
       } else {
         const errData = await res.json();
-        triggerError(errData.error || 'Failed to update profile.');
+        triggerError(errData.error || 'خطا در به‌روزرسانی اطلاعات حساب کاربری.');
       }
     } catch (err) {
       console.error('Update profile failed', err);
-      triggerError('Network error updating profile.');
+      triggerError('خطای شبکه در به‌روزرسانی اطلاعات حساب کاربری.');
     }
     return false;
   };
@@ -278,7 +278,7 @@ export default function App() {
         const data = await res.json();
         setToken(data.token);
         setCurrentUser(data.user);
-        triggerSuccess(`Logged in as @${data.user.username}! Welcome back.`);
+        triggerSuccess(`با موفقیت وارد حساب @${data.user.username} شدید. خوش آمدید.`);
         setCurrentTab('home');
         return true;
       }
@@ -314,7 +314,7 @@ export default function App() {
 
   const handleLogout = () => {
     setToken(null);
-    triggerSuccess('Logged out successfully.');
+    triggerSuccess('با موفقیت از حساب کاربری خود خارج شدید.');
     setCurrentTab('home');
   };
 
@@ -327,7 +327,7 @@ export default function App() {
         body: JSON.stringify({ matchId, predictedHome: home, predictedAway: away })
       });
       if (res.ok) {
-        triggerSuccess('Score prediction registered successfully!');
+        triggerSuccess('پیش‌بینی مسابقه با موفقیت ثبت شد!');
         fetchMyPredictions();
         fetchLeaderboard();
         return true;
@@ -346,7 +346,7 @@ export default function App() {
         body: JSON.stringify({ predictions: preds })
       });
       if (res.ok) {
-        triggerSuccess('Saved ' + preds.length + ' predictions!');
+        triggerSuccess(`پیش‌بینی ${preds.length} مسابقه با موفقیت ذخیره شد!`);
         fetchMyPredictions();
         fetchMatches();
         fetchLeaderboard();
@@ -366,13 +366,13 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
-        triggerSuccess('FIFA official live results synced!');
+        triggerSuccess('نتایج رسمی زنده فیفا با موفقیت همگام‌سازی شد!');
         fetchMatches();
         fetchMyPredictions();
         fetchLeaderboard();
-        return data.message || 'Successfully synchronized matches with FIFA live scores.';
+        return data.message || 'مسابقات با موفقیت با نتایج زنده فیفا همگام‌سازی شدند.';
       } else {
-        return data.error || 'Failed to sync with FIFA scores.';
+        return data.error || 'خطا در همگام‌سازی مسابقات با فیفا.';
       }
     } catch (err) {
       console.error('Sync FIFA failed', err);
@@ -740,12 +740,12 @@ export default function App() {
     const recentCompleted = matches
       .filter(m => m.status === MatchStatus.FINISHED)
       .sort((a, b) => new Date(b.kickoffTimeUtc).getTime() - new Date(a.kickoffTimeUtc).getTime())
-      .slice(0, 3);
+      .slice(0, 5);
 
     const upcomingOrLive = matches
       .filter(m => m.status === MatchStatus.SCHEDULED || m.status === MatchStatus.LIVE)
       .sort((a, b) => new Date(a.kickoffTimeUtc).getTime() - new Date(b.kickoffTimeUtc).getTime())
-      .slice(0, 3);
+      .slice(0, 5);
 
     const recentAndUpcomingMatches = [...recentCompleted, ...upcomingOrLive];
 
@@ -754,7 +754,7 @@ export default function App() {
         
         {/* Quick Bento features (Recent & Upcoming matches with inline prediction) */}
         {recentAndUpcomingMatches.length > 0 && (
-          <div className="space-y-4 max-w-4xl mx-auto">
+          <div className="space-y-4 max-w-full mx-auto">
             <div className="flex items-center justify-between border-b border-slate-800/85 pb-2">
               <h3 className="font-extrabold text-white text-base flex items-center gap-2">
                 <Compass className="h-5 w-5 text-emerald-400" />
@@ -768,21 +768,31 @@ export default function App() {
               </button>
             </div>
 
-            {/* Render featured dynamic cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {recentAndUpcomingMatches.map(m => {
+            {/* Render featured dynamic cards in a single row without wrapping by responsive showing/hiding extra cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 animate-in fade-in duration-300">
+              {recentAndUpcomingMatches.map((m, index) => {
                 const pred = predictions.find(p => p.matchId === m.id);
+                // Define classes to show exact amount of cards corresponding to the responsive grid layout
+                let visibilityClass = "block";
+                if (index === 1) visibilityClass = "hidden sm:block";
+                else if (index === 2) visibilityClass = "hidden md:block";
+                else if (index === 3) visibilityClass = "hidden lg:block";
+                else if (index === 4) visibilityClass = "hidden xl:block";
+                else if (index === 5) visibilityClass = "hidden 2xl:block";
+                else if (index >= 6) visibilityClass = "hidden";
+
                 return (
-                  <FeaturedMatchCard
-                    key={m.id}
-                    match={m}
-                    prediction={pred}
-                    currentUser={currentUser}
-                    onSavePrediction={handleSavePrediction}
-                    onTriggerAuth={() => setCurrentTab('login')}
-                    onTeamClick={setSelectedTeamId}
-                    settings={settings}
-                  />
+                  <div key={m.id} className={visibilityClass}>
+                    <FeaturedMatchCard
+                      match={m}
+                      prediction={pred}
+                      currentUser={currentUser}
+                      onSavePrediction={handleSavePrediction}
+                      onTriggerAuth={() => setCurrentTab('login')}
+                      onTeamClick={setSelectedTeamId}
+                      settings={settings}
+                    />
+                  </div>
                 );
               })}
             </div>
@@ -790,7 +800,7 @@ export default function App() {
         )}
 
         {/* Display full MatchesList if user clicks inside */}
-        <div className="max-w-4xl mx-auto space-y-4">
+        <div className="max-w-full mx-auto space-y-4">
           <MatchesList 
             matches={matches} 
             predictions={predictions} 
@@ -798,6 +808,7 @@ export default function App() {
             onSavePrediction={handleSavePrediction} 
             onTriggerAuth={() => setCurrentTab('login')}
             onTeamClick={setSelectedTeamId}
+            settings={settings}
           />
         </div>
 
@@ -876,10 +887,10 @@ export default function App() {
       />
 
       {/* Main Containers */}
-      <main className="max-w-7xl mx-auto px-4 pt-6 space-y-6">
+      <main className="max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         
         {/* FIFA Simulated Tournament Virtual Clock Banner */}
-        {currentTab === 'home' && settings?.syncMode === 'simulation' && (
+        {settings?.syncMode === 'simulation' && (
           <div className="bg-emerald-950/25 border border-emerald-500/15 rounded-2xl px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between text-right gap-4">
             <div className="flex items-center gap-2.5 self-start sm:self-center">
               <span className="relative flex h-2.5 w-2.5">

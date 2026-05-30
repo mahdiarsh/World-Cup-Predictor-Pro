@@ -11,9 +11,10 @@ interface MatchesListProps {
   onSavePrediction: (matchId: string, home: number, away: number) => Promise<boolean>;
   onTriggerAuth: () => void;
   onTeamClick?: (teamId: string) => void;
+  settings?: any;
 }
 
-export default function MatchesList({ matches, predictions, currentUser, onSavePrediction, onTriggerAuth, onTeamClick }: MatchesListProps) {
+export default function MatchesList({ matches, predictions, currentUser, onSavePrediction, onTriggerAuth, onTeamClick, settings }: MatchesListProps) {
   const [selectedStage, setSelectedStage] = useState<string>('ALL');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [predId, setPredId] = useState<string | null>(null);
@@ -24,13 +25,22 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
   const [awayInput, setAwayInput] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
-  const [currentTime, setCurrentTime] = useState<number>(Date.now());
+  const [realTime, setRealTime] = useState<number>(Date.now());
 
   // Periodically refresh current time to calculate countdowns down to seconds
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(Date.now()), 15000);
+    const timer = setInterval(() => setRealTime(Date.now()), 15000);
     return () => clearInterval(timer);
   }, []);
+
+  const getEffectiveTimeMs = () => {
+    if (settings?.syncMode === 'simulation' && settings?.simulatedTime) {
+      return new Date(settings.simulatedTime).getTime();
+    }
+    return realTime;
+  };
+
+  const currentTime = getEffectiveTimeMs();
 
   const getLiveMatchMinute = (m: Match, curTimeMs: number): string => {
     const kickoff = new Date(m.kickoffTimeUtc).getTime();
@@ -159,7 +169,7 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
       </div>
 
       {/* Filters and View Switcher control center */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 max-w-4xl mx-auto border-b border-slate-800/60 pb-3" dir="rtl">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 max-w-full mx-auto border-b border-slate-800/60 pb-3" dir="rtl">
         {/* Slideable stage filters */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-grow">
           {stages.map(stage => (
@@ -177,37 +187,29 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
           ))}
         </div>
 
-        {/* View Mode Switcher */}
-        <div className="flex items-center gap-1 bg-slate-900/80 border border-slate-800 p-1 rounded-xl shrink-0">
+        {/* View Mode Switcher (Single premium toggle button to save horizontal space and responsive layout alignment) */}
+        <div className="flex items-center shrink-0">
           <button
             type="button"
             onClick={() => {
-              setViewMode('card');
-              localStorage.setItem('wc_matches_view', 'card');
+              const nextMode = viewMode === 'card' ? 'table' : 'card';
+              setViewMode(nextMode);
+              localStorage.setItem('wc_matches_view', nextMode);
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              viewMode === 'card'
-                ? 'bg-emerald-500 text-slate-950 font-black shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-705 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-md select-none"
+            title={viewMode === 'card' ? 'تغییر به نمای جدولی' : 'تغییر به نمای کارتی'}
           >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span>نمایش کارتی</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setViewMode('table');
-              localStorage.setItem('wc_matches_view', 'table');
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              viewMode === 'table'
-                ? 'bg-emerald-500 text-slate-950 font-black shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <List className="h-3.5 w-3.5" />
-            <span>نمایش جدولی</span>
+            {viewMode === 'card' ? (
+              <>
+                <List className="h-4 w-4 text-emerald-400" />
+                <span>نمای جدولی</span>
+              </>
+            ) : (
+              <>
+                <LayoutGrid className="h-4 w-4 text-emerald-400" />
+                <span>نمای کارتی</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -215,7 +217,7 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
       {/* View Mode Switching conditional block */}
       {viewMode === 'card' ? (
         /* Match Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-full mx-auto w-full">
         {sortedMatches.length > 0 ? (
           sortedMatches.map(match => {
             const getTbdName = (teamId: string) => {
@@ -358,14 +360,16 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                             {pred.predictedHome} - {pred.predictedAway}
                           </p>
                           {pred.points !== null && (
-                            <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded font-bold font-sans ${
-                              pred.points === 3 
-                                ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' 
-                                : pred.points === 1 
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                            <span className={`inline-block text-[10px] px-2 py-0.5 rounded-md font-extrabold font-sans ${
+                              pred.points >= 10 || pred.points === 3
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 font-black' 
+                                : pred.points === 7
+                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20'
+                                : pred.points === 5 || pred.points === 1
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' 
                                 : 'bg-slate-800 text-slate-400'
                             }`}>
-                              {pred.points === 3 ? 'نتیجه دقیق (+۳)' : pred.points === 1 ? 'تفکیک برنده (+۱)' : 'نادرست (۰)'}
+                              {pred.points >= 10 ? 'دقیق (+۱۰)' : pred.points === 7 ? 'تفاضل (+۷)' : pred.points === 5 ? 'برنده (+۵)' : pred.points === 3 ? 'دقیق (+۳)' : pred.points === 1 ? 'برنده (+۱)' : 'نادرست (۰)'}
                             </span>
                           )}
                         </div>
@@ -399,14 +403,14 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
             );
             })
           ) : (
-            <div className="col-span-1 md:col-span-2 text-center py-12 bg-slate-900/20 border border-slate-800/80 rounded-2xl">
+            <div className="col-span-full text-center py-12 bg-slate-900/20 border border-slate-800/80 rounded-2xl">
               <p className="text-slate-500 text-sm">هیچ مسابقه‌ای در این مرحله یافت نشد.</p>
             </div>
           )}
         </div>
       ) : (
         /* Table View */
-        <div className="overflow-x-auto rounded-3xl border border-slate-800/80 bg-slate-900/30 max-w-4xl mx-auto shadow-xl" dir="rtl">
+        <div className="overflow-x-auto rounded-3xl border border-slate-800/80 bg-slate-900/30 max-w-full mx-auto shadow-xl" dir="rtl">
           <table className="w-full text-right border-collapse text-xs sm:text-sm">
             <thead>
               <tr className="border-b border-slate-800/80 bg-slate-950/80 text-slate-400 font-extrabold text-[11px] sm:text-xs">

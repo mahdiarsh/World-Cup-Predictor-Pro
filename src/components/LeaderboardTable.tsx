@@ -52,7 +52,7 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
 
       {/* Premium Spotlights (Top 3 Podium Cards) */}
       {topThree.length > 0 && searchTerm === '' && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 xl:gap-6 mt-4 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 xl:gap-6 mt-4 max-w-full mx-auto">
           
           {/* 2nd Place */}
           {topThree[1] && (
@@ -132,7 +132,7 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
       )}
 
       {/* Control Bar: Search and Filters */}
-      <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-900/40 p-3 rounded-xl border border-slate-800" dir="rtl">
+      <div className="max-w-full mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-900/40 p-3 rounded-xl border border-slate-800" dir="rtl">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
@@ -159,7 +159,7 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
       </div>
 
       {/* Competitor Table */}
-      <div className="max-w-4xl mx-auto overflow-hidden bg-slate-900/40 rounded-2xl border border-slate-800/80 shadow-2xl" dir="rtl">
+      <div className="max-w-full mx-auto overflow-hidden bg-slate-900/40 rounded-2xl border border-slate-800/80 shadow-2xl" dir="rtl">
         <div className="overflow-x-auto">
           <table className="w-full text-right border-collapse">
             <thead>

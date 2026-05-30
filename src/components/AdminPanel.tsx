@@ -67,6 +67,7 @@ export default function AdminPanel({
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [geminiProxyMode, setGeminiProxyMode] = useState<'none' | 'auto' | 'manual'>('none');
   const [geminiProxyUrl, setGeminiProxyUrl] = useState('');
+  const [geminiHttpProxy, setGeminiHttpProxy] = useState('');
   const [geminiInitialized, setGeminiInitialized] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -84,6 +85,7 @@ export default function AdminPanel({
         setGeminiApiKey(settings.geminiApiKey || '');
         setGeminiProxyMode(settings.geminiProxyMode || 'none');
         setGeminiProxyUrl(settings.geminiProxyUrl || '');
+        setGeminiHttpProxy(settings.geminiHttpProxy || '');
         setGeminiInitialized(true);
       }
     }
@@ -137,6 +139,23 @@ export default function AdminPanel({
       fetchDbStats();
     }
   }, [activeTab]);
+
+  const getLocalDateTimeString = (isoString?: string) => {
+    if (!isoString) return '2026-06-11T00:00';
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '2026-06-11T00:00';
+    const offset = d.getTimezoneOffset() * 60000;
+    const localDate = new Date(d.getTime() - offset);
+    return localDate.toISOString().slice(0, 16);
+  };
+
+  const handleChangeSimulatedTime = (localValue: string) => {
+    if (!localValue) return;
+    const d = new Date(localValue);
+    if (!isNaN(d.getTime())) {
+      onUpdateSettings?.({ simulatedTime: d.toISOString(), isFastForwarding: false });
+    }
+  };
 
   const handleResetTournament = async () => {
     const isConfirmed = window.confirm('⚠️ توجه بسیار مهم ⚠️\nآیا واقعاً می‌خواهید کل تورنمنت را ریست کنید؟\n\nاین عمل باعث می‌شود:\n۱. تمام گل‌ها و نتایج ثبت شده مسابقات پاک شوند (به حالت برنامه‌ریزی‌شده برگردند).\n۲. تمام پیش‌بینی‌ها و امتیاز کاربران صفر (۰) شوند.\n۳. زمان فرضی سیستم به تاریخ افتتاحیه (۲۱ خرداد) بازگردد.\n۴. حالت همگام‌ساز خودکار به کنترل دستی ادمین تغییر کند تا خودتان بازی‌ها را شبیه‌سازی یا مدیریت کنید.\n\nآیا مطمئن هستید؟');
@@ -1153,6 +1172,19 @@ export default function AdminPanel({
                   dir="ltr"
                 />
               </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-slate-400 block font-bold">شبکه پروکسی تونلی HTTP با پشتیبانی از یوزر پسورد 🔒:</label>
+                <input
+                  type="text"
+                  placeholder="http://username:password@ip:port"
+                  value={geminiHttpProxy}
+                  onChange={e => setGeminiHttpProxy(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-xs text-emerald-400 placeholder-slate-650 focus:outline-none focus:border-emerald-400 text-left font-mono"
+                  dir="ltr"
+                />
+                <span className="text-[9px] text-slate-500 block leading-normal text-right">اگر برای خروجی‌های خود نیاز به پروکسی شبکه مستقل دارید، آدرس کامل آن را با الگو فوق درج کنید. خالی گذاشتن به معنی استفاده از شبکه مستقیم است.</span>
+              </div>
             </div>
 
             {/* Live Gemini Connection Tester */}
@@ -1186,7 +1218,8 @@ export default function AdminPanel({
                         body: JSON.stringify({
                           testApiKey: geminiApiKey.trim(),
                           proxyMode: geminiProxyMode,
-                          proxyUrl: geminiProxyUrl.trim()
+                          proxyUrl: geminiProxyUrl.trim(),
+                          testHttpProxy: geminiHttpProxy.trim()
                         })
                       });
                       const data = await res.json();
@@ -1234,7 +1267,8 @@ export default function AdminPanel({
                     const success = await onUpdateSettings({
                       geminiApiKey: geminiApiKey.trim(),
                       geminiProxyMode,
-                      geminiProxyUrl: geminiProxyUrl.trim()
+                      geminiProxyUrl: geminiProxyUrl.trim(),
+                      geminiHttpProxy: geminiHttpProxy.trim()
                     });
                     if (success) {
                       triggerAlert('تنظیمات وب‌سرویس هوش مصنوعی (Gemini) با موفقیت روی سرور ذخیره شد!');
@@ -1345,8 +1379,24 @@ export default function AdminPanel({
                     <span className="text-[10px] text-slate-500 text-right font-sans block">
                       {settings?.isFastForwarding 
                         ? 'زمان فرضی با سرعت ۶ ساعت در هر ۱۰ ثانیه به جلو می‌رود.' 
-                        : 'زمان فرضی سیستم متغیر نیست. برای جلو بردن از پرش‌های زیر استفاده کنید.'}
+                        : 'زمان فرضی سیستم متغیر نیست. برای جلو بردن از کنترل دسترسی زیر یا پرش‌ها استفاده کنید.'}
                     </span>
+                  </div>
+                </div>
+
+                {/* Custom Date & Time Picker input */}
+                <div className="bg-slate-900/40 p-3.5 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3" dir="rtl">
+                  <div className="space-y-1 text-right">
+                    <p className="text-xs font-bold text-slate-200">تنظیم دستی تاریخ و ساعت فرضی شبیه‌ساز 📅</p>
+                    <p className="text-[10px] text-slate-500">تاریخ و ساعت دقیق مورد نظر خود را جهت شبیه‌سازی وارد کنید:</p>
+                  </div>
+                  <div>
+                    <input
+                      type="datetime-local"
+                      value={getLocalDateTimeString(settings?.simulatedTime)}
+                      onChange={(e) => handleChangeSimulatedTime(e.target.value)}
+                      className="w-full sm:w-auto bg-slate-950 text-emerald-400 border border-slate-800 hover:border-slate-700 p-2 px-3 rounded-lg text-xs font-bold font-mono text-center focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer"
+                    />
                   </div>
                 </div>
 

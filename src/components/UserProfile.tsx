@@ -474,17 +474,17 @@ export default function UserProfile({
     setProfileSuccess(false);
 
     if (!editFullName.trim()) {
-      setProfileError('Display Name / Full Name cannot be empty.');
+      setProfileError('وارد کردن نام و نام خانوادگی الزامی است.');
       return;
     }
 
     if (newPassword) {
       if (newPassword.length < 4) {
-        setProfileError('Password must be at least 4 characters long.');
+        setProfileError('رمز عبور باید حداقل ۴ کاراکتر باشد.');
         return;
       }
       if (newPassword !== confirmPassword) {
-        setProfileError('Entered passwords do not match.');
+        setProfileError('رمز عبور جدید با تکرار آن مطابقت ندارد.');
         return;
       }
     }
@@ -500,7 +500,7 @@ export default function UserProfile({
       // Dismiss success state after 4 seconds
       setTimeout(() => setProfileSuccess(false), 4000);
     } else {
-      setProfileError('Failed to save profile modifications.');
+      setProfileError('خطا در ذخیره‌سازی اطلاعات کاربری.');
     }
   };
 
@@ -514,7 +514,7 @@ export default function UserProfile({
         {onLogout && (
           <button
             onClick={onLogout}
-            className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-450 hover:text-rose-400 border border-rose-500/25 rounded-xl text-xs font-bold transition-all shadow-md group active:scale-95 z-20 cursor-pointer select-none"
+            className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-405 hover:text-rose-400 border border-rose-500/25 rounded-xl text-xs font-bold transition-all shadow-md group active:scale-95 z-20 cursor-pointer select-none"
             title="خروج از حساب کاربری"
             type="button"
           >
@@ -526,17 +526,28 @@ export default function UserProfile({
         {/* Profile Card left */}
         <div className="flex flex-col md:flex-row items-center gap-4">
           
-          {/* Avatar holding wrapper with interaction overlay */}
-          <div 
-            onClick={() => setShowAvatarEdit(!showAvatarEdit)}
-            className="h-20 w-20 rounded-full overflow-hidden bg-slate-850 border-2 border-emerald-400 p-0.5 shadow-xl relative cursor-pointer group select-none"
-            title="برای تغییر عکس کلیک کنید"
-          >
-            <Avatar avatar={currentUser.avatar} alt={currentUser.fullName} className="h-full w-full rounded-full object-cover transition-all group-hover:brightness-50" />
-            <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 text-white rounded-full">
-              <Camera className="h-4.5 w-4.5" />
-              <span className="text-[8px] font-black uppercase tracking-wider font-sans">ویرایش</span>
+          {/* Avatar holding wrapper with interaction overlay and under-avatar editor button */}
+          <div className="flex flex-col items-center gap-2 shrink-0">
+            <div 
+              onClick={() => setShowAvatarEdit(!showAvatarEdit)}
+              className="h-20 w-20 rounded-full overflow-hidden bg-slate-850 border-2 border-emerald-400 p-0.5 shadow-xl relative cursor-pointer group select-none"
+              title="برای تغییر عکس کلیک کنید"
+            >
+              <Avatar avatar={currentUser.avatar} alt={currentUser.fullName} className="h-full w-full rounded-full object-cover transition-all group-hover:brightness-50" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 text-white rounded-full">
+                <Camera className="h-4.5 w-4.5" />
+                <span className="text-[8px] font-black uppercase tracking-wider font-sans">ویرایش</span>
+              </div>
             </div>
+            {/* دکمه ویرایش عکس پروفایل زیر عکس برای دسکتاپ و تبلت */}
+            <button
+              onClick={() => setShowAvatarEdit(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-850 hover:bg-slate-800 text-slate-300 hover:text-emerald-400 rounded-lg text-[10px] font-bold border border-slate-800/60 transition-all active:scale-95 cursor-pointer select-none"
+              type="button"
+            >
+              <Camera className="h-3.5 w-3.5" />
+              <span>ویرایش عکس پروفایل</span>
+            </button>
           </div>
 
           <div className="space-y-1">
@@ -594,27 +605,27 @@ export default function UserProfile({
             </button>
           </div>
 
-          {/* Navigation Tabs (English only) */}
-          <div className="flex border-b border-slate-800 flex-wrap gap-1">
+          {/* Navigation Tabs (2-Column Grid keeps them side-by-side both on mobile and desktop) */}
+          <div className="grid grid-cols-2 border-b border-slate-800 gap-1 text-center w-full">
             <button
               onClick={() => setActiveAvatarTab('presets')}
-              className={`pb-2.5 px-4 font-bold text-sm transition-all focus:outline-none relative ${
+              className={`pb-2.5 px-2 font-bold text-xs sm:text-sm transition-all focus:outline-none relative text-center w-full block ${
                 activeAvatarTab === 'presets' 
                   ? 'text-emerald-400 font-extrabold border-b-2 border-emerald-400' 
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              🦊 آواتارهای فانتزی و بامزه
+              🦊 آواتارهای فانتزی
             </button>
             <button
               onClick={() => setActiveAvatarTab('upload')}
-              className={`pb-2.5 px-4 font-bold text-sm transition-all focus:outline-none relative ${
+              className={`pb-2.5 px-2 font-bold text-xs sm:text-sm transition-all focus:outline-none relative text-center w-full block ${
                 activeAvatarTab === 'upload' 
                   ? 'text-emerald-400 font-extrabold border-b-2 border-emerald-400' 
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              📤 بارگذاری آواتار دلخواه
+              📤 بارگذاری دلخواه
             </button>
           </div>
 
