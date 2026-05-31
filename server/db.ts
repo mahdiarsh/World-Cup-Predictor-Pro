@@ -1058,17 +1058,22 @@ export function runFifaLiveSync(): void {
       m11: { home: 0, away: 2 }  // Poland vs Argentina
     };
 
+    const currentThreshold = new Date(settings.simulatedTime || new Date().toISOString()).getTime();
     const hasAIConfig = !!(db.settings?.openRouterApiKey || db.settings?.geminiApiKey || process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY);
     // If Gemini is active on boot/online sync, let's gracefully fetch real life scores or use officialResults cache
     for (const matchId in officialResults) {
       const match = db.matches.find(m => m.id === matchId);
       if (match && match.status !== MatchStatus.FINISHED) {
-        const res = officialResults[matchId];
-        match.homeScore = res.home;
-        match.awayScore = res.away;
-        match.status = MatchStatus.FINISHED;
-        match.isSimulated = false; // Real online result
-        hasChanges = true;
+        // Only apply results if simulatedTime / current local time has chronologically passed kickoffTime
+        const kickoffTime = new Date(match.kickoffTimeUtc).getTime();
+        if (kickoffTime <= currentThreshold) {
+          const res = officialResults[matchId];
+          match.homeScore = res.home;
+          match.awayScore = res.away;
+          match.status = MatchStatus.FINISHED;
+          match.isSimulated = false; // Real online result
+          hasChanges = true;
+        }
       }
     }
   } else {
@@ -1120,20 +1125,17 @@ export function resetTournament(): void {
     status: MatchStatus.SCHEDULED
   }));
   
-  // Delete all predictions belonging to any admin user
-  const adminIds = db.users.filter(u => u.role === UserRole.ADMIN || u.id === 'u-admin').map(u => u.id);
-  db.predictions = db.predictions.filter(p => !adminIds.includes(p.userId));
-
-  // Reset remaining predictions
+  // Reset points for all predictions, BUT PRESERVE user registration and predictedHome/predictedAway scores
   for (const p of db.predictions) {
     p.points = null;
   }
   
-  // Reset settings
+  // Reset clock settings while gracefully preserving existing API keys and setup fields
   db.settings = {
+    ...db.settings,
     registrationEnabled: db.settings?.registrationEnabled !== false,
-    syncMode: 'manual',
-    simulatedTime: '2026-06-11T00:00:00Z',
+    syncMode: 'online', // Default to online to pull from FIFA dynamically when kickoff times pass
+    simulatedTime: new Date().toISOString(), // Set clock to right now
     isFastForwarding: false
   };
   

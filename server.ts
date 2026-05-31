@@ -1579,8 +1579,8 @@ app.get('/api/predictions/export-excel', authenticateToken, (req: AuthenticatedR
   try {
     const db = loadDB();
     
-    // Process and sort users exactly by their leaderboard ranking logic
-    const scoringUsers = db.users.filter(u => u.role !== UserRole.ADMIN);
+    // Process and sort all users exactly by their leaderboard ranking logic (including admins so nothing is incomplete)
+    const scoringUsers = db.users;
     
     const entries = scoringUsers.map(user => {
       const userPreds = db.predictions.filter(p => p.userId === user.id);
@@ -1621,12 +1621,20 @@ app.get('/api/predictions/export-excel', authenticateToken, (req: AuthenticatedR
     });
 
     const resolvedMatches = resolveMatchesWithStandings(db.matches);
+    
+    // Explicitly sort columns numerically by Match ID
+    resolvedMatches.sort((a, b) => {
+      const numA = parseInt(a.id.replace(/\D/g, '')) || 0;
+      const numB = parseInt(b.id.replace(/\D/g, '')) || 0;
+      return numA - numB;
+    });
 
     // Build CSV header row
     const headers = [
       'رتبه',
       'نام و نام خانوادگی',
       'شماره همراه (نام کاربری)',
+      'نقش سیستمی',
       'امتیاز کل',
       'پیش‌بینی‌های کاملاً دقیق (۱۰ امتیاز)',
       'پیش‌بینی تفاضل گل صحیح (۷ امتیاز)',
@@ -1657,6 +1665,7 @@ app.get('/api/predictions/export-excel', authenticateToken, (req: AuthenticatedR
         String(index + 1),
         user.fullName,
         user.username,
+        user.role === UserRole.ADMIN ? 'مدیر سیستم' : 'کاربر عادی',
         String(user.totalScore),
         String(user.exact),
         String(user.diff),
@@ -1682,7 +1691,8 @@ app.get('/api/predictions/export-excel', authenticateToken, (req: AuthenticatedR
       rows.push(row);
     });
 
-    const csvContent = rows.map(r => r.map(escapeCSV).join(',')).join('\r\n');
+    // prepend delimiter instruction so Excel parses the comma separator natively on any system/locale
+    const csvContent = 'sep=,\r\n' + rows.map(r => r.map(escapeCSV).join(',')).join('\r\n');
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=worldcup_predictions_report.csv');
