@@ -1694,10 +1694,13 @@ app.get('/api/predictions/export-excel', authenticateToken, (req: AuthenticatedR
     // prepend delimiter instruction so Excel parses the comma separator natively on any system/locale
     const csvContent = 'sep=,\r\n' + rows.map(r => r.map(escapeCSV).join(',')).join('\r\n');
 
+    const bom = Buffer.from('\uFEFF', 'utf-8');
+    const contentBuffer = Buffer.from(csvContent, 'utf-8');
+    const responseBuffer = Buffer.concat([bom, contentBuffer]);
+
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=worldcup_predictions_report.csv');
-    res.write('\uFEFF'); // UTF-8 BOM
-    res.end(csvContent);
+    res.send(responseBuffer);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'خطا در خروجی گرفتن از گزارش پیش‌بینی کاربران.' });
   }
@@ -2452,6 +2455,32 @@ app.post('/api/admin/sms-test', authenticateToken, requireAdmin, async (req: Aut
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'خطا در برقراری ارتباط با درگاه ملی‌پیامک' });
+  }
+});
+
+// GET /api/admin/squads/status (Admin only - get current cache status of all squads)
+app.get('/api/admin/squads/status', authenticateToken, requireAdmin, (req: Request, res: Response) => {
+  try {
+    const cache = loadSquadsCache();
+    const status: Record<string, { isAiSynced: boolean; playerCount: number; coach: string }> = {};
+    for (const team of teamsSeed) {
+      if (cache[team.id]) {
+        status[team.id] = {
+          isAiSynced: true,
+          playerCount: cache[team.id].players?.length || 0,
+          coach: cache[team.id].coach || ''
+        };
+      } else {
+        status[team.id] = {
+          isAiSynced: false,
+          playerCount: 0,
+          coach: ''
+        };
+      }
+    }
+    res.json({ status });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'خطا در خواندن وضعیت همگام‌سازی بازیکنان.' });
   }
 });
 

@@ -7,6 +7,7 @@ import { User, Match, UserRole, MatchStage, MatchStatus } from '../types';
 import { teamsSeed, getTeamName, getTeamFlag } from '../data/teams';
 import Avatar from './Avatar';
 import FlagIcon from './FlagIcon';
+import AdminSquadSync from './AdminSquadSync';
 
 const SHAMSI_MONTH_NAMES = [
   'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
@@ -1742,6 +1743,9 @@ export default function AdminPanel({
               </button>
             </div>
           </div>
+
+          {/* AI Batch Squad Sync Engine */}
+          <AdminSquadSync onNotify={triggerAlert} />
 
           <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/60 p-5 rounded-xl border border-slate-800 justify-between">
             <div className="space-y-1 text-right">
