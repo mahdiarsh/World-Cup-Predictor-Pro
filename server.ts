@@ -1550,6 +1550,31 @@ function escapeCSV(val: any): string {
   return `"${str}"`;
 }
 
+function escapeTSV(val: any): string {
+  if (val === null || val === undefined) return '';
+  let str = String(val);
+  
+  // Clean all raw tabs, newlines, and carriage returns that can disrupt column and row boundaries
+  str = str.replace(/[\t\r\n]+/g, ' ').trim();
+  
+  // Convert double-quotes to single-quotes or escape them as double-double-quotes
+  if (str.includes('"')) {
+    str = str.replace(/"/g, '""');
+  }
+  
+  // Safe Excel escaping for formula trigger prefixes
+  if (str.startsWith('=') || str.startsWith('+') || str.startsWith('-') || str.startsWith('@')) {
+    str = "'" + str;
+  }
+  
+  // If we have escaped double-quotes or remaining tab characters, double-quote the entire cell
+  if (str.includes('"') || str.includes('\t')) {
+    return `"${str}"`;
+  }
+  
+  return str;
+}
+
 function getTeamNameLocal(teamId: string, teams: Team[]): string {
   if (!teamId) return 'نامشخص';
   if (teamId.startsWith('TBD_')) {
@@ -1583,14 +1608,14 @@ app.get('/api/predictions/export-excel', authenticateToken, (req: AuthenticatedR
     const scoringUsers = db.users;
     
     const entries = scoringUsers.map(user => {
-      const userPreds = db.predictions.filter(p => p.userId === user.id);
+      const userPreds = db.predictions.filter(p => String(p.userId).trim().toLowerCase() === String(user.id).trim().toLowerCase());
       let exact = 0;
       let diff = 0;
       let winner = 0;
       let playedCount = 0;
 
       for (const pred of userPreds) {
-        const match = db.matches.find(m => m.id === pred.matchId);
+        const match = db.matches.find(m => String(m.id).trim().toLowerCase() === String(pred.matchId).trim().toLowerCase());
         if (match && match.status === MatchStatus.FINISHED && match.homeScore !== null && match.awayScore !== null) {
           playedCount++;
           if (pred.points === 10) exact++;
@@ -1675,14 +1700,14 @@ app.get('/api/predictions/export-excel', authenticateToken, (req: AuthenticatedR
 
       // Add prediction details for each match
       resolvedMatches.forEach((m) => {
-        const pred = db.predictions.find(p => p.userId === user.id && p.matchId === m.id);
+        const pred = db.predictions.find(p => String(p.userId).trim().toLowerCase() === String(user.id).trim().toLowerCase() && String(p.matchId).trim().toLowerCase() === String(m.id).trim().toLowerCase());
         if (pred) {
-          // If match is finished, display points scored
+          // Prepend single quote (') and Left-to-Right Mark (\u200E) to force raw text rendering in Excel & prevent date conversions like 0-0 or 1-2
           let text = `${pred.predictedHome} - ${pred.predictedAway}`;
           if (pred.points !== null) {
             text += ` (${pred.points}+ امتیاز)`;
           }
-          row.push(text);
+          row.push(`'\u200E${text}`);
         } else {
           row.push('ثبت نشده');
         }
@@ -1691,14 +1716,15 @@ app.get('/api/predictions/export-excel', authenticateToken, (req: AuthenticatedR
       rows.push(row);
     });
 
-    // prepend delimiter instruction so Excel parses the comma separator natively on any system/locale
-    const csvContent = 'sep=,\r\n' + rows.map(r => r.map(escapeCSV).join(',')).join('\r\n');
-
-    const bom = Buffer.from('\uFEFF', 'utf-8');
-    const contentBuffer = Buffer.from(csvContent, 'utf-8');
+    // Build TSV content in UTF-16LE format with standard UTF-16LE BOM
+    const tsvContent = rows.map(r => r.map(escapeTSV).join('\t')).join('\r\n');
+    
+    // Create UTF-16LE BOM buffer (FF FE in Little Endian)
+    const bom = Buffer.from([0xFF, 0xFE]);
+    const contentBuffer = Buffer.from(tsvContent, 'utf16le');
     const responseBuffer = Buffer.concat([bom, contentBuffer]);
 
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-16le');
     res.setHeader('Content-Disposition', 'attachment; filename=worldcup_predictions_report.csv');
     res.send(responseBuffer);
   } catch (err: any) {
