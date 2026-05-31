@@ -100,7 +100,7 @@ interface AdminPanelProps {
   matches: Match[];
   onAddMatch: (match: any) => Promise<boolean>;
   onEditMatch: (id: string, updates: any) => Promise<boolean>;
-  onSetMatchResult: (id: string, home: number, away: number) => Promise<boolean>;
+  onSetMatchResult: (id: string, home: number | null, away: number | null) => Promise<boolean>;
   onDeleteMatch: (id: string) => Promise<boolean>;
   onAddUser: (user: any) => Promise<boolean>;
   onEditUser: (id: string, updates: any) => Promise<boolean>;
@@ -240,7 +240,51 @@ export default function AdminPanel({
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isRestoringBackup, setIsRestoringBackup] = useState<string | null>(null);
   const [isDeletingBackup, setIsDeletingBackup] = useState<string | null>(null);
+  const [isDownloadingBackup, setIsDownloadingBackup] = useState<string | null>(null);
   const [isSavingBackupConfig, setIsSavingBackupConfig] = useState(false);
+
+  const handleDownloadBackup = async (filename: string) => {
+    try {
+      setIsDownloadingBackup(filename);
+      const tokenVal = localStorage.getItem('wc_token');
+      if (!tokenVal) return;
+      const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}/download`, {
+        headers: {
+          'Authorization': `Bearer ${tokenVal}`
+        }
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'خطا در دانلود فایل بکاپ.');
+      }
+    } catch (err) {
+      alert('خطا در برقراری ارتباط با سرور برای دانلود فایل.');
+    } finally {
+      setIsDownloadingBackup(null);
+    }
+  };
+
+  const handleResetSingleMatchResult = async (matchId: string) => {
+    if (window.confirm('آیا مایل به بازنشانی این مسابقه به وضعیت «برگزار نشده» هستید؟ تمام پیش‌بینی‌های قبلی کاربران پابرجا می‌مانند اما امتیاز و نتیجه برداشته می‌شود.')) {
+      const succ = await onSetMatchResult(matchId, null, null);
+      if (succ) {
+        triggerAlert('نتایج این مسابقه با موفقیت بازنشانی شد و جدول رده‌بندی کاربران دوباره محاسبه گردید!');
+        setScoreSetOpen(null);
+      } else {
+        triggerAlert('خطا در بازنشانی نتایج مسابقه.', true);
+      }
+    }
+  };
 
   const fetchBackupsList = async () => {
     try {
@@ -563,7 +607,7 @@ export default function AdminPanel({
 
   const STAGE_TRANSLATIONS: Record<string, string> = {
     'Group Stage': 'مرحله گروهی',
-    'Round of 32': 'یک‌سی‌ودوم نهایی',
+    'Round of 32': 'یک‌شانزدهم نهایی',
     'Round of 16': 'یک‌هشتم نهایی',
     'Quarter Finals': 'یک‌چهارم نهایی',
     'Semi Finals': 'نیمه‌نهایی',
@@ -1164,6 +1208,15 @@ export default function AdminPanel({
                       >
                         ثبت و اعمال نهایی نتایج
                       </button>
+
+                      <button
+                        onClick={() => handleResetSingleMatchResult(m.id)}
+                        type="button"
+                        className="w-full sm:w-auto px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-red-400 hover:text-red-300 font-extrabold text-xs rounded border border-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-center gap-1 select-none"
+                        title="پاک کردن نتایج ثبت شده و تبدیل مجدد به بازی برگزار نشده"
+                      >
+                        🔄 بازنشانی بازی
+                      </button>
                     </div>
                   )}
 
@@ -1720,11 +1773,11 @@ export default function AdminPanel({
                   سیستم به صورت خودکار بازی‌ها، نتایج، گل‌ها و صعود تیم‌ها را شبیه‌سازی و زنده همگام‌سازی می‌کند. شما نیازی به وارد کردن تک تک نتایج ندارید!
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => onUpdateSettings?.({ syncMode: 'simulation' })}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     (settings?.syncMode || 'simulation') === 'simulation'
                       ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                       : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-250'
@@ -1734,8 +1787,19 @@ export default function AdminPanel({
                 </button>
                 <button
                   type="button"
+                  onClick={() => onUpdateSettings?.({ syncMode: 'online' })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    settings?.syncMode === 'online'
+                      ? 'bg-blue-500/15 text-blue-400 border border-blue-505/30'
+                      : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-250'
+                  }`}
+                >
+                  دریافت آنلاین نتایج واقعی 🌐
+                </button>
+                <button
+                  type="button"
                   onClick={() => onUpdateSettings?.({ syncMode: 'manual' })}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     settings?.syncMode === 'manual'
                       ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
                       : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-250'
@@ -1771,21 +1835,44 @@ export default function AdminPanel({
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-center sm:items-end gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => onUpdateSettings?.({ isFastForwarding: !settings?.isFastForwarding })}
-                      className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
-                        settings?.isFastForwarding
-                          ? 'bg-emerald-600 text-white font-black animate-pulse shadow-emerald-500/20 shadow-lg'
-                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                      }`}
-                    >
-                      <span>{settings?.isFastForwarding ? '⏸️ توقف گذر زمان' : '⏩ فعالسازی جلوبر خودکار زمان'}</span>
-                    </button>
+                  <div className="flex flex-col items-center sm:items-end gap-2 shrink-0">
+                    <div className="flex gap-2 items-center flex-wrap justify-end">
+                      {/* Speed multiplier picker select option */}
+                      <div className="flex items-center gap-1 bg-slate-950 p-1 px-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-400 font-bold select-none shrink-0 border-l border-slate-800 pl-1.5">سرعت گذر زمان:</span>
+                        <select
+                          value={settings?.simSpeedFactor || 1}
+                          onChange={(e) => onUpdateSettings?.({ simSpeedFactor: Number(e.target.value) })}
+                          className="bg-transparent text-emerald-400 text-[10px] font-black focus:outline-none cursor-pointer outline-none"
+                        >
+                          <option value={1} className="bg-slate-950 text-slate-350">۱ برابر (ثانیه به ثانیه)</option>
+                          <option value={60} className="bg-slate-950 text-slate-350">۶۰ برابر (۱ ثانیه = ۱ دقیقه)</option>
+                          <option value={600} className="bg-slate-950 text-slate-350">۶۰۰ برابر (۱ ثانیه = ۱۰ دقیقه)</option>
+                          <option value={3600} className="bg-slate-950 text-slate-350">۳۶۰۰ برابر (۱ ثانیه = ۱ ساعت)</option>
+                          <option value={21600} className="bg-slate-950 text-slate-350">۲۱۶۰۰ برابر (۱ ثانیه = ۶ ساعت)</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => onUpdateSettings?.({ isFastForwarding: !settings?.isFastForwarding })}
+                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                          settings?.isFastForwarding
+                            ? 'bg-emerald-600 text-white font-black animate-pulse shadow-emerald-500/20 shadow-lg'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                        }`}
+                      >
+                        <span>{settings?.isFastForwarding ? '⏸️ توقف گذر زمان' : '⏩ فعالسازی جلوبر خودکار زمان'}</span>
+                      </button>
+                    </div>
                     <span className="text-[10px] text-slate-500 text-right font-sans block">
                       {settings?.isFastForwarding 
-                        ? 'زمان فرضی با سرعت ۶ ساعت در هر ۱۰ ثانیه به جلو می‌رود.' 
+                        ? `شبیه‌ساز فعال است و زمان با سرعت ${
+                            settings?.simSpeedFactor === 21600 ? '۶ ساعت در ثانیه' :
+                            settings?.simSpeedFactor === 3600 ? '۱ ساعت در ثانیه' :
+                            settings?.simSpeedFactor === 600 ? '۱۰ دقیقه در ثانیه' :
+                            settings?.simSpeedFactor === 60 ? '۱ دقیقه در ثانیه' : 'ثانیه به ثانیه واقعی'
+                          } به جلو می‌رود.` 
                         : 'زمان فرضی سیستم متغیر نیست. برای جلو بردن از کنترل دسترسی زیر یا پرش‌ها استفاده کنید.'}
                     </span>
                   </div>
@@ -1925,6 +2012,30 @@ export default function AdminPanel({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Ephemeral Warning and Auto-Restore Banner */}
+          <div className="bg-amber-950/20 border border-amber-500/25 rounded-2xl p-5 space-y-3 text-right">
+            <h4 className="text-sm font-black text-amber-400 flex items-center gap-2">
+              ⚠️ راهنمای پیشگیری از حذف کاربران و دیتابیس هنگام ارتقا و جایگزینی فایل‌ها
+            </h4>
+            <p className="text-xs text-slate-300 leading-relaxed font-medium">
+              از آنجایی که برنامه شما روی محیط‌های ابری موقت اجرا می‌شود، با هر بار آپلود کدهای جدید یا جایگزینی فایل‌ها، مخزن ریستارت شده و کل اطلاعات محلی شامل کاربران ثبت‌نامی و پیش‌بینی‌ها پاک می‌گردند. برای حل آسان این مشکل:
+            </p>
+            <div className="text-[11px] text-slate-400 leading-relaxed space-y-2 bg-slate-950/50 p-4 rounded-xl border border-slate-900">
+              <p>
+                ۱. پیش از ارسال فایل‌های جدید، از انتهای همین بخش دکمه <span className="text-blue-400 font-bold">«دانلود فایل دیتابیس (JSON)»</span> را کلیک کنید تا فایل پشتیبان دیتابیس روی کامپیوترتان دانلود شود.
+              </p>
+              <p>
+                ۲. <b className="text-emerald-400">قابلیت بازیابی خودکار سرور:</b> فایل دانلود شده را دقیقاً به نام <span className="text-white font-mono font-bold bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">database.json</span> نام‌گذاری کرده و آن را در پوشه اصلی کدهای پروژه خود (کنار فایل <code className="text-white bg-slate-900 px-1 py-0.5 border border-slate-800 rounded font-mono">package.json</code>) قرار دهید و سپس آپلود نهایی کدهایتان انجام شود.
+              </p>
+              <p>
+                ۳. سرور در اولین اجرا وجود این فایل را تشخیص داده و کل کاربران، رمزهای عبور و پیش‌بینی‌های قبلی شما را <b className="text-emerald-400 font-black">به صورت کاملاً اتوماتیک و در عرض ۱ ثانیه به دیتابیس زنده پیوند می‌دهد!</b>
+              </p>
+              <p>
+                ۴. همچنین می‌توانید پس از آپلود، از ابزار دستی بخش زیر فایلی که بارگیری کرده‌اید را آپلود و یک لحظه‌ای بازگردانی نمایید.
+              </p>
+            </div>
           </div>
 
           {/* Automatic Backup Scheduler Settings Card */}
@@ -2098,10 +2209,24 @@ export default function AdminPanel({
                               </p>
                             </div>
                             
-                            <div className="flex items-center gap-2 shrink-0 justify-end">
+                            <div className="flex items-center gap-2 shrink-0 justify-end flex-wrap">
                               <button
                                 type="button"
-                                disabled={isRestoringBackup !== null || isDeletingBackup !== null}
+                                disabled={isRestoringBackup !== null || isDeletingBackup !== null || isDownloadingBackup !== null}
+                                onClick={() => handleDownloadBackup(bak.filename)}
+                                className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-blue-950/40 text-blue-400 border border-blue-500/25 hover:bg-blue-950/80 transition-all cursor-pointer flex items-center gap-1 active:scale-95 select-none"
+                              >
+                                {isDownloadingBackup === bak.filename ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin text-blue-400" />
+                                ) : (
+                                  <Download className="h-3.5 w-3.5 text-blue-400 font-extrabold" />
+                                )}
+                                <span>دانلود</span>
+                              </button>
+                              
+                              <button
+                                type="button"
+                                disabled={isRestoringBackup !== null || isDeletingBackup !== null || isDownloadingBackup !== null}
                                 onClick={() => handleRestoreBackup(bak.filename)}
                                 className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-emerald-950/40 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-950/80 transition-all cursor-pointer flex items-center gap-1 active:scale-95 select-none"
                               >
@@ -2114,7 +2239,7 @@ export default function AdminPanel({
                               </button>
                               <button
                                 type="button"
-                                disabled={isRestoringBackup !== null || isDeletingBackup !== null}
+                                disabled={isRestoringBackup !== null || isDeletingBackup !== null || isDownloadingBackup !== null}
                                 onClick={() => handleDeleteBackup(bak.filename)}
                                 className="p-1 px-1.5 text-[11px] font-black rounded-lg bg-red-950/30 text-red-400 border border-red-500/15 hover:bg-red-950/85 hover:border-red-500/35 transition-all cursor-pointer flex items-center gap-1 active:scale-95 select-none"
                               >

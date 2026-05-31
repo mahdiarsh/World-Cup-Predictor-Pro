@@ -109,7 +109,7 @@ export default function FeaturedMatchCard({
 
   const STAGE_TRANSLATIONS: Record<string, string> = {
     'Group Stage': 'مرحله گروهی',
-    'Round of 32': 'یک‌سی‌ودوم نهایی',
+    'Round of 32': 'یک‌شانزدهم نهایی',
     'Round of 16': 'یک‌هشتم نهایی',
     'Quarter Finals': 'یک‌چهارم نهایی',
     'Semi Finals': 'نیمه‌نهایی',

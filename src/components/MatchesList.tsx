@@ -60,7 +60,7 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
   const STAGE_TRANSLATIONS: Record<string, string> = {
     'ALL': '🏆 همه مراحل',
     'Group Stage': 'مرحله گروهی',
-    'Round of 32': 'یک‌سی‌ودوم نهایی',
+    'Round of 32': 'یک‌شانزدهم نهایی',
     'Round of 16': 'یک‌هشتم نهایی',
     'Quarter Finals': 'یک‌چهارم نهایی',
     'Semi Finals': 'نیمه‌نهایی',

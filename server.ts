@@ -616,11 +616,7 @@ app.put('/api/matches/:id', authenticateToken, requireAdmin, (req: Authenticated
 app.put('/api/matches/:id/result', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
   try {
     const { homeScore, awayScore, status } = req.body;
-    if (homeScore === undefined || awayScore === undefined || homeScore === null || awayScore === null) {
-      res.status(400).json({ error: 'ثبت تعداد گل‌های تیم‌های میزبان و میهمان الزامی است.' });
-      return;
-    }
-
+    
     const db = loadDB();
     const matchIdx = db.matches.findIndex(m => m.id === req.params.id);
     if (matchIdx === -1) {
@@ -628,9 +624,28 @@ app.put('/api/matches/:id/result', authenticateToken, requireAdmin, (req: Authen
       return;
     }
 
+    // Support resetting match score back to scheduled/unplayed
+    if (homeScore === null || awayScore === null || status === 'SCHEDULED' || status === 'RESET') {
+      db.matches[matchIdx].homeScore = null;
+      db.matches[matchIdx].awayScore = null;
+      db.matches[matchIdx].status = MatchStatus.SCHEDULED;
+      db.matches[matchIdx].isSimulated = false;
+      
+      saveDB(db);
+      recalculateAllScores();
+      res.json({ message: 'نتایج مسابقه با موفقیت بازنشانی شد و جدول رده‌بندی به‌روزرسانی گردید.', match: db.matches[matchIdx] });
+      return;
+    }
+
+    if (homeScore === undefined || awayScore === undefined) {
+      res.status(400).json({ error: 'ثبت تعداد گل‌های تیم‌های میزبان و میهمان الزامی است.' });
+      return;
+    }
+
     db.matches[matchIdx].homeScore = Number(homeScore);
     db.matches[matchIdx].awayScore = Number(awayScore);
     db.matches[matchIdx].status = status || MatchStatus.FINISHED;
+    db.matches[matchIdx].isSimulated = false; // Manually assigned now
 
     saveDB(db);
 
@@ -1329,6 +1344,27 @@ app.get('/api/admin/backups', authenticateToken, requireAdmin, (req: Authenticat
   }
 });
 
+// GET /api/admin/backups/:filename/download (Admin only - download a backup snapshot file)
+app.get('/api/admin/backups/:filename/download', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const filename = req.params.filename;
+    // Prevent directory traversal attacks!
+    if (filename.includes('/') || filename.includes('\\') || !filename.startsWith('backup_') || !filename.endsWith('.json')) {
+      res.status(400).json({ error: 'نام فایل پشتیبان نامعتبر است.' });
+      return;
+    }
+    const backupsDir = path.join(process.cwd(), 'backups');
+    const filePath = path.join(backupsDir, filename);
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: 'فایل پشتیبان زنده یافت نشد.' });
+      return;
+    }
+    res.download(filePath, filename);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'خطا در دانلود فایل بکاپ.' });
+  }
+});
+
 // POST /api/admin/backups/create (Admin only - create manual snapshot instantly)
 app.post('/api/admin/backups/create', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -1675,6 +1711,7 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
       syncMode, 
       simulatedTime, 
       isFastForwarding,
+      simSpeedFactor,
       smsEnabled,
       smsUsername,
       smsPassword,
@@ -1711,6 +1748,10 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req: AuthenticatedReq
     }
     if (isFastForwarding !== undefined) {
       db.settings.isFastForwarding = !!isFastForwarding;
+      db.settings.lastSimulatedSyncRealTime = Date.now();
+    }
+    if (simSpeedFactor !== undefined) {
+      db.settings.simSpeedFactor = Number(simSpeedFactor) || 1;
       db.settings.lastSimulatedSyncRealTime = Date.now();
     }
     

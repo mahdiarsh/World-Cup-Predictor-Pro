@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Award, Gamepad, Compass, Star, ArrowRight, ShieldAlert, BadgeCheck } from 'lucide-react';
+import { Trophy, Award, Gamepad, Compass, Star, ArrowRight, ShieldAlert, BadgeCheck, Search } from 'lucide-react';
 import { User, Match, Prediction, LeaderboardEntry, UserRole, MatchStatus } from './types';
 import { getTeamFlag, getTeamCode, teamsSeed } from './data/teams';
 import Navbar from './components/Navbar';
@@ -25,6 +25,7 @@ export default function App() {
   const [settings, setSettings] = useState<any>({ registrationEnabled: true });
   const [selectedPublicUserId, setSelectedPublicUserId] = useState<string | null>(null);
   const [displayTime, setDisplayTime] = useState<Date | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Sync client-side display clock with backend simulation settings
   useEffect(() => {
@@ -436,7 +437,7 @@ export default function App() {
     return false;
   };
 
-  const handleSetMatchResult = async (id: string, home: number, away: number): Promise<boolean> => {
+  const handleSetMatchResult = async (id: string, home: number | null, away: number | null): Promise<boolean> => {
     try {
       const res = await fetch(`/api/matches/${id}/result`, {
         method: 'PUT',
@@ -758,67 +759,120 @@ export default function App() {
     }
 
     // Default: 'home' / matches dashboard listing are joined in home view
-    const recentCompleted = matches
-      .filter(m => m.status === MatchStatus.FINISHED)
-      .sort((a, b) => new Date(b.kickoffTimeUtc).getTime() - new Date(a.kickoffTimeUtc).getTime())
-      .slice(0, 5);
+    const getTeamName = (teamId: string) => {
+      const team = teamsSeed.find(t => t.id === teamId);
+      return team ? team.name : teamId;
+    };
 
-    const upcomingOrLive = matches
-      .filter(m => m.status === MatchStatus.SCHEDULED || m.status === MatchStatus.LIVE)
-      .sort((a, b) => new Date(a.kickoffTimeUtc).getTime() - new Date(b.kickoffTimeUtc).getTime())
-      .slice(0, 5);
-
-    const recentAndUpcomingMatches = [...upcomingOrLive, ...recentCompleted];
+    const searchResults = searchQuery.trim() === '' ? [] : matches.filter(m => {
+      const homeName = getTeamName(m.homeTeamId).toLowerCase();
+      const awayName = getTeamName(m.awayTeamId).toLowerCase();
+      const query = searchQuery.trim().toLowerCase();
+      return homeName.includes(query) || awayName.includes(query);
+    });
 
     return (
       <div className="space-y-10">
         
-        {/* Quick Bento features (Recent & Upcoming matches with inline prediction) */}
-        {recentAndUpcomingMatches.length > 0 && (
-          <div className="space-y-4 max-w-full mx-auto">
-            <div className="flex items-center justify-between border-b border-slate-800/85 pb-2">
-              <h3 className="font-extrabold text-white text-base flex items-center gap-2">
-                <Compass className="h-5 w-5 text-emerald-400" />
-                بازی‌های اخیر و آینده
-              </h3>
-              <button
-                onClick={() => setCurrentTab('matches_list')}
-                className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-sans transition-colors"
-              >
-                مشاهده تمام مسابقات <ArrowRight className="h-3.5 w-3.5 rotate-180" />
-              </button>
+        {/* Smart Country/Team Search Panel */}
+        <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+          {/* Subtle field grid decoration background */}
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
+            backgroundImage: `radial-gradient(#10b981 1.5px, transparent 1.5px), radial-gradient(#10b981 1.5px, transparent 1.5px)`,
+            backgroundSize: '30px 30px',
+            backgroundPosition: '0 0, 15px 15px'
+          }} />
+
+          <div className="relative z-10 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-800/80">
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-white text-base flex items-center gap-2">
+                  <Search className="h-5 w-5 text-emerald-400" />
+                  جستجوی هوشمند مسابقات
+                </h3>
+                <p className="text-xs text-slate-400">جستجوی زنده بازی‌ها بر اساس نام کشور یا تیم</p>
+              </div>
+              
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <span className="text-[10px] font-bold text-slate-500">جستجوی سریع:</span>
+                {['ایران', 'برزیل', 'اسپانیا', 'آلمان', 'فرانسه', 'آرژانتین'].map(teamName => (
+                  <button
+                    key={teamName}
+                    onClick={() => setSearchQuery(teamName)}
+                    className={`text-[10px] px-2.5 py-1 rounded-full border transition-all font-bold ${
+                      searchQuery === teamName 
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/35 shadow-sm'
+                        : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                    }`}
+                  >
+                    {teamName}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Render featured dynamic cards in a single row without wrapping by responsive showing/hiding extra cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 animate-in fade-in duration-300">
-              {recentAndUpcomingMatches.map((m, index) => {
-                const pred = predictions.find(p => p.matchId === m.id);
-                // Define classes to show exact amount of cards corresponding to the responsive grid layout
-                let visibilityClass = "block";
-                if (index === 1) visibilityClass = "hidden sm:block";
-                else if (index === 2) visibilityClass = "hidden md:block";
-                else if (index === 3) visibilityClass = "hidden lg:block";
-                else if (index === 4) visibilityClass = "hidden xl:block";
-                else if (index === 5) visibilityClass = "hidden 2xl:block";
-                else if (index >= 6) visibilityClass = "hidden";
+            {/* Input field */}
+            <div className="relative w-full max-w-lg">
+              <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="نام کشور مورد نظر را بنویسید (مثلاً: ایران)..."
+                className="w-full pr-11 pl-16 py-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm focus:border-emerald-500/50 focus:outline-none transition-all placeholder:text-slate-500 focus:ring-1 focus:ring-emerald-500/30 font-semibold"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs font-bold bg-slate-900 border border-slate-800 px-2 py-1 rounded transition-colors"
+                >
+                  پاک کردن
+                </button>
+              )}
+            </div>
 
-                return (
-                  <div key={m.id} className={visibilityClass}>
-                    <FeaturedMatchCard
-                      match={m}
-                      prediction={pred}
-                      currentUser={currentUser}
-                      onSavePrediction={handleSavePrediction}
-                      onTriggerAuth={() => setCurrentTab('login')}
-                      onTeamClick={setSelectedTeamId}
-                      settings={settings}
-                    />
+            {/* Results output tab */}
+            {searchQuery.trim() !== '' ? (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400">
+                    نتایج جستجو برای <span className="text-emerald-400">"{searchQuery}"</span>: <span className="text-emerald-400 font-sans">{searchResults.length}</span> بازی پیدا شد
+                  </span>
+                </div>
+
+                {searchResults.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 animate-in fade-in duration-300">
+                    {searchResults.map(m => {
+                      const pred = predictions.find(p => p.matchId === m.id);
+                      return (
+                        <div key={m.id}>
+                          <FeaturedMatchCard
+                            match={m}
+                            prediction={pred}
+                            currentUser={currentUser}
+                            onSavePrediction={handleSavePrediction}
+                            onTriggerAuth={() => setCurrentTab('login')}
+                            onTeamClick={setSelectedTeamId}
+                            settings={settings}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                ) : (
+                  <div className="p-8 text-center bg-slate-950/40 rounded-xl border border-dashed border-slate-800/80">
+                    <p className="text-xs text-slate-500 font-bold leading-relaxed">مسابقه‌ای برای تیمی با نام "{searchQuery}" در تورنمنت یافت نشد.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-4 bg-slate-950/30 rounded-xl border border-slate-800/40 text-xs text-slate-400 mt-2 font-bold select-none">
+                <span>💡</span>
+                <span>کافی است نام کشور را بنویسید تا تمام بازی‌های گروهی و حذفی آن کشور با امکان پیش‌بینی فوری به شما نمایش داده شود.</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Display full MatchesList if user clicks inside */}
         <div className="max-w-full mx-auto space-y-4">

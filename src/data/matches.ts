@@ -821,7 +821,7 @@ export const matchesSeed: Match[] = [
   {
     id: 'm73',
     homeTeamId: 'TBD_1A',
-    awayTeamId: 'TBD_3CDE_1',
+    awayTeamId: 'TBD_3RD_1',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'MetLife Stadium, New Jersey',
     kickoffTimeUtc: '2026-06-28T19:00:00Z', // Tir 7 @ 22:30
@@ -831,8 +831,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm74',
-    homeTeamId: 'TBD_2A',
-    awayTeamId: 'TBD_2B',
+    homeTeamId: 'TBD_1B',
+    awayTeamId: 'TBD_3RD_2',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'ARROWHEAD, Kansas City',
     kickoffTimeUtc: '2026-06-29T17:00:00Z', // Tir 8 @ 20:30
@@ -843,7 +843,7 @@ export const matchesSeed: Match[] = [
   {
     id: 'm75',
     homeTeamId: 'TBD_1C',
-    awayTeamId: 'TBD_3ABF_1',
+    awayTeamId: 'TBD_3RD_3',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'Estadio Azteca, Mexico City',
     kickoffTimeUtc: '2026-06-29T20:30:00Z', // Tir 9 @ 00:00
@@ -853,8 +853,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm76',
-    homeTeamId: 'TBD_1B',
-    awayTeamId: 'TBD_3GHI_1',
+    homeTeamId: 'TBD_1D',
+    awayTeamId: 'TBD_3RD_4',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'Hard Rock Stadium, Miami',
     kickoffTimeUtc: '2026-06-30T01:00:00Z', // Tir 9 @ 04:30
@@ -864,8 +864,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm77',
-    homeTeamId: 'TBD_1D',
-    awayTeamId: 'TBD_3JKL_1',
+    homeTeamId: 'TBD_1E',
+    awayTeamId: 'TBD_3RD_5',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'Mercedes-Benz Stadium, Atlanta',
     kickoffTimeUtc: '2026-06-30T17:00:00Z', // Tir 9 @ 20:30
@@ -875,8 +875,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm78',
-    homeTeamId: 'TBD_1E',
-    awayTeamId: 'TBD_2F',
+    homeTeamId: 'TBD_1F',
+    awayTeamId: 'TBD_3RD_6',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'NRG Stadium, Houston',
     kickoffTimeUtc: '2026-06-30T21:00:00Z', // Tir 10 @ 00:30
@@ -886,8 +886,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm79',
-    homeTeamId: 'TBD_1F',
-    awayTeamId: 'TBD_2E',
+    homeTeamId: 'TBD_1G',
+    awayTeamId: 'TBD_3RD_7',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'AT&T Stadium, Dallas',
     kickoffTimeUtc: '2026-07-01T01:00:00Z', // Tir 10 @ 04:30
@@ -897,8 +897,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm80',
-    homeTeamId: 'TBD_1G',
-    awayTeamId: 'TBD_2H',
+    homeTeamId: 'TBD_1H',
+    awayTeamId: 'TBD_3RD_8',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'Lincoln Financial Field, Philadelphia',
     kickoffTimeUtc: '2026-07-01T16:00:00Z', // Tir 10 @ 19:30
@@ -908,8 +908,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm81',
-    homeTeamId: 'TBD_1H',
-    awayTeamId: 'TBD_2G',
+    homeTeamId: 'TBD_1I',
+    awayTeamId: 'TBD_2A',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'Gillette Stadium, Boston',
     kickoffTimeUtc: '2026-07-01T20:00:00Z', // Tir 10 @ 23:30
@@ -919,8 +919,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm82',
-    homeTeamId: 'TBD_1I',
-    awayTeamId: 'TBD_2J',
+    homeTeamId: 'TBD_1J',
+    awayTeamId: 'TBD_2B',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'SoFi Stadium, Los Angeles',
     kickoffTimeUtc: '2026-07-02T00:00:00Z', // Tir 11 @ 03:30
@@ -930,8 +930,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm83',
-    homeTeamId: 'TBD_1J',
-    awayTeamId: 'TBD_2I',
+    homeTeamId: 'TBD_1K',
+    awayTeamId: 'TBD_2C',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'BC Place, Vancouver',
     kickoffTimeUtc: '2026-07-02T19:00:00Z', // Tir 11 @ 22:30
@@ -941,8 +941,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm84',
-    homeTeamId: 'TBD_1K',
-    awayTeamId: 'TBD_2L',
+    homeTeamId: 'TBD_1L',
+    awayTeamId: 'TBD_2D',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'BMO Field, Toronto',
     kickoffTimeUtc: '2026-07-02T23:00:00Z', // Tir 12 @ 02:30
@@ -952,8 +952,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm85',
-    homeTeamId: 'TBD_1L',
-    awayTeamId: 'TBD_2K',
+    homeTeamId: 'TBD_2E',
+    awayTeamId: 'TBD_2F',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'Lumen Field, Seattle',
     kickoffTimeUtc: '2026-07-03T03:00:00Z', // Tir 12 @ 06:30
@@ -963,8 +963,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm86',
-    homeTeamId: 'TBD_2C',
-    awayTeamId: 'TBD_2D',
+    homeTeamId: 'TBD_2G',
+    awayTeamId: 'TBD_2H',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'Levi\'s Stadium, San Francisco',
     kickoffTimeUtc: '2026-07-03T18:00:00Z', // Tir 12 @ 21:30
@@ -974,8 +974,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm87',
-    homeTeamId: 'TBD_WM73',
-    awayTeamId: 'TBD_WM74',
+    homeTeamId: 'TBD_2I',
+    awayTeamId: 'TBD_2J',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'Estadio BBVA, Monterrey',
     kickoffTimeUtc: '2026-07-03T22:00:00Z', // Tir 13 @ 01:30
@@ -985,8 +985,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm88',
-    homeTeamId: 'TBD_WM75',
-    awayTeamId: 'TBD_WM76',
+    homeTeamId: 'TBD_2K',
+    awayTeamId: 'TBD_2L',
     stage: MatchStage.ROUND_OF_32,
     stadium: 'Estadio Akron, Guadalajara',
     kickoffTimeUtc: '2026-07-04T01:30:00Z', // Tir 13 @ 05:00
@@ -998,8 +998,8 @@ export const matchesSeed: Match[] = [
   // ==================== ROUND OF 16 (1/8) ====================
   {
     id: 'm89',
-    homeTeamId: 'TBD_WM77',
-    awayTeamId: 'TBD_WM78',
+    homeTeamId: 'TBD_WM73',
+    awayTeamId: 'TBD_WM74',
     stage: MatchStage.ROUND_OF_16,
     stadium: 'Estadio Azteca, Mexico City',
     kickoffTimeUtc: '2026-07-04T17:00:00Z', // Tir 13 @ 20:30
@@ -1009,8 +1009,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm90',
-    homeTeamId: 'TBD_WM79',
-    awayTeamId: 'TBD_WM80',
+    homeTeamId: 'TBD_WM75',
+    awayTeamId: 'TBD_WM76',
     stage: MatchStage.ROUND_OF_16,
     stadium: 'MetLife Stadium, New Jersey',
     kickoffTimeUtc: '2026-07-04T21:00:00Z', // Tir 14 @ 00:30
@@ -1020,8 +1020,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm91',
-    homeTeamId: 'TBD_WM81',
-    awayTeamId: 'TBD_WM82',
+    homeTeamId: 'TBD_WM77',
+    awayTeamId: 'TBD_WM78',
     stage: MatchStage.ROUND_OF_16,
     stadium: 'Hard Rock Stadium, Miami',
     kickoffTimeUtc: '2026-07-05T20:00:00Z', // Tir 14 @ 23:30
@@ -1031,8 +1031,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm92',
-    homeTeamId: 'TBD_WM83',
-    awayTeamId: 'TBD_WM84',
+    homeTeamId: 'TBD_WM79',
+    awayTeamId: 'TBD_WM80',
     stage: MatchStage.ROUND_OF_16,
     stadium: 'SoFi Stadium, Los Angeles',
     kickoffTimeUtc: '2026-07-06T00:00:00Z', // Tir 15 @ 03:30
@@ -1042,8 +1042,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm93',
-    homeTeamId: 'TBD_WM85',
-    awayTeamId: 'TBD_WM86',
+    homeTeamId: 'TBD_WM81',
+    awayTeamId: 'TBD_WM82',
     stage: MatchStage.ROUND_OF_16,
     stadium: 'Arrowhead Stadium, Kansas City',
     kickoffTimeUtc: '2026-07-05T19:00:00Z', // Tir 15 @ 22:30
@@ -1053,8 +1053,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm94',
-    homeTeamId: 'TBD_WM87',
-    awayTeamId: 'TBD_WM88',
+    homeTeamId: 'TBD_WM83',
+    awayTeamId: 'TBD_WM84',
     stage: MatchStage.ROUND_OF_16,
     stadium: 'NRG Stadium, Houston',
     kickoffTimeUtc: '2026-07-06T00:00:00Z', // Tir 16 @ 03:30
@@ -1064,8 +1064,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm95',
-    homeTeamId: 'TBD_WM89',
-    awayTeamId: 'TBD_WM90',
+    homeTeamId: 'TBD_WM85',
+    awayTeamId: 'TBD_WM86',
     stage: MatchStage.ROUND_OF_16,
     stadium: 'Mercedes-Benz Stadium, Atlanta',
     kickoffTimeUtc: '2026-07-06T16:00:00Z', // Tir 16 @ 19:30
@@ -1075,8 +1075,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm96',
-    homeTeamId: 'TBD_WM91',
-    awayTeamId: 'TBD_WM92',
+    homeTeamId: 'TBD_WM87',
+    awayTeamId: 'TBD_WM88',
     stage: MatchStage.ROUND_OF_16,
     stadium: 'Lincoln Financial Field, Philadelphia',
     kickoffTimeUtc: '2026-07-06T20:00:00Z', // Tir 16 @ 23:30
@@ -1088,8 +1088,8 @@ export const matchesSeed: Match[] = [
   // ==================== QUARTER FINALS (1/4) ====================
   {
     id: 'm97',
-    homeTeamId: 'TBD_WM93',
-    awayTeamId: 'TBD_WM94',
+    homeTeamId: 'TBD_WM89',
+    awayTeamId: 'TBD_WM90',
     stage: MatchStage.QUARTER_FINALS,
     stadium: 'Gillette Stadium, Boston',
     kickoffTimeUtc: '2026-07-08T20:00:00Z', // Tir 18 @ 23:30
@@ -1099,8 +1099,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm98',
-    homeTeamId: 'TBD_WM95',
-    awayTeamId: 'TBD_WM96',
+    homeTeamId: 'TBD_WM91',
+    awayTeamId: 'TBD_WM92',
     stage: MatchStage.QUARTER_FINALS,
     stadium: 'SoFi Stadium, Los Angeles',
     kickoffTimeUtc: '2026-07-09T19:00:00Z', // Tir 19 @ 22:30
@@ -1110,8 +1110,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm99',
-    homeTeamId: 'TBD_WM97',
-    awayTeamId: 'TBD_WM98',
+    homeTeamId: 'TBD_WM93',
+    awayTeamId: 'TBD_WM94',
     stage: MatchStage.QUARTER_FINALS,
     stadium: 'MetLife Stadium, New Jersey',
     kickoffTimeUtc: '2026-07-11T21:00:00Z', // Tir 21 @ 00:30
@@ -1121,8 +1121,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm100',
-    homeTeamId: 'TBD_WM89', // arbitrary placeholder match routing
-    awayTeamId: 'TBD_WM90',
+    homeTeamId: 'TBD_WM95',
+    awayTeamId: 'TBD_WM96',
     stage: MatchStage.QUARTER_FINALS,
     stadium: 'Arrowhead Stadium, Kansas City',
     kickoffTimeUtc: '2026-07-12T01:00:00Z', // Tir 21 @ 04:30
@@ -1134,8 +1134,8 @@ export const matchesSeed: Match[] = [
   // ==================== SEMI FINALS (1/2) ====================
   {
     id: 'm101',
-    homeTeamId: 'TBD_WM99',
-    awayTeamId: 'TBD_WM100',
+    homeTeamId: 'TBD_WM97',
+    awayTeamId: 'TBD_WM98',
     stage: MatchStage.SEMI_FINALS,
     stadium: 'AT&T Stadium, Dallas',
     kickoffTimeUtc: '2026-07-14T19:00:00Z', // Tir 23 @ 22:30
@@ -1145,8 +1145,8 @@ export const matchesSeed: Match[] = [
   },
   {
     id: 'm102',
-    homeTeamId: 'TBD_WM97', // placeholder
-    awayTeamId: 'TBD_WM98',
+    homeTeamId: 'TBD_WM99',
+    awayTeamId: 'TBD_WM100',
     stage: MatchStage.SEMI_FINALS,
     stadium: 'Mercedes-Benz Stadium, Atlanta',
     kickoffTimeUtc: '2026-07-15T19:00:00Z', // Tir 24 @ 22:30

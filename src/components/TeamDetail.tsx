@@ -395,7 +395,7 @@ export default function TeamDetail({
               📅 بازی‌های جام جهانی {team.name}
             </h2>
 
-            <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+            <div className="space-y-4">
               {teamMatches.length === 0 ? (
                 <div className="text-center py-8 px-4 rounded-2xl bg-slate-900/40 border border-slate-800/40 space-y-2">
                   <p className="text-xs text-slate-400 font-extrabold leading-relaxed">بازی برنامه‌ریزی‌ شده‌ای در حال حاضر وجود ندارد.</p>

@@ -91,7 +91,17 @@ export function getTeamName(teamId: string): string {
       return `تیم ${posWords[position] || position} گروه ${groupLetter}`;
     }
 
-    // 2. Best 3rd place teams: TBD_3CDE_1, TBD_3ABF_1, TBD_3GHI_1, TBD_3JKL_1, etc.
+    // 2. Best 3rd place teams: TBD_3RD_1, TBD_3RD_2 ... TBD_3RD_8
+    const thirdRdMatch = teamId.match(/^TBD_3RD_(\d+)$/);
+    if (thirdRdMatch) {
+      const rank = thirdRdMatch[1];
+      const numbersWords: Record<string, string> = {
+        '1': 'اول', '2': 'دوم', '3': 'سوم', '4': 'چهارم', 
+        '5': 'پنجم', '6': 'ششم', '7': 'هفتم', '8': 'هشتم'
+      };
+      return `تیم ${numbersWords[rank] || rank} سوم‌های برتر`;
+    }
+
     if (teamId.includes('3')) {
       const clean = teamId.replace('TBD_3', '').replace('_1', '');
       return `بهترین رده‌سوم ${clean.split('').join('/')}`;

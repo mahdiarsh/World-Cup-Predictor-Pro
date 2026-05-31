@@ -38,6 +38,15 @@ export default function KnockoutBracket({ matches }: KnockoutBracketProps) {
         TBD_3JKL_1: 'بهترین رده‌سوم J/K/L',
       };
 
+      if (teamId.startsWith('TBD_3RD_')) {
+        const num = teamId.replace('TBD_3RD_', '');
+        const farsiNumbers: Record<string, string> = {
+          '1': 'اول', '2': 'دوم', '3': 'سوم', '4': 'چهارم',
+          '5': 'پنجم', '6': 'ششم', '7': 'هفتم', '8': 'هشتم'
+        };
+        return { name: `تیم ${farsiNumbers[num] || num} سوم‌های برتر`, flag: null, isPlaceholder: true };
+      }
+
       if (mappings[teamId]) {
         return { name: mappings[teamId], flag: null, isPlaceholder: true };
       }
@@ -262,7 +271,7 @@ export default function KnockoutBracket({ matches }: KnockoutBracketProps) {
           <div className="space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
               <span className="h-2 w-2 bg-blue-500 rounded-full"></span>
-              <h3 className="text-sm font-bold text-slate-205">مسابقات مرحله یک‌سی‌ودوم نهایی (Round of 32)</h3>
+              <h3 className="text-sm font-bold text-slate-205">مسابقات مرحله یک‌شانزدهم نهایی (Round of 32)</h3>
               <span className="text-[10px] text-slate-500">۱۶ بازی حذفی آغازین</span>
             </div>
             {r32Matches.length === 0 ? (
