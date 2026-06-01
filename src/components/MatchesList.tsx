@@ -677,21 +677,7 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                               👁️ پیش‌بینی‌ها
                             </button>
                           </div>
-                        ) : timeInfo.isLocked ? (
-                          <div className="flex justify-end gap-2 items-center">
-                            <span className="text-[10px] text-slate-500 flex items-center gap-1 font-semibold">
-                              <Clock className="h-3 w-3 shrink-0" />
-                              <span>قفل</span>
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setViewOthersMatch(match)}
-                              className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 hover:border-emerald-500/40 text-emerald-400 font-extrabold text-[10px] rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
-                            >
-                              👁️ پیش‌بینی‌ها
-                            </button>
-                          </div>
-                        ) : (
+                         ) : (
                           <div className="flex justify-end">
                             <button
                               type="button"
@@ -724,42 +710,39 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
 
       {/* MATCH PREDICTIONS MODAL FORM */}
       {selectedMatch && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[200] flex flex-col justify-start sm:justify-center items-center bg-slate-955/95 backdrop-blur-md overflow-y-auto p-0 sm:p-4 text-slate-200" dir="rtl">
-          <div className="w-full h-full min-h-screen sm:min-h-0 sm:h-auto sm:max-w-xl bg-slate-900 sm:rounded-3xl border-0 sm:border border-emerald-500/30 overflow-hidden shadow-2xl relative flex flex-col animate-in fade-in slide-in-from-bottom duration-300">
+        <div 
+          className="fixed inset-0 z-[200] flex flex-col justify-center items-center bg-slate-955/90 backdrop-blur-sm p-4 text-slate-200" 
+          dir="rtl"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedMatch(null); }}
+        >
+          <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-emerald-500/25 overflow-hidden shadow-2xl relative flex flex-col animate-in fade-in scale-in-95 duration-200 p-5 space-y-4">
             
-            {/* Modal Header */}
-            <div className="p-6 border-b border-slate-800/80 bg-slate-950 flex justify-between items-center text-right shrink-0">
-              <div>
-                <h3 className="font-extrabold text-white text-lg sm:text-xl tracking-tight">🔮 ثبت پیش‌بینی نتیجه مسابقه</h3>
-                <p className="text-xs text-slate-400 mt-1">{STAGE_TRANSLATIONS[selectedMatch.stage] || selectedMatch.stage} · ورزشگاه {selectedMatch.stadium}</p>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setSelectedMatch(null)}
-                className="text-slate-400 hover:text-white px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800/80 font-bold transition-all text-sm cursor-pointer"
-              >
-                ✕ بستن
-              </button>
+            {/* Extremely compact clean match stage & teams info */}
+            <div className="text-center">
+              <span className="text-[10px] bg-slate-800 text-slate-300 font-bold px-2 py-0.5 rounded leading-none">
+                {selectedMatch.stage === 'Group Stage' ? 'مرحله گروهی' : selectedMatch.stage === 'Round of 32' ? 'یک‌شانزدهم نهایی' : selectedMatch.stage === 'Round of 16' ? 'یک‌هشتم نهایی' : selectedMatch.stage === 'Quarter Finals' ? 'یک‌چهارم نهایی' : selectedMatch.stage === 'Semi Finals' ? 'نیمه‌نهایی' : selectedMatch.stage === 'Third Place Playoff' ? 'رده‌بندی مقام سوم' : selectedMatch.stage === 'Final' ? 'فینال' : selectedMatch.stage}
+              </span>
+              <p className="text-[10px] text-slate-500 font-medium mt-1">ورزشگاه {selectedMatch.stadium}</p>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col justify-between">
-              <div className="space-y-6">
+            <form onSubmit={handleSave} className="space-y-4">
+              <div className="space-y-4">
                 
                 {/* Score prediction boxes */}
-                <div className="grid grid-cols-7 items-center justify-center p-4 sm:p-6 bg-slate-950/60 rounded-2xl border border-slate-800/80">
+                <div className="grid grid-cols-7 items-center justify-center p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80">
                   
                   {/* Home */}
-                  <div className="col-span-3 text-center space-y-3">
-                    <div className="flex justify-center select-none">
-                      <FlagIcon teamIdOrCode={selectedMatch.homeTeamId} className="h-10 w-14 rounded shadow-lg object-contain" />
+                  <div className="col-span-3 text-center space-y-1.5">
+                    <div className="flex justify-center select-none scale-90">
+                      <FlagIcon teamIdOrCode={selectedMatch.homeTeamId} className="h-8 w-12 rounded shadow object-contain" />
                     </div>
-                    <span className="font-bold text-slate-100 block text-sm truncate max-w-full">{getTeamName(selectedMatch.homeTeamId)}</span>
-                    <div className="flex items-center justify-center gap-1.5 mt-2">
+                    <span className="font-extrabold text-slate-200 block text-xs truncate max-w-full">{getTeamName(selectedMatch.homeTeamId)}</span>
+                    <div className="flex items-center justify-center gap-1 mt-1 justify-self-center">
                       <button 
                         type="button" 
                         onClick={() => setHomeInput(h => Math.max(0, h - 1))}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-805 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                        className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-705 active:bg-slate-900 font-extrabold rounded-lg text-slate-100 hover:text-emerald-400 transition-all font-mono text-base shadow cursor-pointer"
                       >
                         -
                       </button>
@@ -768,12 +751,12 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                         min="0"
                         value={homeInput}
                         onChange={(e) => setHomeInput(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-14 bg-slate-950 border border-slate-800 text-center text-xl font-black font-mono text-white rounded-xl focus:outline-none focus:border-emerald-500 py-1.5 focus:ring-1 focus:ring-emerald-500/30"
+                        className="w-11 bg-slate-950 border border-slate-800 text-center text-lg font-black font-mono text-white rounded-lg focus:outline-none focus:border-emerald-500 py-1 focus:ring-1 focus:ring-emerald-500/30"
                       />
                       <button 
                         type="button" 
                         onClick={() => setHomeInput(h => h + 1)}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-805 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                        className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-705 active:bg-slate-900 font-extrabold rounded-lg text-slate-100 hover:text-emerald-400 transition-all font-mono text-base shadow cursor-pointer"
                       >
                         +
                       </button>
@@ -781,21 +764,21 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                   </div>
 
                   {/* Divider Colon */}
-                  <div className="col-span-1 text-center font-black text-2xl text-slate-600 font-mono">
+                  <div className="col-span-1 text-center font-black text-xl text-slate-600 font-mono">
                     :
                   </div>
 
                   {/* Away */}
-                  <div className="col-span-3 text-center space-y-3">
-                    <div className="flex justify-center select-none">
-                      <FlagIcon teamIdOrCode={selectedMatch.awayTeamId} className="h-10 w-14 rounded shadow-lg object-contain" />
+                  <div className="col-span-3 text-center space-y-1.5">
+                    <div className="flex justify-center select-none scale-90">
+                      <FlagIcon teamIdOrCode={selectedMatch.awayTeamId} className="h-8 w-12 rounded shadow object-contain" />
                     </div>
-                    <span className="font-bold text-slate-100 block text-sm truncate max-w-full">{getTeamName(selectedMatch.awayTeamId)}</span>
-                    <div className="flex items-center justify-center gap-1.5 mt-2">
+                    <span className="font-extrabold text-slate-200 block text-xs truncate max-w-full">{getTeamName(selectedMatch.awayTeamId)}</span>
+                    <div className="flex items-center justify-center gap-1 mt-1 justify-self-center">
                       <button 
                         type="button" 
                         onClick={() => setAwayInput(a => Math.max(0, a - 1))}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-805 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                        className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-705 active:bg-slate-900 font-extrabold rounded-lg text-slate-100 hover:text-emerald-400 transition-all font-mono text-base shadow cursor-pointer"
                       >
                         -
                       </button>
@@ -804,12 +787,12 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                         min="0"
                         value={awayInput}
                         onChange={(e) => setAwayInput(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-14 bg-slate-950 border border-slate-800 text-center text-xl font-black font-mono text-white rounded-xl focus:outline-none focus:border-emerald-500 py-1.5 focus:ring-1 focus:ring-emerald-500/30"
+                        className="w-11 bg-slate-955 border border-slate-805 text-center text-lg font-black font-mono text-white rounded-lg focus:outline-none focus:border-emerald-500 py-1 focus:ring-1 focus:ring-emerald-500/30"
                       />
                       <button 
                         type="button" 
                         onClick={() => setAwayInput(a => a + 1)}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-805 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                        className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-705 active:bg-slate-900 font-extrabold rounded-lg text-slate-100 hover:text-emerald-400 transition-all font-mono text-base shadow cursor-pointer"
                       >
                         +
                       </button>
@@ -819,37 +802,37 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                 </div>
 
                 {/* Point allocation rule banner */}
-                <div className="p-4 bg-slate-950/40 rounded-2xl border border-slate-800/80 text-xs text-slate-400 space-y-2 text-right">
-                  <p className="font-bold text-slate-300 flex items-center gap-1.5 font-sans"><CircleHelp className="h-4 w-4 text-emerald-400 animate-pulse" /> نحوه امتیازدهی مسابقات:</p>
-                  <ul className="list-disc list-inside space-y-1.5 text-slate-400 pr-1 font-sans leading-relaxed">
-                    <li>اگر نتیجه را <span className="text-amber-400 font-bold">کاملاً دقیق</span> پیش‌بینی کنید: <span className="text-amber-400 font-extrabold font-sans">۱۰+ امتیاز</span></li>
-                    <li>تخمینی که <span className="text-blue-400 font-bold">تفاضل گل صحیح</span> به همراه برنده را درست حدس بزند: <span className="text-blue-400 font-extrabold font-sans">۷+ امتیاز</span></li>
-                    <li>اگر صرفاً <span className="text-emerald-400 font-bold">برنده یا تساوی</span> درست باشد اما تفاضل متفاوت باشد: <span className="text-emerald-400 font-extrabold font-sans">۵+ امتیاز</span></li>
-                    <li>اگر پیش‌بینی شما کاملاً <span className="text-rose-450 font-bold">اشتباه</span> باشد: <span className="text-slate-500 font-bold font-sans">۰ امتیاز</span></li>
+                <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/60 text-[11px] text-slate-400 space-y-1 text-right">
+                  <p className="font-bold text-slate-300 flex items-center gap-1"><CircleHelp className="h-3.5 w-3.5 text-emerald-400" /> نحوه امتیازدهی مسابقات:</p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-400 pr-1 leading-relaxed text-[10px]">
+                    <li>نتیجه کاملاً دقیق: <span className="text-emerald-400 font-extrabold font-sans">۱۰+ امتیاز</span></li>
+                    <li>تفاضل گل صحیح با برنده: <span className="text-blue-400 font-extrabold font-sans">۷+ امتیاز</span></li>
+                    <li>برنده صحیح با تفاضل دیگر: <span className="text-amber-400 font-extrabold font-sans">۵+ امتیاز</span></li>
+                    <li>حدس اشتباه: <span className="text-slate-500 font-bold font-sans">۰ امتیاز</span></li>
                   </ul>
                 </div>
 
                 {modalError && (
-                  <div className="p-4 bg-red-950/40 border border-red-500/20 rounded-xl text-red-400 text-xs flex gap-2 font-sans font-medium">
-                    <ShieldAlert className="h-5 w-5 shrink-0" />
+                  <div className="p-3 bg-red-955/40 border border-red-500/20 rounded-xl text-red-100 text-xs flex gap-2 font-sans font-medium">
+                    <ShieldAlert className="h-4 w-4 shrink-0" />
                     <span>{modalError}</span>
                   </div>
                 )}
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-4 pt-4 shrink-0 mt-auto">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setSelectedMatch(null)}
-                  className="flex-1 py-3 bg-slate-850 hover:bg-slate-805 text-slate-300 text-sm font-semibold rounded-xl border border-slate-800 transition-colors"
+                  className="flex-1 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition-colors font-sans cursor-pointer"
                 >
                   انصراف
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-45 disabled:pointer-events-none text-white text-sm font-bold tracking-wide rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)] cursor-pointer"
+                  className="flex-1 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-45 disabled:pointer-events-none text-white text-xs font-bold rounded-xl transition-all shadow-[0_0_12px_rgba(16,185,129,0.25)] cursor-pointer"
                 >
                   {isSubmitting ? 'در حال ثبت...' : predId ? 'ویرایش پیش‌بینی' : 'ذخیره پیش‌بینی'}
                 </button>
