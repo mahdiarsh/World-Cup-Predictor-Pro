@@ -24,6 +24,14 @@ export default function UserPublicProfileModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
+  const [hoveredPoint, setHoveredPoint] = useState<{
+    label: string;
+    score: number;
+    matchName: string;
+    added: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   // Find the user on the leaderboard to display their basic stats instantly
   const userStats = leaderboard.find(u => u.userId === userId);
@@ -160,6 +168,32 @@ export default function UserPublicProfileModal({
     return true; // all
   }).sort((a, b) => new Date(a.match.kickoffTimeUtc).getTime() - new Date(b.match.kickoffTimeUtc).getTime());
 
+  // Rank Progression & Score trend
+  const finishedPredictions = predictions
+    .filter(p => {
+      const m = matches.find(match => match.id === p.matchId);
+      return m && m.status === MatchStatus.FINISHED && p.points !== null && p.points !== undefined;
+    })
+    .sort((a, b) => {
+      const mA = matches.find(match => match.id === a.matchId)!;
+      const mB = matches.find(match => match.id === b.matchId)!;
+      return new Date(mA.kickoffTimeUtc).getTime() - new Date(mB.kickoffTimeUtc).getTime();
+    });
+
+  let cumulativePoints = 0;
+  const chartData = finishedPredictions.map((p, index) => {
+    const m = matches.find(match => match.id === p.matchId)!;
+    cumulativePoints += p.points || 0;
+    return {
+      label: `بازی ${index + 1}`,
+      score: cumulativePoints,
+      matchName: `${getTeamName(m.homeTeamId)} - ${getTeamName(m.awayTeamId)}`,
+      added: p.points || 0,
+    };
+  });
+
+  const hasChartData = chartData.length > 0;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm overflow-y-auto" dir="rtl">
       {/* Backdrop overlay trigger click */}
@@ -235,6 +269,138 @@ export default function UserPublicProfileModal({
                   <span className="text-[11px] text-slate-400">درصد کلی پیش‌بینی موفق</span>
                   <span className="text-lg font-bold text-emerald-400 mt-1 font-sans">{successRate}%</span>
                 </div>
+              </div>
+
+              {/* Rank Progression Chart Component */}
+              <div className="bg-slate-950/20 border border-slate-850/65 p-4 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between" dir="rtl">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs">📈</span>
+                    <h5 className="text-xs font-extrabold text-slate-200">نمودار زمانی صعود و رشد امتیاز کل</h5>
+                  </div>
+                  <span className="text-[9px] text-slate-500 font-medium font-sans">بر اساس مسابقات پیش‌بینی‌شده</span>
+                </div>
+
+                {hasChartData ? (
+                  <div className="relative h-[180px] w-full bg-slate-950/50 rounded-xl border border-slate-900/60 overflow-hidden flex items-center justify-center p-2">
+                    <svg className="w-full h-full overflow-visible" viewBox="0 0 500 180" preserveAspectRatio="none">
+                      <defs>
+                        {/* Area gradient */}
+                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
+                          <stop offset="100%" stopColor="#10b981" stopOpacity="0.00" />
+                        </linearGradient>
+                        {/* Shadow filters for trace glow */}
+                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#10b981" floodOpacity="0.4" />
+                        </filter>
+                      </defs>
+
+                      {/* Horizontal Grid lines */}
+                      {[0, 0.25, 0.5, 0.75, 1].map((r, i) => {
+                        const yVal = 20 + r * 110;
+                        return (
+                          <line
+                            key={i}
+                            x1="40"
+                            y1={yVal}
+                            x2="460"
+                            y2={yVal}
+                            stroke="#1e293b"
+                            strokeWidth="1"
+                            strokeDasharray="4 4"
+                          />
+                        );
+                      })}
+
+                      {/* Render Area path */}
+                      {(() => {
+                        const paddingX = 40;
+                        const paddingY = 20;
+                        const activeWidth = 420;
+                        const activeHeight = 110;
+                        const maxS = Math.max(...chartData.map(d => d.score), 10);
+                        const minS = 0;
+
+                        const coords = chartData.map((d, index) => {
+                          const x = paddingX + (index / Math.max(chartData.length - 1, 1)) * activeWidth;
+                          const ratio = (d.score - minS) / (maxS - minS || 1);
+                          const y = paddingY + (1 - ratio) * activeHeight;
+                          return { ...d, x, y };
+                        });
+
+                        const linePath = `M ${coords[0].x} ${coords[0].y} ` + coords.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
+                        const areaPath = `${linePath} L ${coords[coords.length - 1].x} ${paddingY + activeHeight} L ${coords[0].x} ${paddingY + activeHeight} Z`;
+
+                        return (
+                          <>
+                            {/* Area Fill */}
+                            <path d={areaPath} fill="url(#areaGrad)" />
+                            
+                            {/* Glowing line trace */}
+                            <path d={linePath} fill="none" stroke="#10b981" strokeWidth="2.5" filter="url(#glow)" strokeLinecap="round" strokeLinejoin="round" />
+
+                            {/* Dots and interactive hover areas */}
+                            {coords.map((pt, idx) => (
+                              <g key={idx} className="cursor-pointer">
+                                <circle
+                                  cx={pt.x}
+                                  cy={pt.y}
+                                  r={idx === chartData.length - 1 ? "5" : "3.5"}
+                                  className={`${idx === chartData.length - 1 ? 'fill-emerald-450 animate-pulse' : 'fill-emerald-400'} stroke-slate-900 stroke-2 transition-all duration-250 hover:r-6`}
+                                  onMouseEnter={() => {
+                                    setHoveredPoint({
+                                      label: pt.label,
+                                      score: pt.score,
+                                      matchName: pt.matchName,
+                                      added: pt.added,
+                                      x: pt.x,
+                                      y: pt.y
+                                    });
+                                  }}
+                                  onMouseLeave={() => setHoveredPoint(null)}
+                                />
+                              </g>
+                            ))}
+                          </>
+                        );
+                      })()}
+                    </svg>
+
+                    {/* Interactive Tooltip bubble */}
+                    {hoveredPoint ? (
+                      <div
+                        className="absolute bg-slate-950/95 border border-emerald-500/30 rounded-xl p-2.5 shadow-2xl text-right space-y-1 font-mono transition-all duration-150 pointer-events-none z-20"
+                        style={{
+                          left: `${(hoveredPoint.x / 500) * 100}%`,
+                          bottom: `${100 - (hoveredPoint.y / 180) * 100 + 10}%`,
+                          transform: 'translateX(-50%)',
+                          minWidth: '160px'
+                        }}
+                        dir="rtl"
+                      >
+                        <p className="text-[9px] text-emerald-450 font-extrabold">{hoveredPoint.label}</p>
+                        <p className="text-[10px] text-slate-300 font-bold truncate">{hoveredPoint.matchName}</p>
+                        <div className="flex items-center justify-between text-[11px] font-sans">
+                          <span className="text-slate-400">نتیجه حدس:</span>
+                          <span className="text-emerald-400 font-black">+{hoveredPoint.added} امتیاز</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-sans">
+                          <span className="text-slate-400">امتیاز کل تا اینجا:</span>
+                          <span className="text-white font-black font-mono">{hoveredPoint.score}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="absolute bottom-1 right-2 text-[9px] text-slate-500 font-medium font-sans">
+                        💡 نشانگر ماوس را روی نقاط ببرید تا تحلیل پیش‌بینی‌ها مشخص شود
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="h-[90px] flex items-center justify-center border border-slate-900 border-dashed rounded-xl bg-slate-950/20 text-slate-500 text-xs text-center font-sans">
+                    هنوز بازی پیش‌بینی‌شده پایان‌یافته‌ای برای این کاربر ثبت نشده است.
+                  </div>
+                )}
               </div>
             </>
           ) : (

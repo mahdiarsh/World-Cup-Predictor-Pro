@@ -277,10 +277,13 @@ export default function TeamDetail({
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-4 bg-emerald-900/40 border-x border-t border-white/50 rounded-t shadow-[0_-3px_6px_rgba(0,0,0,0.5)] z-0 flex items-center justify-center opacity-85" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 15%, transparent 20%)', backgroundSize: '3px 3px' }} />
 
             {/* Starting 11 Visual Placement mapping with Inverted Y orientation (Goalkeeper at bottom) */}
-            {squad.players
-              .filter(p => p.isStarting)
-              .map((player) => {
+            {(() => {
+              const startingPlayers = squad.players.filter(p => p.isStarting);
+              const maxS = startingPlayers.length > 0 ? Math.max(...startingPlayers.map(p => p.rating || 0)) : 80;
+
+              return startingPlayers.map((player) => {
                 const isChosen = selectedPlayer?.number === player.number;
+                const isStar = player.rating === maxS && player.rating >= 80;
                 
                 // Color configuration of soccer jerseys based on playing roles
                 let primaryColor = '#2563eb'; // Default royal blue
@@ -311,6 +314,15 @@ export default function TeamDetail({
                       left: `${player.gridPos.x}%` 
                     }}
                   >
+                    {/* Pulsating glowing star ring behind star players */}
+                    {isStar && (
+                      <div className="absolute top-[8px] sm:top-[12px] left-1/2 -translate-x-1/2 w-8 h-8 sm:w-11 sm:h-11 pointer-events-none -z-5">
+                        <span className="absolute inset-0 bg-amber-500/20 rounded-full animate-ping duration-1500" />
+                        <span className="absolute -inset-1.5 bg-gradient-to-tr from-amber-500/20 to-yellow-400/20 blur-md rounded-full animate-pulse" />
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-950 font-black px-1.5 py-[1px] rounded-full text-[6px] sm:text-[7.5px] tracking-wide uppercase shadow-lg border border-amber-300">⭐ STAR</div>
+                      </div>
+                    )}
+
                     {/* Visual Jersey representation with readable number */}
                     <ShirtIcon 
                       primaryColor={primaryColor} 
@@ -329,7 +341,8 @@ export default function TeamDetail({
                     </div>
                   </button>
                 );
-              })}
+              });
+            })()}
 
           </div>
 

@@ -37,6 +37,14 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
   // Extract Top 3 for special podium spotlight representation!
   const topThree = entries.slice(0, 3);
 
+  // Find top exact prediction striker! (Golden strike king)
+  const topStriker = entries.length > 0 ? [...entries].sort((a, b) => {
+    if (b.exactPredictions !== a.exactPredictions) {
+      return b.exactPredictions - a.exactPredictions;
+    }
+    return b.totalScore - a.totalScore;
+  })[0] : null;
+
   return (
     <div className="space-y-6 text-right" dir="rtl">
       
@@ -50,6 +58,58 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
           امتیاز رقابت‌های خود را دنبال کنید. پیش‌بینی دقیق نتیجه <span className="text-amber-400 font-bold font-sans">۱۰ امتیاز</span>، حدس صحیح برنده با تفاضل گل صحیح <span className="text-blue-400 font-bold font-sans">۷ امتیاز</span> و حدس صحیح برنده یا مساوی <span className="text-emerald-400 font-bold font-sans">۵ امتیاز</span> به همراه دارد!
         </p>
       </div>
+
+      {/* Highlights Section for Top Performer of the Week (TOTW Style) */}
+      {topStriker && searchTerm === '' && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          onClick={() => onUserClick && onUserClick(topStriker.userId)}
+          className="max-w-full mx-auto bg-gradient-to-r from-slate-950 via-emerald-950/15 to-slate-950 border border-amber-400/40 rounded-3xl p-5 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer hover:border-amber-450 transition-all duration-300 group ring-1 ring-amber-400/10"
+          title="مشاهده نمایه و پیش‌بینی‌های بازیکن برتر"
+        >
+          {/* Decorative gold background particles */}
+          <div className="absolute right-1/4 top-3 text-emerald-500/10 text-3xl select-none animate-pulse">⭐</div>
+          <div className="absolute left-1/4 bottom-3 text-amber-500/10 text-4xl select-none animate-ping">👑</div>
+          
+          <div className="flex flex-col sm:flex-row items-center gap-5 relative z-10 w-full md:w-auto">
+            {/* Pulsating premium gold avatar core */}
+            <div className="relative shrink-0 select-none">
+              <div className="absolute -inset-2 bg-amber-500/15 rounded-full animate-ping duration-[3000ms]" />
+              <div className="absolute -inset-1.5 bg-gradient-to-tr from-amber-500 to-yellow-400 opacity-60 blur-md rounded-full animate-pulse" />
+              <div className="relative w-16 h-16 rounded-full border-2 border-amber-450 overflow-hidden bg-slate-900 shadow-xl">
+                <Avatar avatar={topStriker.avatar} className="object-cover w-full h-full" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 bg-amber-400 text-slate-950 text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center shadow">🏆</div>
+            </div>
+
+            <div className="text-center sm:text-right space-y-1">
+              <span className="inline-flex items-center gap-1 bg-amber-500/10 border border-amber-500/35 text-amber-400 font-extrabold text-[9px] px-2.5 py-0.5 rounded-full uppercase tracking-wider font-sans">
+                🌟 ستاره طلایی راندهای اخیر (Team of the Week Style)
+              </span>
+              <h3 className="text-lg font-black text-white group-hover:text-amber-400 transition-colors">
+                {topStriker.fullName}
+              </h3>
+              <p className="text-slate-400 text-xs font-semibold">
+                پرچمدار حدس‌های کاملاً دقیق با ثبت رکورد <span className="text-amber-450 font-black font-sans">{topStriker.exactPredictions} بازی</span> پیش‌بینی شده به صورت بی‌نقص!
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 border-t md:border-t-0 md:border-r border-slate-800/80 pt-4 md:pt-0 md:pr-6 shrink-0 w-full md:w-auto justify-center md:justify-end">
+            <div className="text-center">
+              <span className="text-[10px] text-slate-500 block">امتیاز کل</span>
+              <span className="text-2xl font-black text-amber-400 font-mono tracking-tight">{topStriker.totalScore}</span>
+            </div>
+            <div className="h-8 w-[1px] bg-slate-800" />
+            <div className="text-center">
+              <span className="text-[10px] text-slate-500 block">دقت حدس‌ها</span>
+              <span className="text-2xl font-black text-emerald-400 font-mono tracking-tight">%{topStriker.playedMatches > 0 ? Math.round((topStriker.exactPredictions / topStriker.playedMatches) * 100) : 0}</span>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Premium Spotlights (Top 3 Podium Cards) */}
       {topThree.length > 0 && searchTerm === '' && (
