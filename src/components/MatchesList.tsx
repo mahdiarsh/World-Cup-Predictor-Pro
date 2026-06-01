@@ -173,7 +173,13 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
 
   const formatLocalDate = (utcString: string): string => {
     const d = new Date(utcString);
+    const diff = d.getTime() - currentTime;
+    if (diff > 0 && diff < 3600000) {
+      const minutes = Math.floor(diff / 60000);
+      return `شروع در ${minutes.toLocaleString('fa-IR')} دقیقه`;
+    }
     return d.toLocaleDateString('fa-IR', { 
+      timeZone: 'Asia/Tehran',
       weekday: 'long', 
       month: 'long', 
       day: 'numeric',

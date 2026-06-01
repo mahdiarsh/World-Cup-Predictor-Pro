@@ -967,12 +967,14 @@ export default function App() {
                <span className="text-[11px] text-slate-400 px-2">تقویم مسابقات:</span>
                <span className="text-xs font-black text-black bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg select-none">
                  {(displayTime || new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z')).toLocaleDateString('fa-IR', {
+                   timeZone: 'Asia/Tehran',
                    weekday: 'long',
                    month: 'long',
                    day: 'numeric'
                  })}
                  {" ساعت "}
                  {(displayTime || new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z')).toLocaleTimeString('fa-IR', {
+                   timeZone: 'Asia/Tehran',
                    hour: '2-digit',
                    minute: '2-digit',
                    second: '2-digit'

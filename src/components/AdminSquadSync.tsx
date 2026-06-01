@@ -57,7 +57,7 @@ export default function AdminSquadSync({ onNotify }: AdminSquadSyncProps) {
   }, []);
 
   const addLog = (message: string) => {
-    const time = new Date().toLocaleTimeString('fa-IR');
+    const time = new Date().toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran' });
     setLogs(prev => [`[${time}] ${message}`, ...prev.slice(0, 49)]);
   };
 

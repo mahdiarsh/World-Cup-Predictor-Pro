@@ -177,6 +177,7 @@ export default function KnockoutBracket({ matches }: KnockoutBracketProps) {
           </span>
           <span>
             {new Date(match.kickoffTimeUtc).toLocaleDateString('fa-IR', { 
+              timeZone: 'Asia/Tehran',
               month: 'numeric', 
               day: 'numeric', 
               hour: '2-digit', 

@@ -396,8 +396,8 @@ export default function QuickPredictor({
                           </span>
                         </div>
                         <p className="text-[8px] sm:text-[9px] text-slate-500 flex items-center gap-0.5 font-mono">
-                          <span>{kickoff.toLocaleDateString('fa-IR', { month: 'short', day: 'numeric' })}</span> | 
-                          <span>{kickoff.toLocaleTimeString('fa-IR', { hour: 'numeric', minute: 'numeric' })}</span>
+                          <span>{kickoff.toLocaleDateString('fa-IR', { timeZone: 'Asia/Tehran', month: 'short', day: 'numeric' })}</span> | 
+                          <span>{kickoff.toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour: 'numeric', minute: 'numeric' })}</span>
                         </p>
                       </td>
 

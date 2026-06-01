@@ -85,6 +85,7 @@ export default function UserPublicProfileModal({
   const formatLocalDate = (utcString: string): string => {
     const d = new Date(utcString);
     return d.toLocaleDateString('fa-IR', {
+      timeZone: 'Asia/Tehran',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',

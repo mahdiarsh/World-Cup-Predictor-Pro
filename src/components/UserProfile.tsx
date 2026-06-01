@@ -328,6 +328,7 @@ export default function UserProfile({
   const formatLocalDate = (utcString: string): string => {
     const d = new Date(utcString);
     return d.toLocaleDateString('fa-IR', { 
+      timeZone: 'Asia/Tehran',
       year: 'numeric',
       month: 'long', 
       day: 'numeric', 

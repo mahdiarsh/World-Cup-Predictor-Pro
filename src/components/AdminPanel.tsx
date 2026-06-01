@@ -1160,7 +1160,7 @@ export default function AdminPanel({
                       <span>{awayName}</span>
                       <FlagIcon teamIdOrCode={m.awayTeamId} className="h-4 w-6 rounded" />
                     </span>
-                    <span className="block text-xs text-slate-500 font-sans mt-1">آغاز مسابقه: {kickoffTime.toLocaleDateString('fa-IR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · محل برگزاری استادیوم: {m.stadium}</span>
+                    <span className="block text-xs text-slate-500 font-sans mt-1">آغاز مسابقه: {kickoffTime.toLocaleDateString('fa-IR', { timeZone: 'Asia/Tehran', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · محل برگزاری استادیوم: {m.stadium}</span>
                   </div>
 
                   {/* Right Score action details */}
@@ -1917,6 +1917,7 @@ export default function AdminPanel({
                     <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
                       <span className="text-sm sm:text-lg font-black font-sans text-white tracking-wide">
                         {(displayTime || new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z')).toLocaleDateString('fa-IR', {
+                          timeZone: 'Asia/Tehran',
                           weekday: 'long',
                           year: 'numeric',
                           month: 'long',
@@ -1925,6 +1926,7 @@ export default function AdminPanel({
                       </span>
                       <span className="text-xs font-bold font-mono text-slate-400 bg-slate-850 px-2 py-0.5 rounded border border-slate-700/30">
                         {(displayTime || new Date(settings?.simulatedTime || '2026-06-11T00:00:00Z')).toLocaleTimeString('fa-IR', {
+                          timeZone: 'Asia/Tehran',
                           hour: '2-digit',
                           minute: '2-digit',
                           second: '2-digit',
@@ -2295,7 +2297,7 @@ export default function AdminPanel({
                     <div className="divide-y divide-slate-850/60 font-sans">
                       {backups.map((bak) => {
                         const sizeKb = (bak.size / 1024).toFixed(1);
-                        const cleanDate = new Date(bak.createdAt).toLocaleString('fa-IR');
+                        const cleanDate = new Date(bak.createdAt).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' });
                         return (
                           <div key={bak.filename} className="p-3 hover:bg-slate-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
                             <div className="space-y-1">

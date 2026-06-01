@@ -103,7 +103,13 @@ export default function FeaturedMatchCard({
   // Format UTC Kickoff date nicely
   const formatKickoff = (utcStr: string) => {
     const d = new Date(utcStr);
+    const diff = d.getTime() - getCurrentTimeMs();
+    if (diff > 0 && diff < 3600000) {
+      const minutes = Math.floor(diff / 60000);
+      return `شروع در ${minutes.toLocaleString('fa-IR')} دقیقه`;
+    }
     return d.toLocaleDateString('fa-IR', {
+      timeZone: 'Asia/Tehran',
       weekday: 'long',
       month: 'long',
       day: 'numeric',
