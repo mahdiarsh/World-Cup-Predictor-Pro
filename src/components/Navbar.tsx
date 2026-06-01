@@ -113,6 +113,17 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
 
         {/* User Stats / Profile Area */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              window.dispatchEvent(new Event('trigger-pwa-install'));
+            }}
+            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-950/40 hover:bg-slate-900 border border-slate-800 text-slate-300 hover:text-emerald-400 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm"
+            type="button"
+          >
+            <span>📱</span>
+            <span>نصب اپلیکیشن</span>
+          </button>
+
           {currentUser ? (
             <div className="flex items-center gap-3 bg-slate-950/60 pl-3 pr-1 py-1.5 rounded-full border border-slate-800">
               <div className="text-right">

@@ -16,6 +16,7 @@ import FlagIcon from './components/FlagIcon';
 import LegendsList from './components/LegendsList';
 import TeamDetail from './components/TeamDetail';
 import UserPublicProfileModal from './components/UserPublicProfileModal';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('home');
@@ -865,12 +866,7 @@ export default function App() {
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="flex items-center gap-3 p-4 bg-slate-950/30 rounded-xl border border-slate-800/40 text-xs text-slate-400 mt-2 font-bold select-none">
-                <span>💡</span>
-                <span>کافی است نام کشور را بنویسید تا تمام بازی‌های گروهی و حذفی آن کشور با امکان پیش‌بینی فوری به شما نمایش داده شود.</span>
-              </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -1094,6 +1090,9 @@ export default function App() {
           token={token}
         />
       )}
+
+      {/* PWA Mobile Application Install Promotion Banner */}
+      <PWAInstallPrompt />
 
     </div>
   );

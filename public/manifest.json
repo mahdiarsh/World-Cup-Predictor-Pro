@@ -1,0 +1,26 @@
+{
+  "short_name": "پیش‌بینی جام جهانی",
+  "name": "پیش‌بینی هوشمند جام جهانی فوتبال FC26",
+  "description": "پلتفرم پیش‌بینی مسابقات جام جهانی فوتبال بر پایه کارت‌های EA Sports FC 26",
+  "icons": [
+    {
+      "src": "https://api.dicebear.com/7.x/identicon/svg?seed=worldcup&backgroundColor=020617",
+      "type": "image/svg+xml",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/identicon/svg?seed=worldcup&backgroundColor=020617",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#020617",
+  "theme_color": "#10b981",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "fa"
+}
