@@ -62,14 +62,14 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, ease: "easeOut", delay: 0.1 }}
               onClick={() => onUserClick && onUserClick(topThree[1].userId)}
-              className="relative bg-slate-900/60 rounded-2xl p-5 border-t-2 border-slate-400/50 border-x border-b border-slate-800 text-center flex flex-col justify-between hover:scale-[1.02] hover:border-slate-300 transition-all cursor-pointer order-2 sm:order-1 pt-8 shadow-lg group"
+              className="relative bg-slate-900/60 rounded-2xl p-5 border-t-2 border-slate-400/50 border-x border-b border-slate-800 text-center flex flex-col justify-between hover:scale-[1.02] hover:border-slate-300 transition-all cursor-pointer order-2 sm:order-1 pt-9 shadow-lg group"
               title="مشاهده نمایه و پیش‌بینی‌های کاربر"
             >
               <motion.div 
-                initial={{ scale: 0.6, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 200, damping: 12, delay: 0.3 }}
-                className="absolute top-2 right-2 px-2.5 py-0.5 bg-slate-800 text-slate-300 font-bold rounded-md font-mono text-xs flex items-center gap-1"
+                initial={{ y: -15, opacity: 0, scale: 0.8 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 220, damping: 12, delay: 0.3 }}
+                className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-slate-300 text-slate-950 text-xs font-black px-4 py-1 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider font-sans whitespace-nowrap"
               >
                 🥈 رتبه ۲
               </motion.div>
@@ -130,14 +130,14 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, ease: "easeOut", delay: 0.2 }}
               onClick={() => onUserClick && onUserClick(topThree[2].userId)}
-              className="relative bg-slate-900/60 rounded-2xl p-5 border-t-2 border-amber-700/50 border-x border-b border-slate-800 text-center flex flex-col justify-between hover:scale-[1.02] hover:border-amber-600/70 transition-all cursor-pointer order-3 pt-8 shadow-lg group"
+              className="relative bg-slate-900/60 rounded-2xl p-5 border-t-2 border-amber-700/50 border-x border-b border-slate-800 text-center flex flex-col justify-between hover:scale-[1.02] hover:border-amber-600/70 transition-all cursor-pointer order-3 pt-9 shadow-lg group"
               title="مشاهده نمایه و پیش‌بینی‌های کاربر"
             >
               <motion.div 
-                initial={{ scale: 0.6, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 200, damping: 12, delay: 0.35 }}
-                className="absolute top-2 right-2 px-2.5 py-0.5 bg-slate-800 text-amber-600 font-bold rounded-md font-mono text-xs flex items-center gap-1"
+                initial={{ y: -15, opacity: 0, scale: 0.8 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 220, damping: 12, delay: 0.35 }}
+                className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-amber-700 text-slate-950 text-xs font-black px-4 py-1 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider font-sans whitespace-nowrap"
               >
                 🥉 رتبه ۳
               </motion.div>
@@ -196,8 +196,8 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
                 <th className="px-6 py-4 text-center font-sans">رتبه</th>
                 <th className="px-6 py-4">شرکت‌کننده</th>
                 <th className="px-6 py-4 text-center">امتیاز کل</th>
-                <th className="px-6 py-4 text-center hidden md:table-cell">حدس دقیق (+۳)</th>
-                <th className="px-6 py-4 text-center hidden md:table-cell">تفکیک برنده (+۱)</th>
+                <th className="px-6 py-4 text-center hidden md:table-cell">حدس دقیق</th>
+                <th className="px-6 py-4 text-center hidden md:table-cell">تشخیص صحیح</th>
                 <th className="px-6 py-4 text-center">بازی‌های پیش‌بینی شده</th>
               </tr>
             </thead>

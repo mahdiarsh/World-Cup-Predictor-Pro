@@ -68,9 +68,9 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
             <span className="text-xs tracking-tight whitespace-nowrap">رده‌بندی کاربران</span>
           </button>
 
-          {currentUser && (
+          {currentUser && currentUser.role !== UserRole.ADMIN && (
             <button
-              onClick={() => setCurrentTab('quick_predict')}
+               onClick={() => setCurrentTab('quick_predict')}
               className={`flex flex-col items-center justify-center px-3.5 py-1.5 rounded-xl transition-all font-sans ${
                 currentTab === 'quick_predict'
                   ? 'bg-emerald-950/55 text-emerald-400 border border-emerald-500/30 font-semibold shadow-inner'
@@ -226,8 +226,8 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
           )}
         </button>
 
-         {/* Tab 4: Quick Predict (Zap icon) */}
-        {currentUser && (
+          {/* Tab 4: Quick Predict (Zap icon) */}
+        {currentUser && currentUser.role !== UserRole.ADMIN && (
           <button
             onClick={() => setCurrentTab('quick_predict')}
             className="flex flex-col items-center justify-center transition-all duration-200 flex-1 relative group py-0.5"

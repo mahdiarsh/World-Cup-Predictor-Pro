@@ -1161,6 +1161,70 @@ const REAL_TEAMS_DATA: Record<string, { coach: string; formation: string; player
   }
 };
 
+export function getStartingLineupCoordinates(formation: string): { GK: { x: number; y: number }[]; DF: { x: number; y: number }[]; MF: { x: number; y: number }[]; FW: { x: number; y: number }[] } {
+  const parts = formation.split('-').map(Number);
+  
+  let defendersCount = 4;
+  let midfieldersCount = 3;
+  let strikersCount = 3;
+
+  if (parts.length === 3) {
+    defendersCount = parts[0] || 4;
+    midfieldersCount = parts[1] || 3;
+    strikersCount = parts[2] || 3;
+  } else if (parts.length === 4) {
+    defendersCount = parts[0] || 4;
+    midfieldersCount = (parts[1] || 0) + (parts[2] || 0);
+    strikersCount = parts[3] || 1;
+  }
+
+  const gkCoords = [{ x: 50, y: 12 }];
+
+  // Defenders Layout
+  const dfCoords: { x: number; y: number }[] = [];
+  if (defendersCount === 3) {
+    dfCoords.push({ x: 25, y: 30 }, { x: 50, y: 26 }, { x: 75, y: 30 });
+  } else if (defendersCount === 5) {
+    dfCoords.push({ x: 15, y: 34 }, { x: 33, y: 28 }, { x: 50, y: 26 }, { x: 67, y: 28 }, { x: 85, y: 34 });
+  } else {
+    dfCoords.push({ x: 18, y: 32 }, { x: 38, y: 28 }, { x: 62, y: 28 }, { x: 82, y: 32 });
+  }
+
+  // Midfielders Layout
+  const mfCoords: { x: number; y: number }[] = [];
+  if (midfieldersCount === 2) {
+    mfCoords.push({ x: 35, y: 48 }, { x: 65, y: 48 });
+  } else if (midfieldersCount === 3) {
+    mfCoords.push({ x: 30, y: 55 }, { x: 50, y: 45 }, { x: 70, y: 55 });
+  } else if (midfieldersCount === 4) {
+    mfCoords.push({ x: 18, y: 56 }, { x: 38, y: 48 }, { x: 62, y: 48 }, { x: 82, y: 56 });
+  } else if (midfieldersCount === 5) {
+    mfCoords.push({ x: 18, y: 58 }, { x: 35, y: 48 }, { x: 50, y: 58 }, { x: 65, y: 48 }, { x: 82, y: 58 });
+  } else {
+    for (let i = 0; i < midfieldersCount; i++) {
+      const segment = 100 / (midfieldersCount + 1);
+      mfCoords.push({ x: Math.round(segment * (i + 1)), y: 50 });
+    }
+  }
+
+  // Forwards Layout
+  const fwCoords: { x: number; y: number }[] = [];
+  if (strikersCount === 1) {
+    fwCoords.push({ x: 50, y: 85 });
+  } else if (strikersCount === 2) {
+    fwCoords.push({ x: 35, y: 82 }, { x: 65, y: 82 });
+  } else if (strikersCount === 3) {
+    fwCoords.push({ x: 20, y: 75 }, { x: 50, y: 85 }, { x: 80, y: 75 });
+  } else {
+    for (let i = 0; i < strikersCount; i++) {
+      const segment = 100 / (strikersCount + 1);
+      fwCoords.push({ x: Math.round(segment * (i + 1)), y: 80 });
+    }
+  }
+
+  return { GK: gkCoords, DF: dfCoords, MF: mfCoords, FW: fwCoords };
+}
+
 export function getSquadForTeam(teamId: string, teamName: string): TeamSquad {
   if (SQUADS_DB[teamId]) {
     return SQUADS_DB[teamId];
@@ -1169,43 +1233,27 @@ export function getSquadForTeam(teamId: string, teamName: string): TeamSquad {
   // Check if we have high-fidelity real data for this team
   if (REAL_TEAMS_DATA[teamId]) {
     const data = REAL_TEAMS_DATA[teamId];
+    const layout = getStartingLineupCoordinates(data.formation);
     
-    // Dynamically lay out coordinates and details to fit on a professional visual soccer field (4-3-3 pattern)
+    let gkCount = 0;
+    let dfCount = 0;
+    let mfCount = 0;
+    let fwCount = 0;
+
+    // Dynamically lay out coordinates based on position indices and formation structure
     const players: Player[] = data.players.map((p, idx) => {
       const isStarting = idx < 11;
       let gridPos = { x: 0, y: 0 };
       
       if (isStarting) {
         if (p.position === 'GK') {
-          gridPos = { x: 50, y: 12 };
+          gridPos = layout.GK[gkCount++] || { x: 50, y: 12 };
         } else if (p.position === 'DF') {
-          // Layout defenders
-          const dfIdx = idx - 1; // index among defenders (0..3)
-          const coords = [
-            { x: 82, y: 32 }, // Right Back
-            { x: 18, y: 32 }, // Left Back
-            { x: 38, y: 28 }, // Center Back Left
-            { x: 62, y: 28 }  // Center Back Right
-          ];
-          gridPos = coords[dfIdx] || { x: 50, y: 30 };
+          gridPos = layout.DF[dfCount++] || { x: 50, y: 30 };
         } else if (p.position === 'MF') {
-          // Layout midfielders
-          const mfIdx = idx - 5; // index among midfielders (0..2)
-          const coords = [
-            { x: 50, y: 46 }, // Deep Midfield
-            { x: 32, y: 56 }, // Left Midfield
-            { x: 68, y: 56 }  // Right Midfield
-          ];
-          gridPos = coords[mfIdx] || { x: 50, y: 50 };
+          gridPos = layout.MF[mfCount++] || { x: 50, y: 50 };
         } else {
-          // Layout forwards
-          const fwIdx = idx - 8; // index among forwards (0..2)
-          const coords = [
-            { x: 80, y: 75 }, // Right Wing
-            { x: 20, y: 75 }, // Left Wing
-            { x: 50, y: 85 }  // Center Forward
-          ];
-          gridPos = coords[fwIdx] || { x: 50, y: 80 };
+          gridPos = layout.FW[fwCount++] || { x: 50, y: 80 };
         }
       }
 

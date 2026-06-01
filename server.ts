@@ -724,8 +724,12 @@ app.get('/api/predictions/match/:matchId', authenticateToken, (req: Authenticate
       return;
     }
 
-    // Get all predictions for this match
-    const predsObj = db.predictions.filter(p => p.matchId === matchId);
+    // Get all predictions for this match, excluding any admin predictions
+    const predsObj = db.predictions.filter(p => {
+      if (p.matchId !== matchId) return false;
+      const u = db.users.find(user => user.id === p.userId);
+      return u ? u.role !== UserRole.ADMIN : true;
+    });
     
     // Enrich with user names / avatars
     const result = predsObj.map(p => {
@@ -2558,6 +2562,70 @@ app.get('/api/teams/:id/squad', (req: Request, res: Response) => {
   }
 });
 
+function getStartingLineupCoordinates(formation: string) {
+  const parts = formation.split('-').map(Number);
+  
+  let defendersCount = 4;
+  let midfieldersCount = 3;
+  let strikersCount = 3;
+
+  if (parts.length === 3) {
+    defendersCount = parts[0] || 4;
+    midfieldersCount = parts[1] || 3;
+    strikersCount = parts[2] || 3;
+  } else if (parts.length === 4) {
+    defendersCount = parts[0] || 4;
+    midfieldersCount = (parts[1] || 0) + (parts[2] || 0);
+    strikersCount = parts[3] || 1;
+  }
+
+  const gkCoords = [{ x: 50, y: 12 }];
+
+  // Defenders Layout
+  const dfCoords: { x: number; y: number }[] = [];
+  if (defendersCount === 3) {
+    dfCoords.push({ x: 25, y: 30 }, { x: 50, y: 26 }, { x: 75, y: 30 });
+  } else if (defendersCount === 5) {
+    dfCoords.push({ x: 15, y: 34 }, { x: 33, y: 28 }, { x: 50, y: 26 }, { x: 67, y: 28 }, { x: 85, y: 34 });
+  } else {
+    dfCoords.push({ x: 18, y: 32 }, { x: 38, y: 28 }, { x: 62, y: 28 }, { x: 82, y: 32 });
+  }
+
+  // Midfielders Layout
+  const mfCoords: { x: number; y: number }[] = [];
+  if (midfieldersCount === 2) {
+    mfCoords.push({ x: 35, y: 48 }, { x: 65, y: 48 });
+  } else if (midfieldersCount === 3) {
+    mfCoords.push({ x: 30, y: 55 }, { x: 50, y: 45 }, { x: 70, y: 55 });
+  } else if (midfieldersCount === 4) {
+    mfCoords.push({ x: 18, y: 56 }, { x: 38, y: 48 }, { x: 62, y: 48 }, { x: 82, y: 56 });
+  } else if (midfieldersCount === 5) {
+    mfCoords.push({ x: 18, y: 58 }, { x: 35, y: 48 }, { x: 50, y: 58 }, { x: 65, y: 48 }, { x: 82, y: 58 });
+  } else {
+    for (let i = 0; i < midfieldersCount; i++) {
+      const segment = 100 / (midfieldersCount + 1);
+      mfCoords.push({ x: Math.round(segment * (i + 1)), y: 50 });
+    }
+  }
+
+  // Forwards Layout
+  const fwCoords: { x: number; y: number }[] = [];
+  if (strikersCount === 1) {
+    fwCoords.push({ x: 50, y: 85 });
+  } else if (strikersCount === 2) {
+    fwCoords.push({ x: 35, y: 82 }, { x: 65, y: 82 });
+  } else if (strikersCount === 3) {
+    fwCoords.push({ x: 20, y: 75 }, { x: 50, y: 85 }, { x: 80, y: 75 });
+  } else {
+    for (let i = 0; i < strikersCount; i++) {
+      const segment = 100 / (strikersCount + 1);
+      fwCoords.push({ x: Math.round(segment * (i + 1)), y: 80 });
+    }
+  }
+
+  return { GK: gkCoords, DF: dfCoords, MF: mfCoords, FW: fwCoords };
+}
+
 // POST /api/teams/:id/squad/sync-ai - Sync specific team roster live using OpenRouter AI
 app.post('/api/teams/:id/squad/sync-ai', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
@@ -2575,32 +2643,34 @@ app.post('/api/teams/:id/squad/sync-ai', authenticateToken, requireAdmin, async 
       return;
     }
 
-    const prompt = `You are a professional sports editor. Fetch/retrieve the actual, official real-world soccer squad, head coach, and player ratings (FIFA/FC25/real-life) for the National Football Team: "${team.name}" (${team.shortCode}).
+    const prompt = `You are a professional sports editor. Fetch/retrieve the actual, official real-world soccer squad, head coach, overall formation/lineup structure, and player ratings (FIFA/FC25/real-life) for the National Football Team: "${team.name}" (${team.shortCode}).
 Find the REAL current manager/coach (in Persian, e.g., "امیر قلعه‌نویی", "روبرتو مارتینز", "لوئیس دلا فوئنته" etc.).
 Gather the FULL squad consisting of EXACTLY between 23 and 26 REAL players representing the actual national team (e.g. for Portugal, get Ronaldo, Bruno Fernandes, Leao, Dias, Bernardo, Diogo Costa etc., and for Cape Verde, get their real team like Jovane Cabral, Bebe, Logan Costa, Ryan Mendes, Garry Rodrigues, translated to Persian). Do NOT make up names.
-Out of the 23 to 26 players, you must mark EXACTLY 11 starting players as "isStarting": true.
-These 11 starting players must form a standard balanced 4-3-3 formation:
-- Exactly 1 "GK" (Goalkeeper) with "isStarting": true.
-- Exactly 4 "DF" (Defenders) with "isStarting": true.
-- Exactly 3 "MF" (Midfielders) with "isStarting": true.
-- Exactly 3 "FW" (Forwards) with "isStarting": true.
+Determine the official or most realistic current standard tactical formation of this national team (e.g., "4-3-3", "4-4-2", "4-2-3-1", "3-5-2", "5-3-2", "4-5-1", "3-4-3" etc.).
+Out of the 23 to 26 players, you must select and mark EXACTLY 11 starting players as "isStarting": true representing this realistic formation.
+The exact headcount of starting players for each position MUST match your chosen formation:
+- Exactly 1 Goalkeeper "GK" with "isStarting": true.
+- Defenders "DF" with "isStarting": true (must match the first digit of your formation, e.g. if "4-2-3-1", exactly 4 starting Defenders).
+- Midfielders "MF" with "isStarting": true (must match the middle digits of your formation, e.g. if "4-4-2", exactly 4 starting Midfielders; if "4-2-3-1", exactly 5 starting Midfielders; if "3-5-2", exactly 5 starting Midfielders).
+- Forwards "FW" with "isStarting": true (must match the last digit of your formation, e.g. if "4-3-3", exactly 3 starting Forwards; if "4-2-3-1", exactly 1 starting Forward).
 All other remaining 12 to 15 players must be marked as "isStarting": false (reserves).
+
 For each player, retrieve:
-- "name": Real name in Persian (e.g. "کریستیانو رونالدو", "رایان مندس")
+- "name": Real name in Persian (e.g. "کریستیانو رونالدو", "علیرضا جهانبخش")
 - "number": Real lineup shirt number (unique between 1 and 99)
 - "position": One of 'GK', 'DF', 'MF', 'FW'
-- "isStarting": boolean (exactly 11 starting players, exactly 12 to 15 reserves)
+- "isStarting": boolean (exactly 11 starting players in total matching the formation, others false)
 - "club": Their current professional club in Persian (e.g. "النصر", "رئال مادرید" or local league/foreign leagues)
 - "age": Real current age
 - "rating": Valid realistic overall rating (70-98)
 
 Return ONLY a raw JSON string matching this exact structure:
 {
-  "formation": "4-3-3",
+  "formation": "4-2-3-1", // insert the realistic chosen formation here (e.g., 4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 5-3-2)
   "coach": "سرمربی به فارسی",
-  "strikersCount": 3,
-  "midfieldersCount": 3,
-  "defendersCount": 4,
+  "strikersCount": 1, 
+  "midfieldersCount": 5, 
+  "defendersCount": 4, 
   "stats": { "attack": 85, "midfield": 84, "defense": 82, "overall": 84 },
   "players": [
     { "name": "...", "number": 1, "position": "GK", "isStarting": true, "club": "...", "age": 28, "rating": 85 },
@@ -2615,10 +2685,15 @@ Do not write markdown blocks (like \`\`\`json) or conversational explanations. J
 
     const parsedSquad = JSON.parse(cleanJson);
 
-    // Recompute attack/midfield/defense/overall stats dynamically on server to ensure accuracy
+    // Recompute attack/midfield/defense/overall stats dynamically on server to ensure accuracy and place starting players coordinate
+    const formationStr = parsedSquad.formation || '4-3-3';
+    const layout = getStartingLineupCoordinates(formationStr);
+
     let baseRatingSum = 0;
     let gkCount = 0, dfCount = 0, mfCount = 0, fwCount = 0;
     let dfRating = 0, mfRating = 0, fwRating = 0;
+    let gkRating = 0;
+    let dfActualCount = 0, mfActualCount = 0, fwActualCount = 0;
 
     parsedSquad.players.forEach((p: any) => {
       const pRating = Number(p.rating) || 75;
@@ -2630,41 +2705,34 @@ Do not write markdown blocks (like \`\`\`json) or conversational explanations. J
       }
       
       if (p.position === 'GK') {
-        gkCount++;
-        p.gridPos = { x: 50, y: 12 };
+        p.gridPos = layout.GK[gkCount++] || { x: 50, y: 12 };
+        gkRating += pRating;
       } else if (p.position === 'DF') {
-        dfCount++;
+        p.gridPos = layout.DF[dfCount++] || { x: 50, y: 30 };
         dfRating += pRating;
-        if (dfCount === 1) p.gridPos = { x: 18, y: 32 };
-        else if (dfCount === 2) p.gridPos = { x: 38, y: 28 };
-        else if (dfCount === 3) p.gridPos = { x: 62, y: 28 };
-        else p.gridPos = { x: 82, y: 32 };
+        dfActualCount++;
       } else if (p.position === 'MF') {
-        mfCount++;
+        p.gridPos = layout.MF[mfCount++] || { x: 50, y: 50 };
         mfRating += pRating;
-        if (mfCount === 1) p.gridPos = { x: 30, y: 56 };
-        else if (mfCount === 2) p.gridPos = { x: 50, y: 46 };
-        else p.gridPos = { x: 70, y: 56 };
+        mfActualCount++;
       } else if (p.position === 'FW') {
-        fwCount++;
+        p.gridPos = layout.FW[fwCount++] || { x: 50, y: 80 };
         fwRating += pRating;
-        if (fwCount === 1) p.gridPos = { x: 20, y: 75 };
-        else if (fwCount === 2) p.gridPos = { x: 50, y: 85 };
-        else p.gridPos = { x: 80, y: 75 };
+        fwActualCount++;
       } else {
         p.gridPos = { x: 50, y: 50 };
       }
     });
 
-    parsedSquad.strikersCount = fwCount || 1;
-    parsedSquad.midfieldersCount = mfCount || 1;
-    parsedSquad.defendersCount = dfCount || 1;
+    parsedSquad.strikersCount = fwActualCount || 1;
+    parsedSquad.midfieldersCount = mfActualCount || 1;
+    parsedSquad.defendersCount = dfActualCount || 1;
 
     // Standardize overall ratings
     parsedSquad.stats = {
-      attack: Math.round(fwRating / (fwCount || 1)) || 75,
-      midfield: Math.round(mfRating / (mfCount || 1)) || 75,
-      defense: Math.round(dfRating / (dfCount || 1)) || 75,
+      attack: Math.round(fwRating / (fwActualCount || 1)) || 75,
+      midfield: Math.round(mfRating / (mfActualCount || 1)) || 75,
+      defense: Math.round(dfRating / (dfActualCount || 1)) || 75,
       overall: Math.round(baseRatingSum / parsedSquad.players.length) || 75
     };
 

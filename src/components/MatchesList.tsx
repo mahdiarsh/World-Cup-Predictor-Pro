@@ -355,7 +355,11 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
 
                     {/* Right: User Prediction Display or Action Button */}
                     <div>
-                      {pred ? (
+                      {currentUser?.role === 'admin' ? (
+                        <div className="bg-slate-950/20 border border-slate-850/60 px-2.5 py-1 rounded-md">
+                          <span className="text-[10px] font-extrabold text-amber-500 font-sans block uppercase tracking-wider">⚡ حساب مدیریت</span>
+                        </div>
+                      ) : pred ? (
                         <div className="flex items-center gap-2" dir="rtl">
                           <div className="text-right">
                             <p className="text-[10px] text-slate-500 font-sans leading-none">حدس شما</p>
@@ -403,7 +407,7 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                     </div>
                   </div>
 
-                  {timeInfo.isLocked && (
+                  {(timeInfo.isLocked || currentUser?.role === 'admin') && (
                     <button
                       type="button"
                       onClick={() => setViewOthersMatch(match)}
@@ -566,7 +570,18 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
 
                       {/* Prediction Actions */}
                       <td className="p-3 sm:p-4 text-left whitespace-nowrap">
-                        {timeInfo.isLocked ? (
+                        {currentUser?.role === 'admin' ? (
+                          <div className="flex justify-end gap-2 items-center">
+                            <span className="text-[10px] text-amber-500 font-extrabold font-sans">⚡ مدیر سیستم</span>
+                            <button
+                              type="button"
+                              onClick={() => setViewOthersMatch(match)}
+                              className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 hover:border-emerald-500/40 text-emerald-400 font-extrabold text-[10px] rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              👁️ پیش‌بینی‌ها
+                            </button>
+                          </div>
+                        ) : timeInfo.isLocked ? (
                           <div className="flex justify-end gap-2 items-center">
                             <span className="text-[10px] text-slate-500 flex items-center gap-1 font-semibold">
                               <Clock className="h-3 w-3 shrink-0" />

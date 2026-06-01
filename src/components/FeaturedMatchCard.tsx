@@ -203,7 +203,21 @@ export default function FeaturedMatchCard({
 
       {/* Dynamic interactive prediction section beneath */}
       <div className="mt-3 pt-2.5 border-t border-slate-800/45 text-center flex flex-col justify-end grow">
-        {!currentUser ? (
+        {currentUser?.role === 'admin' ? (
+          <div className="space-y-2">
+            <div className="bg-slate-950/20 border border-slate-850/60 py-1.5 rounded-lg text-slate-400 text-2xs space-y-0.5">
+              <span className="block text-[8px] font-sans text-amber-500 font-extrabold uppercase tracking-wider">⚡ حساب مدیریت</span>
+              <span className="text-slate-500 font-medium">عدم نیاز به ثبت پیش‌بینی</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsOthersModalOpen(true)}
+              className="w-full py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 hover:border-emerald-500/40 text-emerald-400 font-extrabold text-[10px] rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+            >
+              👁️ مشاهده پیش‌بینی دیگران
+            </button>
+          </div>
+        ) : !currentUser ? (
           <button
             type="button"
             onClick={onTriggerAuth}

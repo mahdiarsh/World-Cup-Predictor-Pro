@@ -747,7 +747,7 @@ export default function App() {
       );
     }
 
-    if (currentTab === 'quick_predict') {
+    if (currentTab === 'quick_predict' && currentUser?.role !== 'admin') {
       return (
         <QuickPredictor 
           matches={matches} 
