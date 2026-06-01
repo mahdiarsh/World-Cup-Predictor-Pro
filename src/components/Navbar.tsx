@@ -78,7 +78,7 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
               }`}
             >
               <span className="text-lg leading-none mb-1">⚡</span>
-              <span className="text-xs tracking-tight whitespace-nowrap">مقایسه و پیش‌بینی‌ها</span>
+              <span className="text-xs tracking-tight whitespace-nowrap">پیشبینی ها و مقایسه</span>
             </button>
           )}
 
@@ -113,17 +113,6 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
 
         {/* User Stats / Profile Area */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              window.dispatchEvent(new Event('trigger-pwa-install'));
-            }}
-            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-950/40 hover:bg-slate-900 border border-slate-800 text-slate-300 hover:text-emerald-400 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm"
-            type="button"
-          >
-            <span>📱</span>
-            <span>نصب اپلیکیشن</span>
-          </button>
-
           {currentUser ? (
             <div className="flex items-center gap-3 bg-slate-950/60 pl-3 pr-1 py-1.5 rounded-full border border-slate-800">
               <div className="text-right">
@@ -250,10 +239,10 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
             }`}>
               <Zap className="h-5.5 w-5.5 stroke-[2]" />
             </div>
-            <span className={`text-[10px] font-sans font-medium tracking-tight mt-0.5 transition-colors ${
+            <span className={`text-[10.5px] font-sans font-medium tracking-tight mt-0.5 transition-colors ${
               currentTab === 'quick_predict' ? 'text-emerald-400 font-bold' : 'text-slate-500'
             }`}>
-              مقایسه
+              پیشبینی ها و مقایسه
             </span>
             {currentTab === 'quick_predict' && (
               <span className="absolute -bottom-1 h-1 w-1 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />

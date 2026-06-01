@@ -231,17 +231,35 @@ export default function FeaturedMatchCard({
 
       {/* Community Sentiment Bar */}
       {isLocked() && (
-        <div className="mt-2 bg-slate-950/20 border border-slate-850/50 rounded-xl p-2 font-sans">
-          <div className="flex justify-between text-[8px] sm:text-[9px] text-slate-400 font-bold mb-1" dir="rtl">
-            <span className="flex items-center gap-1">📊 <span className="text-slate-300 font-sans">نمودار پیش‌بینی کاربران</span></span>
-            <span className="text-[8px] sm:text-[9px] text-slate-400">
-              {sentiment.home}٪ <span className="text-emerald-400">برد {homeCode || 'میزبان'}</span> • {sentiment.draw}٪ <span className="text-slate-450">مساوی</span> • {sentiment.away}٪ <span className="text-sky-400">برد {awayCode || 'مهمان'}</span>
-            </span>
+        <div className="mt-2 bg-slate-950/20 border border-slate-850/50 rounded-xl p-2.5 font-sans space-y-2">
+          {/* Header */}
+          <div className="flex items-center justify-between text-[9px] text-slate-400 font-bold" dir="rtl">
+            <span className="flex items-center gap-1">📊 <span className="text-slate-300 font-sans font-extrabold">پیش‌بینی کاربران</span></span>
           </div>
-          <div className="h-1.5 w-full flex rounded-full overflow-hidden bg-slate-850">
-            <div style={{ width: `${sentiment.home}%` }} className="bg-emerald-500/80 hover:bg-emerald-500 transition-all duration-300" title={`برد ${homeName}: ${sentiment.home}%`} />
-            <div style={{ width: `${sentiment.draw}%` }} className="bg-slate-500/80 hover:bg-slate-550 transition-all duration-300" title={`مساوی: ${sentiment.draw}%`} />
-            <div style={{ width: `${sentiment.away}%` }} className="bg-sky-500/80 hover:bg-sky-500 transition-all duration-300" title={`برد ${awayName}: ${sentiment.away}%`} />
+
+          {/* Individual cleanly structured labeled capsules to avoid stack/clash */}
+          <div className="grid grid-cols-3 gap-1.5" dir="rtl">
+            <div className="bg-emerald-500/10 border border-emerald-500/15 py-1 px-1.5 rounded-lg text-center">
+              <span className="text-[8px] sm:text-[9px] text-emerald-400 font-extrabold block leading-none truncate">برد {homeCode || 'میزبان'}</span>
+              <span className="text-[10px] sm:text-xs font-black text-emerald-300 font-mono mt-0.5 block leading-none">{sentiment.home}٪</span>
+            </div>
+            
+            <div className="bg-slate-800/40 border border-slate-700/50 py-1 px-1.5 rounded-lg text-center">
+              <span className="text-[8px] sm:text-[9px] text-slate-400 font-extrabold block leading-none truncate">مساوی</span>
+              <span className="text-[10px] sm:text-xs font-black text-slate-300 font-mono mt-0.5 block leading-none">{sentiment.draw}٪</span>
+            </div>
+
+            <div className="bg-sky-500/10 border border-sky-500/15 py-1 px-1.5 rounded-lg text-center">
+              <span className="text-[8px] sm:text-[9px] text-sky-400 font-extrabold block leading-none truncate">برد {awayCode || 'مهمان'}</span>
+              <span className="text-[10px] sm:text-xs font-black text-sky-300 font-mono mt-0.5 block leading-none">{sentiment.away}٪</span>
+            </div>
+          </div>
+
+          {/* Continuous progress bar */}
+          <div className="h-1.5 w-full flex rounded-full overflow-hidden bg-slate-855">
+            <div style={{ width: `${sentiment.home}%` }} className="bg-emerald-500/80 hover:bg-emerald-555 transition-all duration-300" title={`برد ${homeName}: ${sentiment.home}%`} />
+            <div style={{ width: `${sentiment.draw}%` }} className="bg-slate-500/80 hover:bg-slate-555 transition-all duration-300" title={`مساوی: ${sentiment.draw}%`} />
+            <div style={{ width: `${sentiment.away}%` }} className="bg-sky-500/80 hover:bg-sky-555 transition-all duration-300" title={`برد ${awayName}: ${sentiment.away}%`} />
           </div>
         </div>
       )}
@@ -288,14 +306,14 @@ export default function FeaturedMatchCard({
                   {prediction.points !== null && prediction.points !== undefined && match.status === MatchStatus.FINISHED && (
                     <span className={`ml-1 px-1.5 py-0.5 rounded text-[8px] font-black font-sans ${
                       prediction.points === 10 
-                        ? 'bg-amber-955 text-amber-400 border border-amber-500/25' 
+                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' 
                         : prediction.points === 7 
-                        ? 'bg-blue-955 text-blue-400 border border-blue-500/25' 
+                        ? 'bg-blue-950 text-blue-400 border border-blue-500/20' 
                         : prediction.points === 5 
-                        ? 'bg-emerald-955 text-emerald-400 border border-emerald-500/25' 
+                        ? 'bg-amber-950 text-amber-400 border border-amber-500/20' 
                         : 'bg-slate-900 text-slate-500 border border-slate-800'
                     }`}>
-                      {prediction.points === 10 ? '+۱۰ امتیاز' : prediction.points === 7 ? '+۷ امتیاز' : prediction.points === 5 ? '+۵ امتیاز' : '۰ امتیاز'}
+                      {prediction.points === 10 ? '۱۰+ امتیاز' : prediction.points === 7 ? '۷+ امتیاز' : prediction.points === 5 ? '۵+ امتیاز' : '۰ امتیاز'}
                     </span>
                   )}
                 </div>
@@ -444,9 +462,9 @@ export default function FeaturedMatchCard({
                 <div className="p-4 bg-slate-950/40 rounded-2xl border border-slate-800/80 text-xs text-slate-400 space-y-2 text-right">
                   <p className="font-bold text-slate-300 flex items-center gap-1.5 font-sans"><CircleHelp className="h-4 w-4 text-emerald-400 animate-pulse" /> نحوه امتیازدهی مسابقات:</p>
                   <ul className="list-disc list-inside space-y-1.5 text-slate-400 pr-1 font-sans leading-relaxed">
-                    <li>اگر نتیجه را <span className="text-amber-400 font-bold">کاملاً دقیق</span> پیش‌بینی کنید: <span className="text-amber-400 font-extrabold font-sans">۱۰+ امتیاز</span></li>
+                    <li>اگر نتیجه را <span className="text-emerald-400 font-bold">کاملاً دقیق</span> پیش‌بینی کنید: <span className="text-emerald-400 font-extrabold font-sans">۱۰+ امتیاز</span></li>
                     <li>تخمینی که <span className="text-blue-400 font-bold">تفاضل گل صحیح</span> به همراه برنده را درست حدس بزند: <span className="text-blue-400 font-extrabold font-sans">۷+ امتیاز</span></li>
-                    <li>اگر صرفاً <span className="text-emerald-400 font-bold">برنده یا تساوی</span> درست باشد اما تفاضل متفاوت باشد: <span className="text-emerald-400 font-extrabold font-sans">۵+ امتیاز</span></li>
+                    <li>اگر صرفاً <span className="text-amber-400 font-bold">برنده یا تساوی</span> درست باشد اما تفاضل متفاوت باشد: <span className="text-amber-400 font-extrabold font-sans">۵+ امتیاز</span></li>
                     <li>اگر پیش‌بینی شما کاملاً <span className="text-rose-450 font-bold">اشتباه</span> باشد: <span className="text-slate-500 font-bold font-sans">۰ امتیاز</span></li>
                   </ul>
                 </div>

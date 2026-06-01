@@ -457,14 +457,14 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                             {pred.points !== null && (
                               <span className={`inline-block text-[10px] px-2 py-0.5 rounded-md font-extrabold font-sans ${
                                 pred.points >= 10 || pred.points === 3
-                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 font-black' 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black' 
                                   : pred.points === 7
                                   ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20'
                                   : pred.points === 5 || pred.points === 1
-                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' 
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 font-bold' 
                                   : 'bg-slate-800 text-slate-400'
                               }`}>
-                                {pred.points >= 10 ? 'دقیق (+۱۰)' : pred.points === 7 ? 'تفاضل (+۷)' : pred.points === 5 ? 'برنده (+۵)' : pred.points === 3 ? 'دقیق (+۳)' : pred.points === 1 ? 'برنده (+۱)' : 'نادرست (۰)'}
+                                {pred.points >= 10 ? 'دقیق (۱۰+)' : pred.points === 7 ? 'تفاضل (۷+)' : pred.points === 5 ? 'برنده (۵+)' : pred.points === 3 ? 'دقیق (۳+)' : pred.points === 1 ? 'برنده (۱+)' : 'نادرست (۰)'}
                               </span>
                             )}
                           </div>
@@ -642,12 +642,14 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
                             {pred.points !== null && (
                               <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded font-extrabold font-sans scale-90 ${
                                 pred.points >= 10 || pred.points === 3
-                                  ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30 font-black' 
-                                  : pred.points >= 5 || pred.points === 1
-                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-extrabold' 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black' 
+                                  : pred.points === 7
+                                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20'
+                                  : pred.points === 5 || pred.points === 1
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/25 font-extrabold' 
                                   : 'bg-slate-800 text-slate-450'
                               }`}>
-                                {pred.points >= 10 ? 'دقیق (+۱۰)' : pred.points === 7 ? 'تفاضل (+۷)' : pred.points === 5 ? 'برنده (+۵)' : pred.points === 3 ? 'دقیق (+۳)' : pred.points === 1 ? 'برنده (+۱)' : 'نادرست (۰)'}
+                                {pred.points >= 10 ? 'دقیق (۱۰+)' : pred.points === 7 ? 'تفاضل (۷+)' : pred.points === 5 ? 'برنده (۵+)' : pred.points === 3 ? 'دقیق (۳+)' : pred.points === 1 ? 'برنده (۱+)' : 'نادرست (۰)'}
                               </span>
                             )}
                           </div>

@@ -319,14 +319,11 @@ export default function TeamDetail({
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-8 border-t border-x-2 border-white/20 pointer-events-none" />
             <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white/35 rounded-full pointer-events-none" />
 
-            {/* Graphical Goal Nets (دروازه ها) at top and bottom */}
-            {/* Top Goal Net Representation */}
+            {/* Graphical Goal Nets represented inside visual green pitch area */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-4 bg-emerald-900/40 border-x border-b border-white/50 rounded-b shadow-[0_3px_6px_rgba(0,0,0,0.5)] z-0 flex items-center justify-center opacity-85" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 15%, transparent 20%)', backgroundSize: '3px 3px' }} />
-            
-            {/* Bottom Goal Net Representation */}
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-4 bg-emerald-900/40 border-x border-t border-white/50 rounded-t shadow-[0_-3px_6px_rgba(0,0,0,0.5)] z-0 flex items-center justify-center opacity-85" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 15%, transparent 20%)', backgroundSize: '3px 3px' }} />
 
-            {/* Starting 11 Visual Placement mapping with Inverted Y orientation (Goalkeeper at bottom) */}
+            {/* Starting 11 Visual Placement mapping with Inverted Y orientation */}
             {(() => {
               const startingPlayers = squad.players.filter(p => p.isStarting);
               const maxS = startingPlayers.length > 0 ? Math.max(...startingPlayers.map(p => p.rating || 0)) : 80;
@@ -358,13 +355,12 @@ export default function TeamDetail({
                     key={`${player.name}-${player.number}`}
                     type="button"
                     onClick={() => setSelectedPlayer(player)}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group transition-all duration-200 focus:outline-none"
+                    className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group transition-all duration-200 focus:outline-none cursor-pointer"
                     style={{ 
                       top: `${100 - player.gridPos.y}%`, 
                       left: `${player.gridPos.x}%` 
                     }}
                   >
-                    {/* Pulsating glowing star ring behind star players */}
                     {isStar && (
                       <div className="absolute top-[8px] sm:top-[12px] left-1/2 -translate-x-1/2 w-8 h-8 sm:w-11 sm:h-11 pointer-events-none -z-5">
                         <span className="absolute inset-0 bg-amber-500/20 rounded-full animate-ping duration-1500" />
@@ -373,7 +369,6 @@ export default function TeamDetail({
                       </div>
                     )}
 
-                    {/* Visual Jersey representation with readable number */}
                     <ShirtIcon 
                       primaryColor={primaryColor} 
                       secondaryColor={secondaryColor} 
@@ -381,7 +376,6 @@ export default function TeamDetail({
                       isChosen={isChosen} 
                     />
 
-                    {/* Highly legible player name tag beneath the jersey */}
                     <div className={`mt-1 px-1.5 py-0.5 rounded-md text-[8px] sm:text-[9.5px] font-extrabold shadow-md max-w-[70px] sm:max-w-[95px] truncate text-center transition-all ${
                       isChosen 
                         ? 'bg-emerald-400 text-slate-950 font-black scale-105 border border-emerald-300' 
@@ -400,7 +394,7 @@ export default function TeamDetail({
           {selectedPlayer && (
             <div className="mt-5 p-5 bg-slate-900 border border-slate-800/80 rounded-3xl shadow-xl flex flex-col md:flex-row items-center gap-6 animate-in slide-in-from-bottom-3 duration-250 text-right" dir="rtl">
               
-              {/* Left Column: Visual representation of rating without any player photos or virtual cards */}
+              {/* Profile Card Circle */}
               <div className="shrink-0 flex flex-col items-center justify-center p-4 bg-slate-950/50 border border-slate-800/60 rounded-2xl w-full md:w-44 text-center">
                 <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">قدرت کل بازیکن</span>
                 <div className="relative my-4 flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-tr from-amber-600/10 to-amber-500/20 border-2 border-amber-500/30 shadow-inner">
@@ -413,14 +407,14 @@ export default function TeamDetail({
                 </div>
               </div>
 
-              {/* Right Column: Attribute Details and Info card */}
+              {/* Attributes block */}
               <div className="flex-1 space-y-4 w-full">
                 <div>
                   <div className="flex items-center justify-between gap-2 border-b border-slate-800/60 pb-2.5 mb-2.5">
                     <h3 className="text-xl font-black text-white">
                       {selectedPlayer.name}
                     </h3>
-                    <span className="text-xs bg-slate-950 text-emerald-400 border border-emerald-950 px-3 py-1 rounded-xl font-mono font-black">
+                    <span className="text-xs bg-slate-955 text-emerald-400 border border-emerald-950 px-3 py-1 rounded-xl font-mono font-black">
                       شماره {selectedPlayer.number}
                     </span>
                   </div>
@@ -575,44 +569,39 @@ export default function TeamDetail({
 
       {/* MATCH PREDICTIONS MODAL FORM */}
       {selectedPredictMatch && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[200] flex flex-col justify-start sm:justify-center items-center bg-slate-955/95 backdrop-blur-md overflow-y-auto p-0 sm:p-4 text-slate-200" dir="rtl">
-          <div className="w-full h-full min-h-screen sm:min-h-0 sm:h-auto sm:max-w-xl bg-slate-900 sm:rounded-3xl border-0 sm:border border-emerald-500/30 overflow-hidden shadow-2xl relative flex flex-col animate-in fade-in slide-in-from-bottom duration-300">
+        <div 
+          className="fixed inset-0 z-[200] flex flex-col justify-center items-center bg-slate-955/90 backdrop-blur-sm p-4 text-slate-200" 
+          dir="rtl"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedPredictMatch(null); }}
+        >
+          <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-emerald-500/25 overflow-hidden shadow-2xl relative flex flex-col animate-in fade-in scale-in-95 duration-200 p-5 space-y-4">
             
-            {/* Modal Header */}
-            <div className="p-6 border-b border-slate-800/80 bg-slate-950 flex justify-between items-center text-right shrink-0">
-              <div>
-                <h3 className="font-extrabold text-white text-lg sm:text-xl tracking-tight">🔮 ثبت پیش‌بینی نتیجه مسابقه</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  {selectedPredictMatch.stage === 'Group Stage' ? 'مرحله گروهی' : selectedPredictMatch.stage === 'Round of 32' ? 'یک‌شانزدهم نهایی' : selectedPredictMatch.stage === 'Round of 16' ? 'یک‌هشتم نهایی' : selectedPredictMatch.stage === 'Quarter Finals' ? 'یک‌چهارم نهایی' : selectedPredictMatch.stage === 'Semi Finals' ? 'نیمه‌نهایی' : selectedPredictMatch.stage === 'Third Place Playoff' ? 'رده‌بندی مقام سوم' : selectedPredictMatch.stage === 'Final' ? 'فینال' : selectedPredictMatch.stage} · ورزشگاه {selectedPredictMatch.stadium}
-                </p>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setSelectedPredictMatch(null)}
-                className="text-slate-400 hover:text-white px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800/80 font-bold transition-all text-sm cursor-pointer"
-              >
-                ✕ بستن
-              </button>
+            {/* Extremely compact clean match stage & teams info */}
+            <div className="text-center">
+              <span className="text-[10px] bg-slate-800 text-slate-300 font-bold px-2 py-0.5 rounded leading-none">
+                {selectedPredictMatch.stage === 'Group Stage' ? 'مرحله گروهی' : selectedPredictMatch.stage === 'Round of 32' ? 'یک‌شانزدهم نهایی' : selectedPredictMatch.stage === 'Round of 16' ? 'یک‌هشتم نهایی' : selectedPredictMatch.stage === 'Quarter Finals' ? 'یک‌چهارم نهایی' : selectedPredictMatch.stage === 'Semi Finals' ? 'نیمه‌نهایی' : selectedPredictMatch.stage === 'Third Place Playoff' ? 'رده‌بندی مقام سوم' : selectedPredictMatch.stage === 'Final' ? 'فینال' : selectedPredictMatch.stage}
+              </span>
+              <p className="text-[10px] text-slate-500 font-medium mt-1">ورزشگاه {selectedPredictMatch.stadium}</p>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSavePredict} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col justify-between">
-              <div className="space-y-6">
+            <form onSubmit={handleSavePredict} className="space-y-4">
+              <div className="space-y-4">
                 
                 {/* Score prediction boxes */}
-                <div className="grid grid-cols-7 items-center justify-center p-4 sm:p-6 bg-slate-955/60 rounded-2xl border border-slate-800/80">
+                <div className="grid grid-cols-7 items-center justify-center p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80">
                   
                   {/* Home */}
-                  <div className="col-span-3 text-center space-y-3">
-                    <div className="flex justify-center select-none">
-                      <FlagIcon teamIdOrCode={selectedPredictMatch.homeTeamId} className="h-10 w-14 rounded shadow-lg object-contain" />
+                  <div className="col-span-3 text-center space-y-1.5">
+                    <div className="flex justify-center select-none scale-90">
+                      <FlagIcon teamIdOrCode={selectedPredictMatch.homeTeamId} className="h-8 w-12 rounded shadow object-contain" />
                     </div>
-                    <span className="font-bold text-slate-100 block text-sm truncate max-w-full">{getTeamName(selectedPredictMatch.homeTeamId)}</span>
-                    <div className="flex items-center justify-center gap-1.5 mt-2">
+                    <span className="font-extrabold text-slate-200 block text-xs truncate max-w-full">{getTeamName(selectedPredictMatch.homeTeamId)}</span>
+                    <div className="flex items-center justify-center gap-1 mt-1 justify-self-center">
                       <button 
                         type="button" 
                         onClick={() => setHomeInput(h => Math.max(0, h - 1))}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                        className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-705 active:bg-slate-900 font-extrabold rounded-lg text-slate-100 hover:text-emerald-400 transition-all font-mono text-base shadow cursor-pointer"
                       >
                         -
                       </button>
@@ -621,12 +610,12 @@ export default function TeamDetail({
                         min="0"
                         value={homeInput}
                         onChange={(e) => setHomeInput(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-14 bg-slate-955 border border-slate-800 text-center text-xl font-black font-mono text-white rounded-xl focus:outline-none focus:border-emerald-500 py-1.5 focus:ring-1 focus:ring-emerald-500/30"
+                        className="w-11 bg-slate-950 border border-slate-800 text-center text-lg font-black font-mono text-white rounded-lg focus:outline-none focus:border-emerald-500 py-1 focus:ring-1 focus:ring-emerald-500/30"
                       />
                       <button 
                         type="button" 
                         onClick={() => setHomeInput(h => h + 1)}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                        className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-705 active:bg-slate-900 font-extrabold rounded-lg text-slate-100 hover:text-emerald-400 transition-all font-mono text-base shadow cursor-pointer"
                       >
                         +
                       </button>
@@ -634,21 +623,21 @@ export default function TeamDetail({
                   </div>
 
                   {/* Divider Colon */}
-                  <div className="col-span-1 text-center font-black text-2xl text-slate-600 font-mono">
+                  <div className="col-span-1 text-center font-black text-xl text-slate-600 font-mono">
                     :
                   </div>
 
                   {/* Away */}
-                  <div className="col-span-3 text-center space-y-3">
-                    <div className="flex justify-center select-none">
-                      <FlagIcon teamIdOrCode={selectedPredictMatch.awayTeamId} className="h-10 w-14 rounded shadow-lg object-contain" />
+                  <div className="col-span-3 text-center space-y-1.5">
+                    <div className="flex justify-center select-none scale-90">
+                      <FlagIcon teamIdOrCode={selectedPredictMatch.awayTeamId} className="h-8 w-12 rounded shadow object-contain" />
                     </div>
-                    <span className="font-bold text-slate-100 block text-sm truncate max-w-full">{getTeamName(selectedPredictMatch.awayTeamId)}</span>
-                    <div className="flex items-center justify-center gap-1.5 mt-2">
+                    <span className="font-extrabold text-slate-200 block text-xs truncate max-w-full">{getTeamName(selectedPredictMatch.awayTeamId)}</span>
+                    <div className="flex items-center justify-center gap-1 mt-1 justify-self-center">
                       <button 
                         type="button" 
                         onClick={() => setAwayInput(a => Math.max(0, a - 1))}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                        className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-705 active:bg-slate-900 font-extrabold rounded-lg text-slate-100 hover:text-emerald-400 transition-all font-mono text-base shadow cursor-pointer"
                       >
                         -
                       </button>
@@ -657,12 +646,12 @@ export default function TeamDetail({
                         min="0"
                         value={awayInput}
                         onChange={(e) => setAwayInput(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-14 bg-slate-955 border border-slate-800 text-center text-xl font-black font-mono text-white rounded-xl focus:outline-none focus:border-emerald-500 py-1.5 focus:ring-1 focus:ring-emerald-500/30"
+                        className="w-11 bg-slate-955 border border-slate-800 text-center text-lg font-black font-mono text-white rounded-lg focus:outline-none focus:border-emerald-500 py-1 focus:ring-1 focus:ring-emerald-500/30"
                       />
                       <button 
                         type="button" 
                         onClick={() => setAwayInput(a => a + 1)}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                        className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-705 active:bg-slate-900 font-extrabold rounded-lg text-slate-100 hover:text-emerald-400 transition-all font-mono text-base shadow cursor-pointer"
                       >
                         +
                       </button>
@@ -672,37 +661,37 @@ export default function TeamDetail({
                 </div>
 
                 {/* Point allocation rule banner */}
-                <div className="p-4 bg-slate-955/40 rounded-2xl border border-slate-800/80 text-xs text-slate-400 space-y-2 text-right">
-                  <p className="font-bold text-slate-300 flex items-center gap-1.5 font-sans"><CircleHelp className="h-4 w-4 text-emerald-400 animate-pulse" /> نحوه امتیازدهی مسابقات:</p>
-                  <ul className="list-disc list-inside space-y-1.5 text-slate-400 pr-1 font-sans leading-relaxed">
-                    <li>اگر نتیجه را <span className="text-amber-400 font-bold">کاملاً دقیق</span> پیش‌بینی کنید: <span className="text-amber-400 font-extrabold font-sans">۱۰+ امتیاز</span></li>
-                    <li>تخمینی که <span className="text-blue-400 font-bold">تفاضل گل صحیح</span> به همراه برنده را درست حدس بزند: <span className="text-blue-400 font-extrabold font-sans">۷+ امتیاز</span></li>
-                    <li>اگر صرفاً <span className="text-emerald-400 font-bold">برنده یا تساوی</span> درست باشد اما تفاضل متفاوت باشد: <span className="text-emerald-400 font-extrabold font-sans">۵+ امتیاز</span></li>
-                    <li>اگر پیش‌بینی شما کاملاً <span className="text-rose-450 font-bold">اشتباه</span> باشد: <span className="text-slate-500 font-bold font-sans">۰ امتیاز</span></li>
+                <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/60 text-[11px] text-slate-400 space-y-1 text-right">
+                  <p className="font-bold text-slate-300 flex items-center gap-1"><CircleHelp className="h-3.5 w-3.5 text-emerald-400" /> نحوه امتیازدهی مسابقات:</p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-400 pr-1 leading-relaxed text-[10px]">
+                    <li>نتیجه کاملاً دقیق: <span className="text-emerald-400 font-extrabold font-sans">۱۰+ امتیاز</span></li>
+                    <li>تفاضل گل صحیح با برنده: <span className="text-blue-400 font-extrabold font-sans">۷+ امتیاز</span></li>
+                    <li>برنده صحیح با تفاضل دیگر: <span className="text-amber-400 font-extrabold font-sans">۵+ امتیاز</span></li>
+                    <li>حدس اشتباه: <span className="text-slate-500 font-bold font-sans">۰ امتیاز</span></li>
                   </ul>
                 </div>
 
                 {modalError && (
-                  <div className="p-4 bg-red-955/40 border border-red-500/20 rounded-xl text-red-400 text-xs flex gap-2 font-sans font-medium">
-                    <ShieldAlert className="h-5 w-5 shrink-0" />
+                  <div className="p-3 bg-red-955/40 border border-red-500/20 rounded-xl text-red-400 text-xs flex gap-2 font-sans font-medium">
+                    <ShieldAlert className="h-4 w-4 shrink-0" />
                     <span>{modalError}</span>
                   </div>
                 )}
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-4 pt-4 shrink-0 mt-auto">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setSelectedPredictMatch(null)}
-                  className="flex-1 py-3 bg-slate-850 hover:bg-slate-805 text-slate-300 text-sm font-semibold rounded-xl border border-slate-800 transition-colors font-sans"
+                  className="flex-1 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition-colors font-sans cursor-pointer"
                 >
                   انصراف
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-45 disabled:pointer-events-none text-white text-sm font-bold tracking-wide rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)] cursor-pointer"
+                  className="flex-1 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-45 disabled:pointer-events-none text-white text-xs font-bold rounded-xl transition-all shadow-[0_0_12px_rgba(16,185,129,0.2)] cursor-pointer"
                 >
                   {isSubmitting ? 'در حال ثبت...' : predId ? 'ویرایش پیش‌بینی' : 'ذخیره پیش‌بینی'}
                 </button>

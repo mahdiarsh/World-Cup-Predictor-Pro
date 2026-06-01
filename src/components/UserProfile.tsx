@@ -1347,11 +1347,11 @@ export default function UserProfile({
                           <span className="block text-[9px] text-slate-500 uppercase tracking-widest">امتیاز کسب شده</span>
                           <span className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-md ${
                             pred.points === 10 
-                              ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' 
+                              ? 'bg-emerald-500/20 text-emerald-350 border border-emerald-500/35' 
                               : pred.points === 7 
                               ? 'bg-blue-500/15 text-blue-400 border border-blue-500/25' 
                               : pred.points === 5 
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                              ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' 
                               : 'bg-slate-800 text-slate-500 border border-slate-800'
                           }`}>
                             {pred.points === 10 ? '۱۰+ امتیاز (کامل) ⭐' : pred.points === 7 ? '۷+ امتیاز (تفاضل) 🔥' : pred.points === 5 ? '۵+ امتیاز (برنده) 👍' : '۰ امتیاز ❌'}

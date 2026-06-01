@@ -5,7 +5,7 @@ export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [activeGuideTab, setActiveGuideTab] = useState<'android' | 'ios' | 'apk'>('android');
+  const [activeGuideTab, setActiveGuideTab] = useState<'android' | 'ios'>('android');
   const [copied, setCopied] = useState(false);
 
   const handleCopyUrl = () => {
@@ -84,8 +84,8 @@ export default function PWAInstallPrompt() {
               <div className="h-12 w-12 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 flex items-center justify-center mx-auto mb-3">
                 <Smartphone className="h-6 w-6 animate-pulse" />
               </div>
-              <h3 className="font-black text-slate-200 text-base">راهنمای نصب برنامه و دریافت APK</h3>
-              <p className="text-xs text-slate-400 mt-1.5 font-medium">سریع‌ترین و بهترین روش را برای دستگاه خود برگزینید:</p>
+              <h3 className="font-black text-slate-200 text-base">راهنمای تصویری نصب اپلیکیشن</h3>
+              <p className="text-xs text-slate-400 mt-1.5 font-medium">سریع‌ترین و بهترین روش را برای دستگاه خود انتخاب کنید:</p>
             </div>
 
             {/* Tab Swapper */}
@@ -109,16 +109,6 @@ export default function PWAInstallPrompt() {
                 }`}
               >
                 آیفون iOS
-              </button>
-              <button
-                onClick={() => setActiveGuideTab('apk')}
-                className={`flex-1 py-1.5 text-center text-[10px] sm:text-xs font-black rounded-lg transition-all cursor-pointer ${
-                  activeGuideTab === 'apk'
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-amber-400'
-                }`}
-              >
-                📦 خروجی APK
               </button>
             </div>
 
@@ -150,7 +140,7 @@ export default function PWAInstallPrompt() {
                   </div>
                 </div>
               </div>
-            ) : activeGuideTab === 'ios' ? (
+            ) : (
               <div className="space-y-4 text-xs text-slate-300">
                 <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-3 rounded-2xl leading-relaxed text-[10px] sm:text-[11px]">
                   <strong>⚠️ نکته کلیدی:</strong> این نصب فقط مخصوص مرورگر <strong>Safari (سافاری آیفون)</strong> است. در برنامه‌های دیگر (مثل تلگرام)، لینک را کپی کرده و دستی در سافاری باز کنید.
@@ -174,53 +164,6 @@ export default function PWAInstallPrompt() {
                   <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-400 font-bold font-mono">۳</div>
                   <div className="leading-relaxed">
                     در بالای صفحه روی دکمه <span className="text-emerald-500 font-black">Add (افزودن)</span> یا تایید اشاره کنید تا آیکون به صفحه آیفون اضافه شود.
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 text-xs text-slate-350">
-                <div className="bg-emerald-950/30 border border-emerald-500/20 text-emerald-400 p-3 rounded-2xl leading-relaxed text-[11px]">
-                  <strong>💡 خبر خوش:</strong> پلتفرم ما کاملاً با استانداردهای رسمی PWA سازگار است؛ لذا می‌توانید در ۲ دقیقه خروجی رسمی <strong>APK خام اندروید</strong> آن را بسازید.
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-slate-300 leading-relaxed text-[11px]">
-                    ۱. ابتدا آدرس این پلتفرم را با زدن کلید زیر کپی نمایید:
-                  </p>
-                  
-                  <button
-                    onClick={handleCopyUrl}
-                    className="w-full py-2.5 bg-slate-950 hover:bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer text-slate-200 hover:text-white"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="h-4 w-4 text-emerald-400" />
-                        <span className="text-emerald-400 font-bold">آدرس کپی شد!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4 text-slate-400" />
-                        <span className="font-extrabold text-[10px]">کپی کردن لینک سایت جهت تبدیل</span>
-                      </>
-                    )}
-                  </button>
-
-                  <div className="text-[10px] bg-slate-950/40 px-3 py-1.5 text-center select-all shrink-0 font-mono text-slate-400 rounded-lg break-all border border-slate-850">
-                    {window.location.origin}
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800/40 text-[11px] text-slate-300">
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-400 font-bold font-mono">۲</div>
-                  <div className="leading-relaxed">
-                    وارد ابزار رسمی و رایگان مایکروسافت به آدرس <a href="https://www.pwabuilder.com" target="_blank" rel="noreferrer" className="text-amber-400 font-black underline hover:text-amber-300 inline-flex items-center gap-0.5">PWABuilder.com <ExternalLink className="h-3 w-3 inline" /></a> شده و آدرس را جایگذاری کنید.
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800/40 text-[11px] text-slate-300">
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-400 font-bold font-mono">۳</div>
-                  <div className="leading-relaxed">
-                    بر روی دکمه <span className="text-emerald-400 font-bold">Generate APK / Build</span> کلیک کنید تا فایل تایید شده اصلی به همراه پکیج دانلود شود!
                   </div>
                 </div>
               </div>

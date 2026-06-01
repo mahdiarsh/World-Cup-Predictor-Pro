@@ -785,51 +785,33 @@ export default function App() {
           }} />
 
           <div className="relative z-10 space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-800/80">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
                 <h3 className="font-extrabold text-white text-base flex items-center gap-2">
                   <Search className="h-5 w-5 text-emerald-400" />
                   جستجوی هوشمند مسابقات
                 </h3>
-                <p className="text-xs text-slate-400">جستجوی زنده بازی‌ها بر اساس نام کشور یا تیم</p>
               </div>
               
-              <div className="flex flex-wrap gap-1.5 items-center">
-                <span className="text-[10px] font-bold text-slate-500">جستجوی سریع:</span>
-                {['ایران', 'برزیل', 'اسپانیا', 'آلمان', 'فرانسه', 'آرژانتین'].map(teamName => (
+              {/* Input field */}
+              <div className="relative w-full md:w-80 lg:w-96">
+                <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="جستجوی نام کشور..."
+                  className="w-full pr-10 pl-16 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:border-emerald-500/50 focus:outline-none transition-all placeholder:text-slate-500 focus:ring-1 focus:ring-emerald-500/30 font-semibold"
+                />
+                {searchQuery && (
                   <button
-                    key={teamName}
-                    onClick={() => setSearchQuery(teamName)}
-                    className={`text-[10px] px-2.5 py-1 rounded-full border transition-all font-bold ${
-                      searchQuery === teamName 
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/35 shadow-sm'
-                        : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                    }`}
+                    onClick={() => setSearchQuery('')}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-[10px] font-bold bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded transition-colors"
                   >
-                    {teamName}
+                    حذف
                   </button>
-                ))}
+                )}
               </div>
-            </div>
-
-            {/* Input field */}
-            <div className="relative w-full max-w-lg">
-              <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="نام کشور مورد نظر را بنویسید (مثلاً: ایران)..."
-                className="w-full pr-11 pl-16 py-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm focus:border-emerald-500/50 focus:outline-none transition-all placeholder:text-slate-500 focus:ring-1 focus:ring-emerald-500/30 font-semibold"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs font-bold bg-slate-900 border border-slate-800 px-2 py-1 rounded transition-colors"
-                >
-                  پاک کردن
-                </button>
-              )}
             </div>
 
             {/* Results output tab */}

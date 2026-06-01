@@ -49,7 +49,7 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
     <div className="space-y-6 text-right" dir="rtl">
       
       {/* Title & Description */}
-      <div className="text-center max-w-xl mx-auto space-y-2">
+      <div className="text-center max-w-xl mx-auto space-y-3">
         <h2 className="text-3xl font-extrabold tracking-tight text-white flex items-center justify-center gap-2">
           <Trophy className="h-8 w-8 text-amber-500 animate-pulse" />
           جدول رده‌بندی <span className="text-emerald-400">کاربران</span>
@@ -57,6 +57,11 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
         <p className="text-slate-400 text-sm">
           امتیاز رقابت‌های خود را دنبال کنید. پیش‌بینی دقیق نتیجه <span className="text-amber-400 font-bold font-sans">۱۰ امتیاز</span>، حدس صحیح برنده با تفاضل گل صحیح <span className="text-blue-400 font-bold font-sans">۷ امتیاز</span> و حدس صحیح برنده یا مساوی <span className="text-emerald-400 font-bold font-sans">۵ امتیاز</span> به همراه دارد!
         </p>
+        
+        {/* Prizes announcement banner */}
+        <div className="inline-block mt-1 p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-xs font-bold leading-relaxed max-w-lg shadow-[0_4px_12px_rgba(16,185,129,0.05)]">
+          🎁 <span className="text-slate-200">اطلاعیه جوایز:</span> مبلغ جوایز و تعداد نفراتی که بعد از نفر سوم برنده می شوند، یک روز قبل از شروع مسابقات بر اساس تعداد شرکت کنندگان نهایی خواهد شد.
+        </div>
       </div>
 
       {/* Highlights Section for Top Performer of the Week (TOTW Style) */}

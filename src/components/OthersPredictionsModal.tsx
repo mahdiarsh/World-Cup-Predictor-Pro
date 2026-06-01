@@ -168,21 +168,46 @@ export default function OthersPredictionsModal({
 
         {/* Community Sentiment Bar inside the predictions modal */}
         {!loading && (
-          <div className="px-5 py-3.5 bg-slate-950 border-b border-slate-800/80 font-sans shrink-0">
-            <div className="flex justify-between items-center text-xs text-slate-450 font-bold mb-2.5" dir="rtl">
+          <div className="px-5 py-4 bg-slate-950 border-b border-slate-800/80 font-sans shrink-0 space-y-3.5">
+            {/* Header: Title and Voting Mode */}
+            <div className="flex items-center justify-between text-xs font-bold" dir="rtl">
               <span className="flex items-center gap-1.5 text-slate-200">
-                <span>📊</span>
-                <span className="font-bold">توزیع پیش‌بینی‌های مردم</span>
-                {sentiment.isReal ? (
-                  <span className="bg-emerald-500/15 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-black">واقعی ({sentiment.count} رأی)</span>
-                ) : (
-                  <span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded-full font-medium">تخمینی کل</span>
-                )}
+                <span className="text-sm">📊</span>
+                <span className="font-extrabold text-sm text-slate-200">توزیع پیش‌بینی‌های مردم</span>
               </span>
-              <span className="text-[10px] sm:text-xs text-slate-400 font-sans font-medium">
-                {sentiment.home}٪ <span className="text-emerald-400">برد {getTeamCode(match.homeTeamId) || 'میزبان'}</span> • {sentiment.draw}٪ <span className="text-slate-450">مساوی</span> • {sentiment.away}٪ <span className="text-sky-400">برد {getTeamCode(match.awayTeamId) || 'مهمان'}</span>
-              </span>
+              {sentiment.isReal ? (
+                <span className="bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] px-2.5 py-0.5 rounded-full font-black">
+                  واقعی ({sentiment.count} رأی)
+                </span>
+              ) : (
+                <span className="bg-slate-800 border border-slate-700 text-slate-400 text-[10px] px-2.5 py-0.5 rounded-full font-medium">
+                  تخمینی کل
+                </span>
+              )}
             </div>
+
+            {/* Individual cleanly structured labeled capsules in a dedicated grid to avoid any stacking/clash */}
+            <div className="grid grid-cols-3 gap-2" dir="rtl">
+              {/* Home Win Label */}
+              <div className="bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/15 p-2 rounded-xl transition-all text-center">
+                <span className="text-[10px] text-emerald-400 font-extrabold block mb-0.5 leading-none">برد {getTeamCode(match.homeTeamId) || 'میزبان'}</span>
+                <span className="text-sm font-black text-emerald-300 font-mono leading-none">{sentiment.home}٪</span>
+              </div>
+
+              {/* Draw Label */}
+              <div className="bg-slate-800/40 border border-slate-700/50 hover:bg-slate-800/60 p-2 rounded-xl transition-all text-center">
+                <span className="text-[10px] text-slate-400 font-extrabold block mb-0.5 leading-none">مساوی</span>
+                <span className="text-sm font-black text-slate-300 font-mono leading-none">{sentiment.draw}٪</span>
+              </div>
+
+              {/* Away Win Label */}
+              <div className="bg-sky-500/10 border border-sky-500/20 hover:bg-sky-500/15 p-2 rounded-xl transition-all text-center">
+                <span className="text-[10px] text-sky-400 font-extrabold block mb-0.5 leading-none">برد {getTeamCode(match.awayTeamId) || 'مهمان'}</span>
+                <span className="text-sm font-black text-sky-300 font-mono leading-none">{sentiment.away}٪</span>
+              </div>
+            </div>
+
+            {/* Continuous distribution progress bar graph */}
             <div className="h-2 w-full flex rounded-full overflow-hidden bg-slate-900 border border-slate-800/40">
               <div 
                 style={{ width: `${sentiment.home}%` }} 

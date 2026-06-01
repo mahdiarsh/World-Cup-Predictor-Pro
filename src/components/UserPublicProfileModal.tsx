@@ -123,7 +123,7 @@ export default function UserPublicProfileModal({
       );
     } else if (points === 5) {
       return (
-        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/20">
+        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/20">
           👍 ۵+ امتیاز (برنده صحیح)
         </span>
       );
