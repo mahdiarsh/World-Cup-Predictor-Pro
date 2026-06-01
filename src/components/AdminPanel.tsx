@@ -589,6 +589,10 @@ export default function AdminPanel({
   const [sHomeScore, setSHomeScore] = useState<number>(0);
   const [sAwayScore, setSAwayScore] = useState<number>(0);
 
+  const [manualTeamOpen, setManualTeamOpen] = useState<string | null>(null);
+  const [mHomeTeamOverride, setMHomeTeamOverride] = useState<string>('');
+  const [mAwayTeamOverride, setMAwayTeamOverride] = useState<string>('');
+
   const triggerAlert = (msg: string, isErr = false) => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -699,6 +703,27 @@ export default function AdminPanel({
       setScoreSetOpen(null);
     } else {
       triggerAlert('خطا در ثبت نتایج مسابقه.', true);
+    }
+  };
+
+  const handleSaveManualTeams = async (matchId: string) => {
+    if (!mHomeTeamOverride || !mAwayTeamOverride) {
+      triggerAlert('لطفاً هر دو تیم میزبان و میهمان را انتخاب کنید.', true);
+      return;
+    }
+    if (mHomeTeamOverride === mAwayTeamOverride) {
+      triggerAlert('تیم‌های میزبان و میهمان نمی‌توانند یکسان باشند.', true);
+      return;
+    }
+    const succ = await onEditMatch(matchId, {
+      homeTeamId: mHomeTeamOverride,
+      awayTeamId: mAwayTeamOverride
+    });
+    if (succ) {
+      triggerAlert('تیم‌های این مسابقه با موفقیت به صورت دستی (آفلاین) بازنویسی شدند!');
+      setManualTeamOpen(null);
+    } else {
+      triggerAlert('خطا در بروزرسانی تیم‌های مسابقه.', true);
     }
   };
 
@@ -1150,7 +1175,7 @@ export default function AdminPanel({
                     )}
 
                     {/* Action toggles */}
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       
                       {/* Open results edit log panel */}
                       <button
@@ -1158,10 +1183,25 @@ export default function AdminPanel({
                           setScoreSetOpen(scoreSetOpen === m.id ? null : m.id);
                           setSHomeScore(m.homeScore || 0);
                           setSAwayScore(m.awayScore || 0);
+                          setManualTeamOpen(null);
                         }}
                         className="px-3 py-1.5 bg-slate-950 text-slate-300 hover:text-white rounded-lg border border-slate-800 hover:border-emerald-500/30 text-xs font-bold font-sans transition-colors"
                       >
                         {m.status === MatchStatus.FINISHED ? 'ویرایش نتیجه نهایی' : 'ثبت نتیجه بازی'}
+                      </button>
+
+                      {/* Manual team assignment override button */}
+                      <button
+                        onClick={() => {
+                          setManualTeamOpen(manualTeamOpen === m.id ? null : m.id);
+                          setMHomeTeamOverride(m.homeTeamId.startsWith('TBD_') ? '' : m.homeTeamId);
+                          setMAwayTeamOverride(m.awayTeamId.startsWith('TBD_') ? '' : m.awayTeamId);
+                          setScoreSetOpen(null);
+                        }}
+                        className="px-3 py-1.5 bg-slate-950 text-slate-300 hover:text-emerald-400 rounded-lg border border-slate-800 hover:border-emerald-500/30 text-xs font-bold font-sans transition-colors"
+                        title="تعریف دستی و آفلاین تیم‌های این دور مسابقه حذفی"
+                      >
+                        👥 تعریف دستی تیم‌ها
                       </button>
 
                       {/* Delete Match */}
@@ -1218,6 +1258,60 @@ export default function AdminPanel({
                       >
                         🔄 بازنشانی بازی
                       </button>
+                    </div>
+                  )}
+
+                  {/* Manual Team Override collapsing panel */}
+                  {manualTeamOpen === m.id && (
+                    <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-slate-950 rounded-xl border border-slate-800 mt-2" dir="rtl">
+                      <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+                        <div className="flex flex-col gap-1 w-full sm:w-56 text-right">
+                          <label className="text-[10px] text-slate-400 font-bold">تیم میزبان:</label>
+                          <select
+                            value={mHomeTeamOverride}
+                            onChange={e => setMHomeTeamOverride(e.target.value)}
+                            className="bg-slate-900 border border-slate-805 text-xs text-white rounded p-2 focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="">-- انتخاب تیم میزبان --</option>
+                            {teamsSeed.map(t => (
+                              <option key={t.id} value={t.id}>{t.logo} {t.name} ({t.groupName})</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <span className="text-slate-500 font-black text-xs sm:mt-5 self-center">در برابر</span>
+
+                        <div className="flex flex-col gap-1 w-full sm:w-56 text-right">
+                          <label className="text-[10px] text-slate-400 font-bold">تیم میهمان:</label>
+                          <select
+                            value={mAwayTeamOverride}
+                            onChange={e => setMAwayTeamOverride(e.target.value)}
+                            className="bg-slate-900 border border-slate-805 text-xs text-white rounded p-2 focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="">-- انتخاب تیم میهمان --</option>
+                            {teamsSeed.map(t => (
+                              <option key={t.id} value={t.id}>{t.logo} {t.name} ({t.groupName})</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 w-full md:w-auto mt-3 md:mt-0 select-none">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveManualTeams(m.id)}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg active:scale-95 transition-all cursor-pointer"
+                        >
+                          ذخیره تغییرات دستی تیم‌ها
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setManualTeamOpen(null)}
+                          className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white text-xs rounded-lg border border-slate-800 transition-all font-bold"
+                        >
+                          انصراف
+                        </button>
+                      </div>
                     </div>
                   )}
 

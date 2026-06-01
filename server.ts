@@ -159,7 +159,7 @@ if (!adminUser) {
     username: 'admin',
     fullName: 'System Administrator',
     role: UserRole.ADMIN,
-    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=admin',
+    avatar: 'https://api.dicebear.com/10.x/bottts/svg?seed=admin',
     totalScore: 0,
     correctPredictions: 0,
     exactPredictions: 0,
@@ -394,7 +394,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       username: username.trim(),
       fullName: fullName.trim(),
       role: UserRole.USER,
-      avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(fullName.trim())}`,
+      avatar: `https://api.dicebear.com/10.x/bottts/svg?seed=${encodeURIComponent(fullName.trim())}`,
       totalScore: 0,
       correctPredictions: 0,
       exactPredictions: 0,
@@ -1115,7 +1115,7 @@ app.post('/api/users', authenticateToken, requireAdmin, (req: AuthenticatedReque
       username: username.trim(),
       fullName: fullName.trim(),
       role: role || UserRole.USER,
-      avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(fullName.trim())}`,
+      avatar: `https://api.dicebear.com/10.x/bottts/svg?seed=${encodeURIComponent(fullName.trim())}`,
       totalScore: 0,
       correctPredictions: 0,
       exactPredictions: 0,
@@ -1161,7 +1161,7 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, (req: AuthenticatedRe
       user.fullName = cleanFullName;
       // Only set a default avatar seed if there is no current avatar, or if it is a dicebear design
       if (!user.avatar || user.avatar.includes('api.dicebear.com')) {
-        user.avatar = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(cleanFullName)}`;
+        user.avatar = `https://api.dicebear.com/10.x/bottts/svg?seed=${encodeURIComponent(cleanFullName)}`;
       }
     }
 
@@ -1460,7 +1460,7 @@ app.post('/api/admin/import-db', express.json({ limit: '50mb' }), authenticateTo
       if (u.exactPredictions === undefined) u.exactPredictions = 0;
       if (u.playedMatches === undefined) u.playedMatches = 0;
       if (!u.createdAt) u.createdAt = new Date().toISOString();
-      if (!u.avatar) u.avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`;
+      if (!u.avatar) u.avatar = `https://api.dicebear.com/10.x/bottts/svg?seed=${u.username}`;
     }
 
     // 2. Teams smart merge (always respect latest team list from code seed, fallback to backup only for non-existent ones)

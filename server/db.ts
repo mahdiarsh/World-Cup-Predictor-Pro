@@ -139,7 +139,7 @@ function getInitialDB(): DatabaseSchema {
       username: 'admin',
       fullName: 'System Administrator',
       role: UserRole.ADMIN,
-      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=admin',
+      avatar: 'https://api.dicebear.com/10.x/bottts/svg?seed=admin',
       totalScore: 0,
       correctPredictions: 0,
       exactPredictions: 0,
@@ -1059,20 +1059,50 @@ export function runFifaLiveSync(): void {
     };
 
     const currentThreshold = new Date(settings.simulatedTime || new Date().toISOString()).getTime();
-    const hasAIConfig = !!(db.settings?.openRouterApiKey || db.settings?.geminiApiKey || process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY);
-    // If Gemini is active on boot/online sync, let's gracefully fetch real life scores or use officialResults cache
-    for (const matchId in officialResults) {
-      const match = db.matches.find(m => m.id === matchId);
-      if (match && match.status !== MatchStatus.FINISHED) {
-        // Only apply results if simulatedTime / current local time has chronologically passed kickoffTime
+    
+    // Switch from simulation mode to online mode means we need to clean up simulated matches:
+    for (const match of db.matches) {
+      const seedMatch = matchesSeed.find(sm => sm.id === match.id);
+
+      if (officialResults[match.id]) {
+        // This is an official online match
         const kickoffTime = new Date(match.kickoffTimeUtc).getTime();
         if (kickoffTime <= currentThreshold) {
-          const res = officialResults[matchId];
-          match.homeScore = res.home;
-          match.awayScore = res.away;
-          match.status = MatchStatus.FINISHED;
-          match.isSimulated = false; // Real online result
+          const res = officialResults[match.id];
+          if (match.homeScore !== res.home || match.awayScore !== res.away || match.status !== MatchStatus.FINISHED || match.isSimulated) {
+            match.homeScore = res.home;
+            match.awayScore = res.away;
+            match.status = MatchStatus.FINISHED;
+            match.isSimulated = false; // Real online result
+            hasChanges = true;
+          }
+        } else {
+          // Future official match
+          if (match.status !== MatchStatus.SCHEDULED || match.homeScore !== null || match.awayScore !== null || match.isSimulated) {
+            match.status = MatchStatus.SCHEDULED;
+            match.homeScore = null;
+            match.awayScore = null;
+            match.isSimulated = false;
+            hasChanges = true;
+          }
+        }
+      } else {
+        // Not an official online match, so if it was simulated, we reset it to not played / scheduled
+        if (match.isSimulated) {
+          match.status = MatchStatus.SCHEDULED;
+          match.homeScore = null;
+          match.awayScore = null;
+          match.isSimulated = false;
           hasChanges = true;
+        }
+
+        // Restore team names to seed placeholders to allow dynamic propagation
+        if (match.status === MatchStatus.SCHEDULED && seedMatch) {
+          if (match.homeTeamId !== seedMatch.homeTeamId || match.awayTeamId !== seedMatch.awayTeamId) {
+            match.homeTeamId = seedMatch.homeTeamId;
+            match.awayTeamId = seedMatch.awayTeamId;
+            hasChanges = true;
+          }
         }
       }
     }
