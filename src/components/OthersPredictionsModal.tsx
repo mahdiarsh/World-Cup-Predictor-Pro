@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Search, ShieldAlert, Award, TrendingUp, Calendar } from 'lucide-react';
 import { Match, MatchStatus } from '../types';
 import { getTeamName } from '../data/teams';
@@ -92,7 +93,9 @@ export default function OthersPredictionsModal({
     p.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-955/80 backdrop-blur-sm p-4 text-slate-200" dir="rtl">
       <div className="w-full max-w-lg bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl relative animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]">
         
@@ -152,7 +155,7 @@ export default function OthersPredictionsModal({
             </div>
           ) : (
             <div className="space-y-2.5">
-              <p className="text-[10px] text-slate-400 font-bold text-right mb-2 flex items-center gap-1.5 bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+              <p className="text-[10px] text-slate-400 font-bold text-right mb-2 flex items-center gap-1.5 bg-slate-955/40 p-2.5 rounded-xl border border-slate-850">
                 <span className="text-emerald-400">💡</span>
                 <span>پیش‌بینی‌ها از ۳۰ دقیقه پیش از شروع بازی قفل شده و برای همه همزمان شفاف شده‌اند تا کسی تقلب نکند!</span>
               </p>
@@ -173,7 +176,7 @@ export default function OthersPredictionsModal({
                           <span className="text-[10px] font-bold text-slate-600">:</span>
                           <span className="text-xs font-black text-slate-300 font-mono">{pred.predictedAway}</span>
                         </div>
-
+ 
                         {pred.points !== null && pred.points !== undefined && isFinished && (
                           <span className={`px-2 py-1 rounded text-[9px] font-black font-sans whitespace-nowrap ${
                             pred.points === 10
@@ -188,7 +191,7 @@ export default function OthersPredictionsModal({
                           </span>
                         )}
                       </div>
-
+ 
                       {/* Right: User Information layout */}
                       <div className="flex items-center gap-2.5 text-right min-w-0">
                         <div className="hidden sm:flex flex-col text-left justify-center shrink-0">
@@ -215,6 +218,7 @@ export default function OthersPredictionsModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

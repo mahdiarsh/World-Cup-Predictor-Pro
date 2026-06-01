@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, MapPin, CheckCircle, Clock, ShieldAlert, Edit3, CircleHelp, LayoutGrid, List } from 'lucide-react';
 import { Match, MatchStage, MatchStatus, Team, Prediction, User } from '../types';
 import { getTeamFlag, getTeamName, getTeamCode } from '../data/teams';
@@ -714,7 +715,7 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
       )}
 
       {/* MATCH PREDICTIONS MODAL FORM */}
-      {selectedMatch && (
+      {selectedMatch && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[200] flex flex-col justify-start sm:justify-center items-center bg-slate-955/95 backdrop-blur-md overflow-y-auto p-0 sm:p-4 text-slate-200" dir="rtl">
           <div className="w-full h-full min-h-screen sm:min-h-0 sm:h-auto sm:max-w-xl bg-slate-900 sm:rounded-3xl border-0 sm:border border-emerald-500/30 overflow-hidden shadow-2xl relative flex flex-col animate-in fade-in slide-in-from-bottom duration-300">
             
@@ -849,7 +850,8 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
             </form>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <OthersPredictionsModal

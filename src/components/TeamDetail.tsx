@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Team, Match, MatchStatus, Prediction, User, MatchStage } from '../types';
 import { getSquadForTeam, Player } from '../data/squads';
-import { getTeamCode, getTeamFlag } from '../data/teams';
+import { getTeamCode, getTeamFlag, getTeamName } from '../data/teams';
 import FlagIcon from './FlagIcon';
 import FeaturedMatchCard from './FeaturedMatchCard';
 import FUTCard from './FUTCard';
-import { ArrowLeft, User as UserIcon, Calendar, Info, Award, ShieldAlert, CheckCircle, Flame, Sparkles } from 'lucide-react';
+import { ArrowLeft, User as UserIcon, Calendar, Info, Award, ShieldAlert, CheckCircle, Flame, Sparkles, CircleHelp } from 'lucide-react';
 
 interface TeamDetailProps {
   teamId: string;
@@ -96,6 +97,55 @@ export default function TeamDetail({
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
+
+  // States and functions for root-level large prediction modal
+  const [selectedPredictMatch, setSelectedPredictMatch] = useState<Match | null>(null);
+  const [predId, setPredId] = useState<string | null>(null);
+  const [homeInput, setHomeInput] = useState<number>(0);
+  const [awayInput, setAwayInput] = useState<number>(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
+
+  const handleOpenPredictModal = (match: Match) => {
+    if (!currentUser) {
+      onTriggerAuth();
+      return;
+    }
+    const existing = predictions.find(p => p.matchId === match.id);
+    setSelectedPredictMatch(match);
+    setModalError('');
+    if (existing) {
+      setPredId(existing.id);
+      setHomeInput(existing.predictedHome);
+      setAwayInput(existing.predictedAway);
+    } else {
+      setPredId(null);
+      setHomeInput(0);
+      setAwayInput(0);
+    }
+  };
+
+  const handleSavePredict = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPredictMatch) return;
+    
+    setIsSubmitting(true);
+    setModalError('');
+    
+    try {
+      const success = await onSavePrediction(selectedPredictMatch.id, homeInput, awayInput);
+      if (success) {
+        setSelectedPredictMatch(null);
+      } else {
+        setModalError('خطا در ذخیره پیش‌بینی. بررسی کنید زمان آغاز بازی سپری نشده باشد.');
+      }
+    } catch (err) {
+      console.error(err);
+      setModalError('مشکلی در ذخیره پیش‌بینی پیش آمد. لطفاً مجدداً امتحان کنید.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSyncAISquad = async () => {
     setIsSyncing(true);
@@ -428,6 +478,7 @@ export default function TeamDetail({
                       onSavePrediction={onSavePrediction}
                       onTriggerAuth={onTriggerAuth}
                       onTeamClick={onTeamClick}
+                      onPredictClick={handleOpenPredictModal}
                       settings={settings}
                     />
                   );
@@ -521,6 +572,148 @@ export default function TeamDetail({
         </div>
 
       </div>
+
+      {/* MATCH PREDICTIONS MODAL FORM */}
+      {selectedPredictMatch && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[200] flex flex-col justify-start sm:justify-center items-center bg-slate-955/95 backdrop-blur-md overflow-y-auto p-0 sm:p-4 text-slate-200" dir="rtl">
+          <div className="w-full h-full min-h-screen sm:min-h-0 sm:h-auto sm:max-w-xl bg-slate-900 sm:rounded-3xl border-0 sm:border border-emerald-500/30 overflow-hidden shadow-2xl relative flex flex-col animate-in fade-in slide-in-from-bottom duration-300">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-800/80 bg-slate-950 flex justify-between items-center text-right shrink-0">
+              <div>
+                <h3 className="font-extrabold text-white text-lg sm:text-xl tracking-tight">🔮 ثبت پیش‌بینی نتیجه مسابقه</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  {selectedPredictMatch.stage === 'Group Stage' ? 'مرحله گروهی' : selectedPredictMatch.stage === 'Round of 32' ? 'یک‌شانزدهم نهایی' : selectedPredictMatch.stage === 'Round of 16' ? 'یک‌هشتم نهایی' : selectedPredictMatch.stage === 'Quarter Finals' ? 'یک‌چهارم نهایی' : selectedPredictMatch.stage === 'Semi Finals' ? 'نیمه‌نهایی' : selectedPredictMatch.stage === 'Third Place Playoff' ? 'رده‌بندی مقام سوم' : selectedPredictMatch.stage === 'Final' ? 'فینال' : selectedPredictMatch.stage} · ورزشگاه {selectedPredictMatch.stadium}
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSelectedPredictMatch(null)}
+                className="text-slate-400 hover:text-white px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800/80 font-bold transition-all text-sm cursor-pointer"
+              >
+                ✕ بستن
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSavePredict} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col justify-between">
+              <div className="space-y-6">
+                
+                {/* Score prediction boxes */}
+                <div className="grid grid-cols-7 items-center justify-center p-4 sm:p-6 bg-slate-955/60 rounded-2xl border border-slate-800/80">
+                  
+                  {/* Home */}
+                  <div className="col-span-3 text-center space-y-3">
+                    <div className="flex justify-center select-none">
+                      <FlagIcon teamIdOrCode={selectedPredictMatch.homeTeamId} className="h-10 w-14 rounded shadow-lg object-contain" />
+                    </div>
+                    <span className="font-bold text-slate-100 block text-sm truncate max-w-full">{getTeamName(selectedPredictMatch.homeTeamId)}</span>
+                    <div className="flex items-center justify-center gap-1.5 mt-2">
+                      <button 
+                        type="button" 
+                        onClick={() => setHomeInput(h => Math.max(0, h - 1))}
+                        className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                      >
+                        -
+                      </button>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={homeInput}
+                        onChange={(e) => setHomeInput(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-14 bg-slate-955 border border-slate-800 text-center text-xl font-black font-mono text-white rounded-xl focus:outline-none focus:border-emerald-500 py-1.5 focus:ring-1 focus:ring-emerald-500/30"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setHomeInput(h => h + 1)}
+                        className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Divider Colon */}
+                  <div className="col-span-1 text-center font-black text-2xl text-slate-600 font-mono">
+                    :
+                  </div>
+
+                  {/* Away */}
+                  <div className="col-span-3 text-center space-y-3">
+                    <div className="flex justify-center select-none">
+                      <FlagIcon teamIdOrCode={selectedPredictMatch.awayTeamId} className="h-10 w-14 rounded shadow-lg object-contain" />
+                    </div>
+                    <span className="font-bold text-slate-100 block text-sm truncate max-w-full">{getTeamName(selectedPredictMatch.awayTeamId)}</span>
+                    <div className="flex items-center justify-center gap-1.5 mt-2">
+                      <button 
+                        type="button" 
+                        onClick={() => setAwayInput(a => Math.max(0, a - 1))}
+                        className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                      >
+                        -
+                      </button>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={awayInput}
+                        onChange={(e) => setAwayInput(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-14 bg-slate-955 border border-slate-800 text-center text-xl font-black font-mono text-white rounded-xl focus:outline-none focus:border-emerald-500 py-1.5 focus:ring-1 focus:ring-emerald-500/30"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setAwayInput(a => a + 1)}
+                        className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:bg-slate-900 font-extrabold rounded-xl text-slate-100 hover:text-emerald-400 transition-all font-mono text-lg shadow"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Point allocation rule banner */}
+                <div className="p-4 bg-slate-955/40 rounded-2xl border border-slate-800/80 text-xs text-slate-400 space-y-2 text-right">
+                  <p className="font-bold text-slate-300 flex items-center gap-1.5 font-sans"><CircleHelp className="h-4 w-4 text-emerald-400 animate-pulse" /> نحوه امتیازدهی مسابقات:</p>
+                  <ul className="list-disc list-inside space-y-1.5 text-slate-400 pr-1 font-sans leading-relaxed">
+                    <li>اگر نتیجه را <span className="text-amber-400 font-bold">کاملاً دقیق</span> پیش‌بینی کنید: <span className="text-amber-400 font-extrabold font-sans">۱۰+ امتیاز</span></li>
+                    <li>تخمینی که <span className="text-blue-400 font-bold">تفاضل گل صحیح</span> به همراه برنده را درست حدس بزند: <span className="text-blue-400 font-extrabold font-sans">۷+ امتیاز</span></li>
+                    <li>اگر صرفاً <span className="text-emerald-400 font-bold">برنده یا تساوی</span> درست باشد اما تفاضل متفاوت باشد: <span className="text-emerald-400 font-extrabold font-sans">۵+ امتیاز</span></li>
+                    <li>اگر پیش‌بینی شما کاملاً <span className="text-rose-450 font-bold">اشتباه</span> باشد: <span className="text-slate-500 font-bold font-sans">۰ امتیاز</span></li>
+                  </ul>
+                </div>
+
+                {modalError && (
+                  <div className="p-4 bg-red-955/40 border border-red-500/20 rounded-xl text-red-400 text-xs flex gap-2 font-sans font-medium">
+                    <ShieldAlert className="h-5 w-5 shrink-0" />
+                    <span>{modalError}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 pt-4 shrink-0 mt-auto">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPredictMatch(null)}
+                  className="flex-1 py-3 bg-slate-850 hover:bg-slate-805 text-slate-300 text-sm font-semibold rounded-xl border border-slate-800 transition-colors font-sans"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-45 disabled:pointer-events-none text-white text-sm font-bold tracking-wide rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)] cursor-pointer"
+                >
+                  {isSubmitting ? 'در حال ثبت...' : predId ? 'ویرایش پیش‌بینی' : 'ذخیره پیش‌بینی'}
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );

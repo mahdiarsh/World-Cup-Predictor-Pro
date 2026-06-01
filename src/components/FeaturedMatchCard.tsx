@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Match, MatchStatus, Prediction, User } from '../types';
 import { getTeamCode, getTeamName } from '../data/teams';
 import FlagIcon from './FlagIcon';
@@ -12,6 +13,7 @@ interface FeaturedMatchCardProps {
   onSavePrediction: (matchId: string, home: number, away: number) => Promise<boolean>;
   onTriggerAuth: () => void;
   onTeamClick?: (teamId: string) => void;
+  onPredictClick?: (match: Match) => void;
   settings?: any;
   key?: any;
 }
@@ -23,6 +25,7 @@ export default function FeaturedMatchCard({
   onSavePrediction,
   onTriggerAuth,
   onTeamClick,
+  onPredictClick,
   settings
 }: FeaturedMatchCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,6 +34,18 @@ export default function FeaturedMatchCard({
   const [awayInput, setAwayInput] = useState<number>(prediction ? prediction.predictedAway : 0);
   const [isSaving, setIsSaving] = useState(false);
   const [isOthersModalOpen, setIsOthersModalOpen] = useState(false);
+
+  const handleOpenPredict = () => {
+    if (!currentUser) {
+      onTriggerAuth();
+      return;
+    }
+    if (onPredictClick) {
+      onPredictClick(match);
+    } else {
+      setIsModalOpen(true);
+    }
+  };
 
   // Sync state if user's prediction updates in background
   useEffect(() => {
@@ -309,8 +324,8 @@ export default function FeaturedMatchCard({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(true)}
-                  className="p-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-lg transition-all flex items-center justify-center"
+                  onClick={handleOpenPredict}
+                  className="p-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-lg transition-all flex items-center justify-center cursor-pointer"
                   title="ویرایش پیش‌بینی"
                 >
                   <Edit3 className="h-3.5 w-3.5 text-slate-400" />
@@ -319,8 +334,8 @@ export default function FeaturedMatchCard({
             ) : (
               <button
                 type="button"
-                onClick={() => setIsModalOpen(true)}
-                className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 font-sans shadow-[0_0_10px_rgba(16,185,129,0.25)]"
+                onClick={handleOpenPredict}
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 font-sans shadow-[0_0_10px_rgba(16,185,129,0.25)] cursor-pointer"
               >
                 🔮 ثبت پیش‌بینی‌
               </button>
@@ -330,7 +345,7 @@ export default function FeaturedMatchCard({
       </div>
 
       {/* MATCH PREDICTIONS MODAL FORM FOR CARD */}
-      {isModalOpen && (
+      {isModalOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[200] flex flex-col justify-start sm:justify-center items-center bg-slate-955/95 backdrop-blur-md overflow-y-auto p-0 sm:p-4 text-slate-200" dir="rtl">
           <div className="w-full h-full min-h-screen sm:min-h-0 sm:h-auto sm:max-w-xl bg-slate-900 sm:rounded-3xl border-0 sm:border border-emerald-500/30 overflow-hidden shadow-2xl relative flex flex-col animate-in fade-in slide-in-from-bottom duration-300">
             
@@ -375,7 +390,7 @@ export default function FeaturedMatchCard({
                         min="0"
                         value={homeInput}
                         onChange={(e) => setHomeInput(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-14 bg-slate-950 border border-slate-800 text-center text-xl font-black font-mono text-white rounded-xl focus:outline-none focus:border-emerald-500 py-1.5 focus:ring-1 focus:ring-emerald-500/30"
+                        className="w-14 bg-slate-950 border border-slate-800 text-center text-xl font-black font-mono text-white rounded-xl focus:outline-none focus:border-emerald-500 py-1.5 focus:ring-1 focus:ring-emerald-500/35 focus:ring-offset-0"
                       />
                       <button 
                         type="button" 
@@ -411,7 +426,7 @@ export default function FeaturedMatchCard({
                         min="0"
                         value={awayInput}
                         onChange={(e) => setAwayInput(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-14 bg-slate-950 border border-slate-800 text-center text-xl font-black font-mono text-white rounded-xl focus:outline-none focus:border-emerald-500 py-1.5 focus:ring-1 focus:ring-emerald-500/30"
+                        className="w-14 bg-slate-955 border border-slate-800 text-center text-xl font-black font-mono text-white rounded-xl focus:outline-none focus:border-emerald-500 py-1.5 focus:ring-1 focus:ring-emerald-500/30"
                       />
                       <button 
                         type="button" 
@@ -465,7 +480,8 @@ export default function FeaturedMatchCard({
             </form>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <OthersPredictionsModal
