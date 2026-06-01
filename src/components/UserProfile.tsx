@@ -211,6 +211,7 @@ export default function UserProfile({
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
+
   // Parse initial states from user's current avatar
   const initialParsed = React.useMemo(() => parseDicebearUrl(currentUser.avatar || ''), [currentUser.avatar]);
 
@@ -583,6 +584,8 @@ export default function UserProfile({
 
       </div>
 
+
+
       {/* PWA Mobile App Promo Card */}
       <div className="bg-gradient-to-br from-emerald-900/15 via-slate-900 to-slate-900 rounded-3xl p-5 border border-emerald-500/20 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4 text-center md:text-right flex-col md:flex-row w-full md:w-auto">
@@ -610,6 +613,8 @@ export default function UserProfile({
           نصب و راه‌اندازی سریع
         </button>
       </div>
+
+
 
       {/* Avatar Customization Modal / Popup */}
       {showAvatarEdit && (

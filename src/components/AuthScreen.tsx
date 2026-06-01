@@ -21,6 +21,8 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   
+
+  
   // Alert & loader triggers
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
@@ -515,10 +517,12 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
         <button
           type="submit"
           disabled={isLoading || (!isLoginTab && isRegistrationLocked)}
-          className="w-full py-3.5 mt-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-40 disabled:pointer-events-none text-white font-black text-sm tracking-wide rounded-2xl shadow-[0_10px_30px_rgba(16,185,129,0.2)] transition-all duration-300 active:scale-95 cursor-pointer"
+          className="w-full py-3.5 mt-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-40 disabled:pointer-events-none text-white font-black text-sm tracking-wide rounded-2xl shadow-[0_10px_30px_rgba(16,185,129,0.2)] transition-all duration-300 active:scale-95 cursor-pointer animate-in fade-in duration-350"
         >
           {isLoading ? 'در حال بررسی اطلاعات...' : isLoginTab ? 'ورود به حساب کاربری' : isRegistrationLocked ? 'ثبت‌نام غیرفعال است' : 'تأیید و ساخت حساب کاربری'}
         </button>
+
+
 
       </form>
     </div>

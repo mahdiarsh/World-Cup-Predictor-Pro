@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Download, X, Share, PlusSquare, HelpCircle } from 'lucide-react';
+import { Smartphone, Download, X, Share, PlusSquare, HelpCircle, Copy, ExternalLink, Check } from 'lucide-react';
 
 export default function PWAInstallPrompt() {
-  const [showPrompt, setShowPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [activeGuideTab, setActiveGuideTab] = useState<'android' | 'ios'>('android');
+  const [activeGuideTab, setActiveGuideTab] = useState<'android' | 'ios' | 'apk'>('android');
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyUrl = () => {
+    const url = window.location.origin;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
 
   useEffect(() => {
     // Check if app is running in standalone mode (already installed)
@@ -33,11 +40,6 @@ export default function PWAInstallPrompt() {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Show prompt if user hasn't dismissed it from sessionStorage in this session
-      const dismissed = sessionStorage.getItem('pwa_dismissed');
-      if (!dismissed) {
-        setShowPrompt(true);
-      }
     };
 
     const handleTriggerInstall = () => {
@@ -47,7 +49,6 @@ export default function PWAInstallPrompt() {
         deferredPrompt.userChoice.then(({ outcome }: any) => {
           console.log(`User response to install prompt: ${outcome}`);
           setDeferredPrompt(null);
-          setShowPrompt(false);
         });
       } else {
         // Otherwise, show the step-by-step instructions
@@ -58,87 +59,20 @@ export default function PWAInstallPrompt() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('trigger-pwa-install', handleTriggerInstall);
 
-    // Dynamic show timer for iOS or General browsers since they don't have beforeinstallprompt
-    const dismissed = sessionStorage.getItem('pwa_dismissed');
-    if (!dismissed) {
-      const timer = setTimeout(() => {
-        setShowPrompt(true);
-      }, 5000); // Show after 5 seconds of engagement
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-        window.removeEventListener('trigger-pwa-install', handleTriggerInstall);
-      };
-    }
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('trigger-pwa-install', handleTriggerInstall);
     };
   }, [deferredPrompt]);
 
-  const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`User response to install prompt: ${outcome}`);
-      setDeferredPrompt(null);
-      setShowPrompt(false);
-    } else {
-      setShowTutorial(true);
-    }
-  };
-
-  const handleDismiss = () => {
-    sessionStorage.setItem('pwa_dismissed', 'true');
-    setShowPrompt(false);
-  };
-
-  if (!showPrompt && !showTutorial) return null;
+  if (!showTutorial) return null;
 
   return (
     <>
-      {/* Floating Action Banner */}
-      {showPrompt && (
-        <div 
-          className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-50 bg-slate-900/95 backdrop-blur-md border border-emerald-500/40 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-5 duration-300 font-sans"
-          dir="rtl"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
-              <Smartphone className="h-6 w-6" />
-            </div>
-            <div className="flex flex-col">
-              <h4 className="text-xs sm:text-xs font-black text-slate-100 leading-tight">پلتفرم را به اپلیکیشن موبایل تبدیل کنید!</h4>
-              <p className="text-[10px] sm:text-[10px] text-slate-400 mt-1 leading-normal">
-                با نصب مستقیم برنامه (PWA)، بدون نیاز به فیلترشکن، سریع‌تر پیش‌بینی کنید.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={handleInstallClick}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1 cursor-pointer"
-            >
-              <Download className="h-3 w-3" />
-              نصب برنامه
-            </button>
-            <button
-              onClick={handleDismiss}
-              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg transition-all"
-              title="بعدا"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Unified Multi-Platform Installation Guide Dialog */}
       {showTutorial && (
         <div className="fixed inset-0 z-[300] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 font-sans" dir="rtl">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full relative shadow-2xl animate-in fade-in scale-in-95 duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full relative shadow-2xl animate-in fade-in scale-in-95 duration-200">
             <button
               onClick={() => setShowTutorial(false)}
               className="absolute top-4 left-4 p-1.5 hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-200 transition-colors"
@@ -148,33 +82,43 @@ export default function PWAInstallPrompt() {
 
             <div className="text-center mb-5">
               <div className="h-12 w-12 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 flex items-center justify-center mx-auto mb-3">
-                <Smartphone className="h-6 w-6" />
+                <Smartphone className="h-6 w-6 animate-pulse" />
               </div>
-              <h3 className="font-black text-slate-200 text-base">راهنمای تصویری نصب اپلیکیشن</h3>
-              <p className="text-xs text-slate-400 mt-1.5">یکی از راه‌های زیر را متناسب با گوشی خود انتخاب کنید:</p>
+              <h3 className="font-black text-slate-200 text-base">راهنمای نصب برنامه و دریافت APK</h3>
+              <p className="text-xs text-slate-400 mt-1.5 font-medium">سریع‌ترین و بهترین روش را برای دستگاه خود برگزینید:</p>
             </div>
 
             {/* Tab Swapper */}
-            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/80 mb-5 gap-1.5">
+            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-850 mb-5 gap-1">
               <button
                 onClick={() => setActiveGuideTab('android')}
-                className={`flex-1 py-2 text-center text-xs font-black rounded-lg transition-all cursor-pointer ${
+                className={`flex-1 py-1.5 text-center text-[10px] sm:text-xs font-black rounded-lg transition-all cursor-pointer ${
                   activeGuideTab === 'android'
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                گوشی اندروید (رسمی)
+                اندروید (PWA)
               </button>
               <button
                 onClick={() => setActiveGuideTab('ios')}
-                className={`flex-1 py-2 text-center text-xs font-black rounded-lg transition-all cursor-pointer ${
+                className={`flex-1 py-1.5 text-center text-[10px] sm:text-xs font-black rounded-lg transition-all cursor-pointer ${
                   activeGuideTab === 'ios'
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                گوشی آیفون (Safari)
+                آیفون iOS
+              </button>
+              <button
+                onClick={() => setActiveGuideTab('apk')}
+                className={`flex-1 py-1.5 text-center text-[10px] sm:text-xs font-black rounded-lg transition-all cursor-pointer ${
+                  activeGuideTab === 'apk'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-amber-400'
+                }`}
+              >
+                📦 خروجی APK
               </button>
             </div>
 
@@ -206,7 +150,7 @@ export default function PWAInstallPrompt() {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : activeGuideTab === 'ios' ? (
               <div className="space-y-4 text-xs text-slate-300">
                 <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-3 rounded-2xl leading-relaxed text-[10px] sm:text-[11px]">
                   <strong>⚠️ نکته کلیدی:</strong> این نصب فقط مخصوص مرورگر <strong>Safari (سافاری آیفون)</strong> است. در برنامه‌های دیگر (مثل تلگرام)، لینک را کپی کرده و دستی در سافاری باز کنید.
@@ -230,6 +174,53 @@ export default function PWAInstallPrompt() {
                   <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-400 font-bold font-mono">۳</div>
                   <div className="leading-relaxed">
                     در بالای صفحه روی دکمه <span className="text-emerald-500 font-black">Add (افزودن)</span> یا تایید اشاره کنید تا آیکون به صفحه آیفون اضافه شود.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 text-xs text-slate-350">
+                <div className="bg-emerald-950/30 border border-emerald-500/20 text-emerald-400 p-3 rounded-2xl leading-relaxed text-[11px]">
+                  <strong>💡 خبر خوش:</strong> پلتفرم ما کاملاً با استانداردهای رسمی PWA سازگار است؛ لذا می‌توانید در ۲ دقیقه خروجی رسمی <strong>APK خام اندروید</strong> آن را بسازید.
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-slate-300 leading-relaxed text-[11px]">
+                    ۱. ابتدا آدرس این پلتفرم را با زدن کلید زیر کپی نمایید:
+                  </p>
+                  
+                  <button
+                    onClick={handleCopyUrl}
+                    className="w-full py-2.5 bg-slate-950 hover:bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer text-slate-200 hover:text-white"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-4 w-4 text-emerald-400" />
+                        <span className="text-emerald-400 font-bold">آدرس کپی شد!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 text-slate-400" />
+                        <span className="font-extrabold text-[10px]">کپی کردن لینک سایت جهت تبدیل</span>
+                      </>
+                    )}
+                  </button>
+
+                  <div className="text-[10px] bg-slate-950/40 px-3 py-1.5 text-center select-all shrink-0 font-mono text-slate-400 rounded-lg break-all border border-slate-850">
+                    {window.location.origin}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800/40 text-[11px] text-slate-300">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-400 font-bold font-mono">۲</div>
+                  <div className="leading-relaxed">
+                    وارد ابزار رسمی و رایگان مایکروسافت به آدرس <a href="https://www.pwabuilder.com" target="_blank" rel="noreferrer" className="text-amber-400 font-black underline hover:text-amber-300 inline-flex items-center gap-0.5">PWABuilder.com <ExternalLink className="h-3 w-3 inline" /></a> شده و آدرس را جایگذاری کنید.
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800/40 text-[11px] text-slate-300">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-400 font-bold font-mono">۳</div>
+                  <div className="leading-relaxed">
+                    بر روی دکمه <span className="text-emerald-400 font-bold">Generate APK / Build</span> کلیک کنید تا فایل تایید شده اصلی به همراه پکیج دانلود شود!
                   </div>
                 </div>
               </div>

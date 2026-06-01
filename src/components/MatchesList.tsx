@@ -243,44 +243,44 @@ export default function MatchesList({ matches, predictions, currentUser, onSaveP
       </div>
 
       {/* Match Status Filter Container */}
-      <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/45 p-1 border border-slate-850/60 rounded-xl max-w-max mr-0" dir="rtl">
+      <div className="grid grid-cols-2 md:flex md:flex-row items-center gap-1.5 bg-slate-950/45 p-1 border border-slate-850/60 rounded-xl w-full md:w-max mr-0" dir="rtl">
         <button
           onClick={() => setStatusFilter('ALL')}
-          className={`px-3.5 py-1.5 rounded-lg text-2xs sm:text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center justify-center text-center px-2 sm:px-3.5 py-2.5 rounded-lg text-2xs sm:text-xs font-bold transition-all cursor-pointer w-full md:w-auto ${
             statusFilter === 'ALL'
               ? 'bg-slate-900 text-emerald-400 font-extrabold border border-slate-800 shadow'
-              : 'text-slate-400 hover:text-slate-205 border border-transparent'
+              : 'text-slate-400 hover:text-slate-200 border border-transparent'
           }`}
         >
           🏆 همه بازی‌ها
         </button>
         <button
           onClick={() => setStatusFilter('NOT_FINISHED')}
-          className={`px-3.5 py-1.5 rounded-lg text-2xs sm:text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center justify-center text-center px-2 sm:px-3.5 py-2.5 rounded-lg text-2xs sm:text-xs font-bold transition-all cursor-pointer w-full md:w-auto ${
             statusFilter === 'NOT_FINISHED'
               ? 'bg-slate-900 text-emerald-400 font-extrabold border border-slate-800 shadow'
-              : 'text-slate-400 hover:text-slate-205 border border-transparent'
+              : 'text-slate-400 hover:text-slate-200 border border-transparent'
           }`}
         >
-          ⏳ بازی‌های پیش‌رو / انجام‌نشده
+          ⏳ پیش‌رو / انجام‌نشده
         </button>
         <button
           onClick={() => setStatusFilter('LIVE')}
-          className={`px-3.5 py-1.5 rounded-lg text-2xs sm:text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+          className={`flex items-center justify-center text-center px-2 sm:px-3.5 py-1.5 rounded-lg text-2xs sm:text-xs font-bold transition-all cursor-pointer gap-1 w-full md:w-auto ${
             statusFilter === 'LIVE'
               ? 'bg-slate-900 text-red-400 font-extrabold border border-slate-800 shadow animate-pulse'
               : 'text-slate-400 hover:text-red-300 border border-transparent'
           }`}
         >
           <span className="h-1.5 w-1.5 bg-red-500 rounded-full inline-block animate-ping" />
-          <span>🔴 در حال برگزاری (زنده)</span>
+          <span>🔴 زنده / در حال بازی</span>
         </button>
         <button
           onClick={() => setStatusFilter('FINISHED')}
-          className={`px-3.5 py-1.5 rounded-lg text-2xs sm:text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center justify-center text-center px-2 sm:px-3.5 py-2.5 rounded-lg text-2xs sm:text-xs font-bold transition-all cursor-pointer w-full md:w-auto ${
             statusFilter === 'FINISHED'
               ? 'bg-slate-900 text-slate-350 font-extrabold border border-slate-800 shadow'
-              : 'text-slate-400 hover:text-slate-205 border border-transparent'
+              : 'text-slate-400 hover:text-slate-202 border border-transparent'
           }`}
         >
           ✅ پایان‌یافته
