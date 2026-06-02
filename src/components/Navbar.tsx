@@ -156,8 +156,8 @@ export default function Navbar({ currentTab, setCurrentTab, currentUser, onLogou
 
       </div>
 
-      {/* Bottom Nav Bar for Mobile and Tablet (lg:hidden) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-slate-900/90 shadow-[0_-10px_35px_rgba(0,0,0,0.85)] px-2 py-2 flex items-center justify-around pb-safe">
+      {/* Elevated/Floating Bottom Nav Bar for Mobile and Tablet to avoid Android/iOS OS bottom navigation bar overlap */}
+      <div className="lg:hidden fixed bottom-45 xs:bottom-4 left-3 py-2.5 z-50 bg-slate-950/95 backdrop-blur-xl border border-slate-800/60 rounded-2xl shadow-[0_4px_30px_rgba(0,0,0,0.95)] px-2 flex items-center justify-around" style={{ bottom: '22px', left: '14px', right: '14px' }}>
         
         {/* Tab 1: Matches (Trophy icon) */}
         <button

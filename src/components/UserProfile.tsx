@@ -201,6 +201,7 @@ export default function UserProfile({
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [showApkGuide, setShowApkGuide] = useState(false);
 
 
   // Parse initial states from user's current avatar
@@ -578,32 +579,90 @@ export default function UserProfile({
 
 
 
-      {/* PWA Mobile App Promo Card */}
-      <div className="bg-gradient-to-br from-emerald-900/15 via-slate-900 to-slate-900 rounded-3xl p-5 border border-emerald-500/20 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4 text-center md:text-right flex-col md:flex-row w-full md:w-auto">
-          <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-400 shrink-0">
-            <Smartphone className="h-8 w-8" />
+      {/* App Installation Options */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* PWA Direct Installation Card */}
+        <div className="bg-gradient-to-br from-emerald-950/20 via-slate-900 to-slate-900 rounded-3xl p-5 border border-emerald-500/20 shadow-xl flex flex-col justify-between gap-4">
+          <div className="flex items-start gap-3 flex-col sm:flex-row text-right">
+            <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 shrink-0 mx-auto sm:mx-0">
+              <Smartphone className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-black text-slate-100 flex items-center justify-center sm:justify-start gap-1.5">
+                <span>📱 نصب وب‌اپلیکیشن (PWA)</span>
+                <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-sans font-bold">پیشنهادی</span>
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                کم‌حجم و سازگار با اندروید و آیفون (iOS). بدون نیاز به دانلود فایل و دور زدن فیلترینگ با ورود فوق‌العاده سریع و روان.
+              </p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <h4 className="text-base font-black text-slate-100 flex items-center justify-center md:justify-start gap-1.5">
-              <span>📱 نصب مستقیم اپلیکیشن موبایل (PWA)</span>
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-sans font-bold">پیشنهادی</span>
-            </h4>
-            <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
-              با نصب برنامه روی گوشی یا دسکتاپ خود، از تجربه پیش‌بینی بدون تاخیر، بدون نیاز به فیلترشکن، ورود بسیار سریع‌تر و اعلان‌های مسابقات بهره‌مند شوید.
-            </p>
+          <button
+            onClick={() => {
+              window.dispatchEvent(new Event('trigger-pwa-install'));
+            }}
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer border border-emerald-500/30"
+            type="button"
+          >
+            <Download className="h-3.5 w-3.5" />
+            نصب سریع PWA
+          </button>
+        </div>
+
+        {/* Direct Android APK Download Card */}
+        <div className="bg-gradient-to-br from-blue-950/20 via-slate-900 to-slate-900 rounded-3xl p-5 border border-blue-500/20 shadow-xl flex flex-col justify-between gap-4">
+          <div className="flex items-start gap-3 flex-col sm:flex-row text-right">
+            <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400 shrink-0 mx-auto sm:mx-0">
+              <Smartphone className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-black text-slate-100 flex items-center justify-center sm:justify-start gap-1.5">
+                <span>🤖 دانلود مستقیم اپلیکیشن (APK)</span>
+                <span className="text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/10 px-2 py-0.5 rounded-full font-sans font-bold">اندروید</span>
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                دانلود مستقیم اپلیکیشن اختصاصی اندروید جام‌جهانی ۲۰۲۶. نصب آسان به صورت محلی بر روی تمامی گوشی‌های اندروید سامسونگ، شیائومی و غیره.
+              </p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <a
+              href="/apk/world-cup-2026.apk"
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-center border border-blue-500/20 cursor-pointer"
+              download
+            >
+              <Download className="h-3.5 w-3.5" />
+              دانلود مستقیم فایل APK
+            </a>
+
+            <div className="text-right">
+              <button 
+                type="button"
+                onClick={() => setShowApkGuide(!showApkGuide)}
+                className="w-full text-center text-[10px] text-blue-400 hover:text-blue-300 font-extrabold flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+                <span>رفع مشکل «خطای غیرقابل اعتماد بودن» هنگام نصب گوشی 📁</span>
+              </button>
+              
+              {showApkGuide && (
+                <div className="mt-2 p-3 bg-slate-950/80 rounded-xl border border-blue-500/15 text-[10px] text-slate-300 leading-relaxed text-right space-y-2">
+                  <p className="font-extrabold text-amber-400">💡 علت نمایش اخطار امنیتی چیست؟</p>
+                  <p>
+                    از آنجا که این اپلیکیشن مستقیماً از سرورهای اختصاصی سایت دانلود می‌شود و هنوز در پلی‌استور ثبت عمومی نشده، سیستم‌عامل اندروید به طور پیش‌فرض آن را غیرقابل اعتماد (مضر یا ناشناخته) تشخیص می‌دهد. برنامه ۱۰۰٪ امن است.
+                  </p>
+                  
+                  <p className="font-extrabold text-blue-400 pt-1">🛡️ مراحل حل و نصب آسان:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-slate-400">
+                    <li>فایل APK بالا را دانلود و باز کنید.</li>
+                    <li>در صورت آمدن پیغام <span className="text-amber-300 font-bold">Blocked by Play Protect</span> روی <span className="text-blue-400 font-bold">بیشتر بدانید (More Details)</span> کلیک کنید.</li>
+                    <li>گزینه <span className="text-teal-400 font-bold">نصب در هر صورت (Install Anyway)</span> را لمس نمایید.</li>
+                  </ol>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        <button
-          onClick={() => {
-            window.dispatchEvent(new Event('trigger-pwa-install'));
-          }}
-          className="w-full md:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer border border-emerald-500/30 shrink-0"
-          type="button"
-        >
-          <Download className="h-4 w-4" />
-          نصب و راه‌اندازی سریع
-        </button>
       </div>
 
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Award, Gamepad, Compass, Star, ArrowRight, ShieldAlert, BadgeCheck, Search } from 'lucide-react';
+import { Trophy, Award, Gamepad, Compass, Star, ArrowRight, ShieldAlert, BadgeCheck, Search, WifiOff } from 'lucide-react';
 import { User, Match, Prediction, LeaderboardEntry, UserRole, MatchStatus } from './types';
 import { getTeamFlag, getTeamCode, teamsSeed } from './data/teams';
 import Navbar from './components/Navbar';
@@ -27,6 +27,27 @@ export default function App() {
   const [selectedPublicUserId, setSelectedPublicUserId] = useState<string | null>(null);
   const [displayTime, setDisplayTime] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isOffline, setIsOffline] = useState(typeof window !== 'undefined' ? !navigator.onLine : false);
+
+  // Connection monitoring
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      triggerSuccess('اتصال شما به اینترنت مجدداً برقرار شد.');
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      triggerError('خطا: ارتباط شما با اینترنت قطع شده است. لطفاً شبکه خود را بررسی کنید.');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Sync client-side display clock with backend simulation settings
   useEffect(() => {
@@ -881,6 +902,19 @@ export default function App() {
   if (!currentUser) {
     return (
       <div id="login-gate-screen" dir="rtl" className="relative min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center overflow-hidden font-sans select-none selection:bg-emerald-500 selection:text-white px-4 py-12">
+        {isOffline && (
+          <div className="fixed top-4 left-4 right-4 z-[9999] md:left-auto md:right-4 md:w-96 p-4 bg-red-950/95 border border-red-500/30 rounded-2xl text-red-300 shadow-2xl flex items-center gap-3 backdrop-blur-md animate-pulse">
+            <div className="p-2 bg-red-500/10 rounded-xl border border-red-500/20 text-red-400 shrink-0">
+              <WifiOff className="h-5 w-5" />
+            </div>
+            <div className="text-right">
+              <h4 className="text-xs font-black text-slate-150">بروز خطا: اتصال اینترنت وجود ندارد</h4>
+              <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+                لطفاً وضعیت اتصال به اینترنت گوشی یا شبکه وای‌فای خود را بررسی نمایید.
+              </p>
+            </div>
+          </div>
+        )}
         
         {/* Dynamic Dark Background Gradients */}
         <div className="absolute inset-0 z-0 overflow-hidden">
@@ -938,6 +972,19 @@ export default function App() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-slate-950 text-slate-100 pb-28 lg:pb-12 font-sans selection:bg-emerald-500 selection:text-slate-950">
+      {isOffline && (
+        <div className="fixed top-4 left-4 right-4 z-[9999] md:left-auto md:right-4 md:w-96 p-4 bg-red-950/95 border border-red-500/30 rounded-2xl text-red-300 shadow-2xl flex items-center gap-3 backdrop-blur-md animate-pulse">
+          <div className="p-2 bg-red-500/10 rounded-xl border border-red-500/20 text-red-400 shrink-0">
+            <WifiOff className="h-5 w-5" />
+          </div>
+          <div className="text-right">
+            <h4 className="text-xs font-black text-slate-150">بروز خطا: اتصال اینترنت وجود ندارد</h4>
+            <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+              لطفاً وضعیت اتصال به اینترنت گوشی یا شبکه وای‌فای خود را بررسی نمایید.
+            </p>
+          </div>
+        </div>
+      )}
       
       {/* Top branding bar */}
       <Navbar 

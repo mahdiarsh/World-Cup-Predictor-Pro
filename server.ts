@@ -140,24 +140,13 @@ app.get('/flags/:code.png', (req: Request, res: Response) => {
 // CORS middleware for Web and Capacitor mobile clients
 app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
-  const allowedOrigins = [
-    'https://app.mahgate.com',
-    'capacitor://localhost',
-    'http://localhost',
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:8080'
-  ];
 
   if (origin) {
-    const isAllowed = allowedOrigins.includes(origin) || 
-                      origin.startsWith('capacitor://') || 
-                      origin.startsWith('http://localhost') || 
-                      origin.endsWith('.mahgate.com');
-                      
-    if (isAllowed) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    }
+    // Dynamically mirror origin to allow all web and capacitor clients safely
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    // Fallback if no origin is specified (such as server-to-server or direct requests)
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
