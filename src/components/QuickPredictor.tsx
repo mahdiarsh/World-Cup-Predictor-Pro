@@ -27,7 +27,12 @@ export default function QuickPredictor({
   // Load the leaderboard users list for opponent dropdown
   const fetchLeaderboard = async () => {
     try {
-      const res = await fetch('/api/leaderboard');
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch('/api/leaderboard', { headers });
       if (res.ok) {
         const data = await res.json();
         // Filter out current user

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Mail, Lock, User as UserIcon, ShieldAlert, Smartphone, Key, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Trophy, Mail, Lock, User as UserIcon, ShieldAlert, Smartphone, Key, ArrowRight, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 interface AuthScreenType {
   success: boolean;
@@ -25,6 +25,8 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
   const [password, setPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   
 
   
@@ -282,14 +284,22 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
             <div className="relative font-sans text-right">
               <Key className="absolute right-3.5 top-3.5 h-4 w-4 text-emerald-500" />
               <input
-                type="password"
+                type={showNewPassword ? "text" : "password"}
                 required
                 dir="ltr"
                 placeholder="حداقل ۶ کاراکتر"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-2xl pr-10 pl-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 font-sans text-left transition-all font-semibold"
+                className="w-full bg-white border border-slate-200 rounded-2xl pr-10 pl-11 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 font-sans text-left transition-all font-semibold"
               />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute left-3.5 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                title={showNewPassword ? "پنهان کردن رمز" : "نمایش رمز"}
+              >
+                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
           </div>
 
@@ -466,14 +476,22 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
             <Lock className="absolute right-3.5 top-3.5 h-4 w-4 text-emerald-600" />
             <input
               id="auth-input-password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               required
               dir="ltr"
               placeholder="••••••••"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-2xl pr-10 pl-4 py-3 text-sm text-slate-900 placeholder-slate-450 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 font-sans text-left transition-all font-semibold"
+              className="w-full bg-white border border-slate-200 rounded-2xl pr-10 pl-11 py-3 text-sm text-slate-900 placeholder-slate-450 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 font-sans text-left transition-all font-semibold"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute left-3.5 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+              title={showPassword ? "پنهان کردن رمز" : "نمایش رمز"}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
         </div>
 

@@ -233,6 +233,18 @@ const requireAdmin = (req: AuthenticatedRequest, res: Response, next: NextFuncti
   next();
 };
 
+const maskUsername = (username: string): string => {
+  if (!username) return '';
+  const trimmed = username.trim();
+  if (trimmed.length >= 7) {
+    const start = trimmed.slice(0, 4);
+    const end = trimmed.slice(-3);
+    const middle = '*'.repeat(trimmed.length - 7);
+    return `${start}${middle}${end}`;
+  }
+  return trimmed;
+};
+
 // --- OTP SYSTEM STATE & ENDPOINTS ---
 interface OtpEntry {
   code: string;
@@ -767,7 +779,7 @@ app.get('/api/predictions/match/:matchId', authenticateToken, (req: Authenticate
         points: p.points,
         createdAt: p.createdAt,
         fullName: u ? u.fullName : 'کاربر مهمان',
-        username: u ? u.username : 'guest',
+        username: u ? (u.id === req.user?.id || req.user?.role === UserRole.ADMIN ? u.username : maskUsername(u.username)) : 'guest',
         avatar: u ? u.avatar : null,
         totalScore: u ? u.totalScore : 0
       };
@@ -1061,6 +1073,19 @@ If a match is not finished yet or not played, omit it or set final values. Pleas
 app.get('/api/leaderboard', (req: Request, res: Response) => {
   const db = loadDB();
   
+  // Parse optional login token to show current user their unmasked username
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  let currentUserId: string | null = null;
+  if (token) {
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      currentUserId = decoded?.id || null;
+    } catch (e) {
+      // Ignore invalid/expired token for optional parsing
+    }
+  }
+  
   // Exclude admin from leaderboard
   const scoringUsers = db.users.filter(u => u.role !== UserRole.ADMIN);
 
@@ -1091,9 +1116,10 @@ app.get('/api/leaderboard', (req: Request, res: Response) => {
     return a.username.localeCompare(b.username);
   });
 
-  // Assign Ranking Index
+  // Assign Ranking Index AND MASK USERNAME
   const fullyRanked = entries.map((entry, idx) => ({
     ...entry,
+    username: entry.userId === currentUserId ? entry.username : maskUsername(entry.username),
     rank: idx + 1
   }));
 

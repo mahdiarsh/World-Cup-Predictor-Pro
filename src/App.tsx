@@ -183,7 +183,7 @@ export default function App() {
 
   const fetchLeaderboard = async () => {
     try {
-      const res = await fetch('/api/leaderboard');
+      const res = await fetch('/api/leaderboard', { headers: getHeaders() });
       if (res.ok) {
         const l = await res.json();
         setLeaderboard(l);
