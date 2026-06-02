@@ -137,6 +137,41 @@ app.get('/flags/:code.png', (req: Request, res: Response) => {
   }
 });
 
+// CORS middleware for Web and Capacitor mobile clients
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://app.mahgate.com',
+    'capacitor://localhost',
+    'http://localhost',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:8080'
+  ];
+
+  if (origin) {
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      origin.startsWith('capacitor://') || 
+                      origin.startsWith('http://localhost') || 
+                      origin.endsWith('.mahgate.com');
+                      
+    if (isAllowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+
+  next();
+});
+
 // Body parsers
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -1324,7 +1359,9 @@ app.get('/api/admin/download-db', authenticateToken, requireAdmin, (req: Authent
 // GET /api/admin/backups (Admin only - list auto/manual premium backup snaps)
 app.get('/api/admin/backups', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
   try {
-    const backupsDir = path.join(process.cwd(), 'backups');
+    const backupsDir = fs.existsSync(path.join(process.cwd(), 'data'))
+      ? path.join(process.cwd(), 'data', 'backups')
+      : path.join(process.cwd(), 'backups');
     if (!fs.existsSync(backupsDir)) {
       fs.mkdirSync(backupsDir, { recursive: true });
     }
@@ -1357,7 +1394,9 @@ app.get('/api/admin/backups/:filename/download', authenticateToken, requireAdmin
       res.status(400).json({ error: 'نام فایل پشتیبان نامعتبر است.' });
       return;
     }
-    const backupsDir = path.join(process.cwd(), 'backups');
+    const backupsDir = fs.existsSync(path.join(process.cwd(), 'data'))
+      ? path.join(process.cwd(), 'data', 'backups')
+      : path.join(process.cwd(), 'backups');
     const filePath = path.join(backupsDir, filename);
     if (!fs.existsSync(filePath)) {
       res.status(404).json({ error: 'فایل پشتیبان زنده یافت نشد.' });
@@ -1387,7 +1426,9 @@ app.post('/api/admin/backups/restore', express.json({ limit: '10mb' }), authenti
       res.status(400).json({ error: 'نام فایل بکاپ الزامی است.' });
       return;
     }
-    const backupsDir = path.join(process.cwd(), 'backups');
+    const backupsDir = fs.existsSync(path.join(process.cwd(), 'data'))
+      ? path.join(process.cwd(), 'data', 'backups')
+      : path.join(process.cwd(), 'backups');
     const filePath = path.join(backupsDir, filename);
     if (!fs.existsSync(filePath)) {
       res.status(404).json({ error: 'فایل بکاپ مورد نظر یافت نشد.' });
@@ -1413,7 +1454,9 @@ app.post('/api/admin/backups/restore', express.json({ limit: '10mb' }), authenti
 app.delete('/api/admin/backups/:filename', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
   try {
     const { filename } = req.params;
-    const backupsDir = path.join(process.cwd(), 'backups');
+    const backupsDir = fs.existsSync(path.join(process.cwd(), 'data'))
+      ? path.join(process.cwd(), 'data', 'backups')
+      : path.join(process.cwd(), 'backups');
     const filePath = path.join(backupsDir, filename);
     
     if (fs.existsSync(filePath)) {

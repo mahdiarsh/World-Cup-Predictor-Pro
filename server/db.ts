@@ -45,13 +45,20 @@ export interface DatabaseSchema {
 // Global state controllers for SQLite Engine
 let dbConn: any = null;
 let isSqliteAvailable = false;
-const DB_JSON_FILE = path.join(process.cwd(), 'db.json');
+
+// Ensure data folder exists for clean database file and backup mounts
+const dataDir = path.join(process.cwd(), 'data');
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const DB_JSON_FILE = path.join(dataDir, 'db.json');
 let memoryDBCache: DatabaseSchema | null = null;
 
 try {
   // Try to dynamically load better-sqlite3 to remain resilient across VM environments where native bindings are built/rebuilt
   const Database = customRequire('better-sqlite3');
-  const SQLITE_DB_FILE = path.join(process.cwd(), 'db.sqlite');
+  const SQLITE_DB_FILE = path.join(dataDir, 'db.sqlite');
   dbConn = new Database(SQLITE_DB_FILE);
   
   // Set pragmas for better durability & concurrent reads/writes

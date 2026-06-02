@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Mail, Lock, User as UserIcon, ShieldAlert, Smartphone, Key, ArrowRight, CheckCircle2 } from 'lucide-react';
 
+interface AuthScreenType {
+  success: boolean;
+  error?: string;
+}
+
 interface AuthScreenProps {
-  onLogin: (username: string, password: string) => Promise<boolean>;
-  onRegister: (username: string, fullName: string, password: string, otpCode?: string) => Promise<boolean>;
+  onLogin: (username: string, password: string) => Promise<AuthScreenType>;
+  onRegister: (username: string, fullName: string, password: string, otpCode?: string) => Promise<AuthScreenType>;
   registrationEnabled?: boolean;
 }
 
@@ -158,9 +163,9 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
 
     const isRegLock = appSettings ? (appSettings.registrationEnabled === false) : !registrationEnabled;
 
-    let success = false;
+    let resObj: AuthScreenType = { success: false };
     if (isLoginTab) {
-      success = await onLogin(username.trim(), password);
+      resObj = await onLogin(username.trim(), password);
     } else {
       if (isRegLock) {
         setAuthError('ثبت‌نام کاربران جدید در حال حاضر توسط مدیریت غیرفعال شده است.');
@@ -188,12 +193,12 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
         return;
       }
 
-      success = await onRegister(username.trim(), fullName.trim(), password, isSmsOn ? otpCode.trim() : undefined);
+      resObj = await onRegister(username.trim(), fullName.trim(), password, isSmsOn ? otpCode.trim() : undefined);
     }
 
     setIsLoading(false);
-    if (!success) {
-      setAuthError(isLoginTab ? 'اطلاعات ورود نادرست است یا کلمه عبور اشتباه است.' : 'کد تایید پیامکی نادرست است یا این شماره از قبل ثبت‌نام شده است.');
+    if (!resObj.success) {
+      setAuthError(resObj.error || (isLoginTab ? 'اطلاعات ورود نادرست است یا کلمه عبور اشتباه است.' : 'کد تایید پیامکی نادرست است یا این شماره از قبل ثبت‌نام شده است.'));
     }
   };
 
@@ -204,10 +209,10 @@ export default function AuthScreen({ onLogin, onRegister, registrationEnabled = 
     setAuthError('');
     setAuthSuccess('');
     setIsLoading(true);
-    const succ = await onLogin(usr, pass);
+    const resObj = await onLogin(usr, pass);
     setIsLoading(false);
-    if (!succ) {
-      setAuthError('خطا در ورود مستقیم به حساب دمو.');
+    if (!resObj.success) {
+      setAuthError(resObj.error || 'خطا در ورود مستقیم به حساب دمو.');
     }
   };
 

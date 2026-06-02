@@ -59,8 +59,33 @@ export default function LeaderboardTable({ entries, currentUser, onExportExcel, 
         </p>
         
         {/* Prizes announcement banner */}
-        <div className="inline-block mt-1 p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-xs font-bold leading-relaxed max-w-lg shadow-[0_4px_12px_rgba(16,185,129,0.05)]">
-          🎁 <span className="text-slate-200">اطلاعیه جوایز:</span> مبلغ جوایز و تعداد نفراتی که بعد از نفر سوم برنده می شوند، یک روز قبل از شروع مسابقات بر اساس تعداد شرکت کنندگان نهایی خواهد شد.
+        <div className="inline-block mt-1 p-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 text-emerald-300 rounded-2xl text-xs font-bold leading-relaxed max-w-lg shadow-[0_4px_12px_rgba(16,185,129,0.05)] w-full">
+          <div className="flex flex-col gap-2 text-right">
+            <div className="flex items-center gap-1.5 text-amber-400 border-b border-emerald-500/20 pb-1.5 justify-center">
+              <span>🎁</span>
+              <span className="font-extrabold text-sm">جوایز برندگان کلوپ هواداران</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center text-xs mt-1">
+              <div className="bg-slate-900/60 p-2 rounded-xl border border-amber-400/20">
+                <div className="text-amber-400 font-black">نفر اول 🥇</div>
+                <div className="font-sans font-black text-rose-400 text-sm mt-0.5">۱۰ میلیون</div>
+                <div className="text-[9px] text-slate-400 mt-0.5">تومان</div>
+              </div>
+              <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-300/20">
+                <div className="text-slate-300 font-extrabold">نفر دوم 🥈</div>
+                <div className="font-sans font-black text-rose-400 text-sm mt-0.5">۵ میلیون</div>
+                <div className="text-[9px] text-slate-400 mt-0.5">تومان</div>
+              </div>
+              <div className="bg-slate-900/60 p-2 rounded-xl border border-amber-700/20">
+                <div className="text-amber-600 font-extrabold">نفر سوم 🥉</div>
+                <div className="font-sans font-black text-rose-400 text-sm mt-0.5 font-sans">۲ میلیون</div>
+                <div className="text-[9px] text-slate-400 mt-0.5">تومان</div>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400 text-center mt-1">
+              * مابقی جوایز و تعداد نفرات برنده بعدی، بر اساس تعداد نهایی شرکت‌کنندگان قبل از شروع بازی‌ها مشخص و نهایی می‌شود.
+            </p>
+          </div>
         </div>
       </div>
 

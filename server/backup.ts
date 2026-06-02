@@ -19,7 +19,9 @@ export function getFarsiDayName(dayIndex: number): string {
 // Create a database backup file under process.cwd()/backups/
 export function triggerBackupInDirectory(): string {
   const db = loadDB();
-  const backupsDir = path.join(process.cwd(), 'backups');
+  const backupsDir = fs.existsSync(path.join(process.cwd(), 'data'))
+    ? path.join(process.cwd(), 'data', 'backups')
+    : path.join(process.cwd(), 'backups');
   if (!fs.existsSync(backupsDir)) {
     fs.mkdirSync(backupsDir, { recursive: true });
   }

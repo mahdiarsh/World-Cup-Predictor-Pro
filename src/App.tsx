@@ -290,7 +290,7 @@ export default function App() {
   };
 
   // Auth Operations
-  const handleLogin = async (username: string, pass: string): Promise<boolean> => {
+  const handleLogin = async (username: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -303,15 +303,21 @@ export default function App() {
         setCurrentUser(data.user);
         triggerSuccess(`با موفقیت وارد حساب @${data.user.username} شدید. خوش آمدید.`);
         setCurrentTab('home');
-        return true;
+        return { success: true };
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        return { success: false, error: errData.error || 'اطلاعات ورود نادرست است یا کلمه عبور اشتباه است.' };
       }
     } catch (err) {
       console.error('Login action failed', err);
+      return { 
+        success: false, 
+        error: 'خطا در ارتباط با بک‌اند سرور. لطفا بررسی کنید که آیا برنامه بک‌اند (پورت ۳۰۰۰ یا پورت تنظیمی) در حال اجراست یا خیر.' 
+      };
     }
-    return false;
   };
 
-  const handleRegister = async (username: string, fullName: string, pass: string, otpCode?: string): Promise<boolean> => {
+  const handleRegister = async (username: string, fullName: string, pass: string, otpCode?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
@@ -324,15 +330,18 @@ export default function App() {
         setCurrentUser(data.user);
         triggerSuccess(`عضویت با موفقیت انجام شد! با آرزوی موفقیت در پیش‌بینی مسابقات.`);
         setCurrentTab('home');
-        return true;
+        return { success: true };
       } else {
-        const data = await res.json();
-        alert(data.error || 'خطا در ثبت نام. لطفا اطلاعات را مجددا بررسی کنید.');
+        const data = await res.json().catch(() => ({}));
+        return { success: false, error: data.error || 'خطا در ثبت نام. لطفا اطلاعات را مجددا بررسی کنید.' };
       }
     } catch (err) {
       console.error('Register action failed', err);
+      return { 
+        success: false, 
+        error: 'خطا در ثبت نام به دلیل عدم ارتباط با سرور.' 
+      };
     }
-    return false;
   };
 
   const handleLogout = () => {
@@ -919,8 +928,8 @@ export default function App() {
         </div>
 
         {/* Informative, humble landing page footer */}
-        <div className="relative z-10 text-[10px] text-slate-400 font-bold tracking-wider mt-5 text-center px-4 bg-slate-900/80 border border-slate-800/60 rounded-full py-1.5 shadow-md max-w-[90%] mx-auto">
-          دروازه ورودی هواداران کلوپ آلتیمیت • شبیه‌ساز گیم‌پلی و محاسبات هوش مصنوعی OpenRouter
+        <div className="relative z-10 text-xs text-slate-450 font-black tracking-wider mt-5 text-center px-6 bg-slate-900/80 border border-slate-800/60 rounded-full py-2 shadow-md max-w-[90%] mx-auto text-emerald-400">
+          پیش‌بینی جام جهانی 2026
         </div>
 
       </div>

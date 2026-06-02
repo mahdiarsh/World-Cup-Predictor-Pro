@@ -13,8 +13,8 @@ services:
       - NODE_ENV=production
       - JWT_SECRET=worldcup_secret_key_2026_docker_container_platform
     volumes:
-      # Persists filesystem JSON db file across restarts
-      - app_data:/app
+      # Persists only runtime SQLite database files and backup snapshots cleanly
+      - app_data:/app/data
 
 volumes:
   app_data:
